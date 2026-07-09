@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Start for $1 - ReKnock" };
 /* Placeholder signup for the concierge phase.
    TODO: replace TALLY_FORM_URL with your real Tally/Formspree link,
    then replace this whole page with Stripe Checkout. */
-const TALLY_FORM_URL = "#";
+const TALLY_FORM_URL = "https://tally.so/r/KYyEjV";
 
 export default function Signup() {
   return (
