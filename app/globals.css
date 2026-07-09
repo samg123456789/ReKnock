@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+/* ============================================
+   ReKnock v2 - "chalk line" system
+   White base, working blues, slate ink.
+   blue: primary action + brand
+   sky: tinted section backgrounds
+   ink/slate: text
+   mint: success/reply accents (SMS green, calmed)
+   ============================================ */
+@theme {
+  --color-blue: #1d5fdb;
+  --color-blue-deep: #164bb0;
+  --color-blue-ink: #0d2b66;
+  --color-sky: #eef4ff;
+  --color-sky-line: #d9e6ff;
+  --color-ink: #101828;
+  --color-slate: #475467;
+  --color-mist: #98a2b3;
+  --color-mint: #12b76a;
+  --color-amber: #f79009;
+
+  --font-display: "Space Grotesk", "Helvetica Neue", sans-serif;
+  --font-body: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: #ffffff;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.95rem;
+  color: var(--color-blue);
+}
+.eyebrow::before {
+  content: "";
+  width: 1.75rem;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-blue);
+}
+
+/* soft card */
+.card {
+  background: #fff;
+  border: 1px solid var(--color-sky-line);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -12px rgba(29, 95, 219, 0.12);
+}
+
+/* ---------- motion (CSS only, respects reduced-motion) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .bubble {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: rise 0.45s ease-out forwards;
+  }
+  .bubble:nth-child(1) { animation-delay: 0.2s; }
+  .bubble:nth-child(2) { animation-delay: 0.7s; }
+  .bubble:nth-child(3) { animation-delay: 1.3s; }
+  .bubble:nth-child(4) { animation-delay: 2.1s; }
+
+  .rise { opacity: 0; transform: translateY(14px); animation: rise 0.6s ease-out forwards; }
+  .rise-1 { animation-delay: 0.05s; }
+  .rise-2 { animation-delay: 0.15s; }
+  .rise-3 { animation-delay: 0.25s; }
+
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+  /* knock pulse on the logo arcs */
+  .knock { transform-origin: center; animation: knock 2.6s ease-in-out infinite; }
+  @keyframes knock {
+    0%, 70%, 100% { opacity: 1; }
+    78% { opacity: 0.25; }
+    86% { opacity: 1; }
+  }
+
+  /* integration marquee */
+  .marquee { display: flex; gap: 3rem; width: max-content; animation: slide 26s linear infinite; }
+  @keyframes slide { to { transform: translateX(-50%); } }
+
+  .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 2px 4px rgba(16,24,40,0.05), 0 16px 32px -12px rgba(29,95,219,0.22);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bubble, .rise { opacity: 1; }
+  .marquee { flex-wrap: wrap; }
+}
+
+a:focus-visible, button:focus-visible, input:focus-visible {
+  outline: 3px solid var(--color-blue);
+  outline-offset: 2px;
+}
