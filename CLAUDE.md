@@ -20,6 +20,7 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 10. Fail loud internally, fail soft externally: log every error with context, but never show a stack trace or a dead end to the user. Every error state has a human message and a next step.
 11. When a third-party call can fail (Twilio, Stripe, Anthropic, OCR), wrap it with retry (3 attempts, exponential backoff) and a dead-letter log table (`failed_jobs`) reviewable later.
 12. Hard-enforce the trial message cap (50 messages) at the sending layer, not just the UI.
+13. **Never push to `main` directly.** GitHub branch protection cannot be enforced on this free private repo, so this is a standing discipline rule instead: all pushes go to `dev`; `main` only ever updates when the founder merges a PR himself in GitHub Desktop after a phase passes its acceptance checks. Assistant must never run `git push` (or publish) to `main`.
 
 ---
 
