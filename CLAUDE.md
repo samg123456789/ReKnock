@@ -6,24 +6,32 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 
 ---
 
-## Where we left off (session handoff, 2026-07-10) — delete once Phase 1 acceptance passes
+## Where we left off (session handoff, 2026-07-10 pm) — delete once Phase 1 acceptance passes
 
-**Environments (section 1b): DONE.**
-- Branches: working on `dev`; `main` is push-protected by discipline only (free plan can't enforce it) per ground rule 13. Never push to `main`.
-- Vercel: production branch = `main`; `dev` auto-deploys to preview `https://reknock-git-dev-re-knock.vercel.app`. The 3 Supabase env vars are set on Preview + Development only.
-- Supabase dev project `reknock-dev` (ref `hgmjkugxrsxxarjdgevc`, us-west-2), CLI wired as a devDependency and linked. `OPERATIONS.md` documents the migration commands. Amber DEV banner shows on all non-prod deploys.
-- Migrations applied to dev: `20260710152050_initial_schema` (all 12 section-2 tables + RLS + triggers + pg_trgm) and `20260710163041_auth_user_trigger` (auto-creates `public.users` on signup).
+**Infrastructure: DONE.**
+- Environments (section 1b) done: `dev` -> preview `https://reknock-git-dev-re-knock.vercel.app`, `main` -> prod (protected by discipline, ground rule 13). Amber DEV banner on non-prod. `OPERATIONS.md` has the runbook.
+- Supabase dev `reknock-dev` (ref `hgmjkugxrsxxarjdgevc`, us-west-2), CLI linked. Migrations applied: `initial_schema` (12 tables + RLS + triggers + pg_trgm), `auth_user_trigger`, `billing_and_company_signup` (company auto-created at signup; `subscription_status` nullable-until-paid; `stripe_subscription_id`, `onboarded_at`).
+- Resend custom SMTP is live in Supabase Auth: confirmation/reset emails send from `noreply@getreknock.com`, off the rate-limited built-in service.
+- Stripe (test mode) set up: product + 5 prices created by `scripts/stripe-setup.mjs`, resolved at runtime by `lookup_key` (trial $1 one-time, founding $29/mo + $290/yr, standard $39/mo + $390/yr). Webhook endpoint registered (4 events) pointing at the preview.
+- **Assistant now has its own access**: git pushes to `dev` directly (credential store at `~/.reknock-git-credentials`), and Vercel CLI installed locally (`--no-save`) with token in gitignored `.vercel-token`, project linked (scope `re-knock`, project `reknock`). So: after each change, push + watch the build + read deploy/runtime logs directly; only escalate for human/dashboard-only actions.
 
-**Phase 1 (auth, payments, paywall): IN PROGRESS.**
-- DONE: Supabase auth clients (`lib/supabase/{client,server,middleware}.ts`), `lib/env.ts`, root `middleware.ts` (session refresh + paywall routing skeleton), real signup/login forms + confirmation callback (`/auth/confirm`) + stub `/app` dashboard. `npx next build` passes. Local smoke test confirmed pages render and middleware bounces logged-out `/app` -> `/login`.
-- `.env.local` (gitignored) holds local dev URL + anon key. Service-role key is NOT local (only in Vercel).
+**Phase 1 (auth, payments, paywall): NEARLY DONE, build green, needs an end-to-end run.**
+- DONE + deployed to preview (latest Ready deploy is commit on `dev`): email/password signup (email-first two-step UX, Google-first ordering), Google SSO (`/auth/callback`), password rules (8+/capital/symbol, shared validator + live strength meter), confirmation callback, paywall middleware (unpaid->/checkout, paid+unonboarded->/onboarding), Stripe checkout, webhook mirroring status onto `companies`, billing portal action, stub `/app` and `/onboarding`.
+- Redirect origin now derived from request headers (email/Stripe links no longer point to localhost on the preview).
+- Client env inlining fixed (browser Supabase client reads `process.env.NEXT_PUBLIC_*` as direct literals; Google SSO no longer throws "Missing env var").
+- **Checkout redesign + founding automation DONE (committed, deployed, NOT yet runtime-verified):** single Solo card matching `/pricing`, Monthly/Annual toggle, `$29` struck `$39` founding treatment, "Founding rate, X of 20 spots left"; founding is auto-applied server-side while <20 taken then silently standard (user never chooses); Pro/Crew stay marketing-only; `app/checkout/error.tsx` friendly retry boundary. Old BUG 1 (Founding crash) root cause was a missing `STRIPE_PRICE_FOUNDING` env var; killed that whole failure class by resolving prices via `lookup_key`.
 
-**EXACT NEXT STEP:** Finish the signup smoke test that was interrupted — run the anon signUp against dev Supabase and confirm a `public.users` row is created by the trigger (`scratchpad/smoke.mjs` was the harness; may need recreating). Then continue Phase 1:
-1. **Resend (Step C, chosen to do now):** verify `getreknock.com` in Resend, add DNS records, create SMTP creds, then set Supabase Auth custom SMTP so confirmation emails are branded. (Founder must do the DNS clicks.)
-2. **Stripe (Step B):** founder creates test-mode keys + 4 prices ($1/wk trial, $29 founding, $39 standard, annual = 10x monthly); then build Checkout, the 4 webhooks (`checkout.session.completed`, `customer.subscription.updated/deleted`, `invoice.payment_failed`), `/checkout`, and wire the real paywall gating in `middleware.ts` (currently permissive).
-3. Run Phase 1 acceptance: fresh email signs up, pays with a Stripe test card, confirms email, lands on onboarding step 1; webhook flips `subscription_status`; unpaid users can't reach `/app`.
+**BROKEN / HALF-DONE / UNVERIFIED:**
+- The new checkout has NOT been exercised with a real test card on the preview. Founding auto-pick, the Monthly/Annual toggle, and the webhook flipping `subscription_status` are built but unconfirmed at runtime.
+- **$1 charge timing is unverified**: checkout uses a one-time $1 line item + `trial_period_days: 7`. Must confirm in Stripe test mode that the $1 actually charges TODAY (not deferred to trial end). If deferred, change the mechanism.
+- Funnel visual-consistency pass (signup/login/check-email/onboarding/app vs marketing site) was STARTED (gathered Nav/home/pricing patterns) but NOT finished; no fixes applied yet.
+- Old crash digest `3987695101` runtime logs were not pulled (fix supersedes it); can confirm via `vercel logs` if desired.
 
-Uncommitted-at-handoff work has been committed to `dev`. Founder still needs to `git push` from their machine (this environment lacks GitHub credentials).
+**EXACT NEXT STEPS (priority order):**
+1. Run the Phase 1 acceptance test on the preview with test card `4242 4242 4242 4242`: fresh signup -> confirm email (from noreply@getreknock.com) -> `/checkout` -> pay -> lands `/onboarding`; verify via Stripe (subscription `trialing`, and whether $1 charged today) and Supabase SQL (`companies.subscription_status='trialing'`, `plan`, customer/sub ids set). Unpaid cannot reach `/app`.
+2. Fix the $1-timing mechanism if the acceptance test shows the dollar is deferred.
+3. Finish the funnel visual-consistency pass against the marketing site; apply fixes.
+4. Then Phase 1 is complete -> founder merges `dev` -> `main` (assistant never pushes main).
 
 ---
 
