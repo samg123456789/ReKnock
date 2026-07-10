@@ -6,6 +6,27 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 
 ---
 
+## Where we left off (session handoff, 2026-07-10) — delete once Phase 1 acceptance passes
+
+**Environments (section 1b): DONE.**
+- Branches: working on `dev`; `main` is push-protected by discipline only (free plan can't enforce it) per ground rule 13. Never push to `main`.
+- Vercel: production branch = `main`; `dev` auto-deploys to preview `https://reknock-git-dev-re-knock.vercel.app`. The 3 Supabase env vars are set on Preview + Development only.
+- Supabase dev project `reknock-dev` (ref `hgmjkugxrsxxarjdgevc`, us-west-2), CLI wired as a devDependency and linked. `OPERATIONS.md` documents the migration commands. Amber DEV banner shows on all non-prod deploys.
+- Migrations applied to dev: `20260710152050_initial_schema` (all 12 section-2 tables + RLS + triggers + pg_trgm) and `20260710163041_auth_user_trigger` (auto-creates `public.users` on signup).
+
+**Phase 1 (auth, payments, paywall): IN PROGRESS.**
+- DONE: Supabase auth clients (`lib/supabase/{client,server,middleware}.ts`), `lib/env.ts`, root `middleware.ts` (session refresh + paywall routing skeleton), real signup/login forms + confirmation callback (`/auth/confirm`) + stub `/app` dashboard. `npx next build` passes. Local smoke test confirmed pages render and middleware bounces logged-out `/app` -> `/login`.
+- `.env.local` (gitignored) holds local dev URL + anon key. Service-role key is NOT local (only in Vercel).
+
+**EXACT NEXT STEP:** Finish the signup smoke test that was interrupted — run the anon signUp against dev Supabase and confirm a `public.users` row is created by the trigger (`scratchpad/smoke.mjs` was the harness; may need recreating). Then continue Phase 1:
+1. **Resend (Step C, chosen to do now):** verify `getreknock.com` in Resend, add DNS records, create SMTP creds, then set Supabase Auth custom SMTP so confirmation emails are branded. (Founder must do the DNS clicks.)
+2. **Stripe (Step B):** founder creates test-mode keys + 4 prices ($1/wk trial, $29 founding, $39 standard, annual = 10x monthly); then build Checkout, the 4 webhooks (`checkout.session.completed`, `customer.subscription.updated/deleted`, `invoice.payment_failed`), `/checkout`, and wire the real paywall gating in `middleware.ts` (currently permissive).
+3. Run Phase 1 acceptance: fresh email signs up, pays with a Stripe test card, confirms email, lands on onboarding step 1; webhook flips `subscription_status`; unpaid users can't reach `/app`.
+
+Uncommitted-at-handoff work has been committed to `dev`. Founder still needs to `git push` from their machine (this environment lacks GitHub credentials).
+
+---
+
 ## 0. Ground rules (never violate these)
 
 1. Existing repo: Next.js 15 App Router, deployed on Vercel via git push. Keep that loop. Never break the deploy.
