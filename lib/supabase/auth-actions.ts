@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { env } from "@/lib/env";
+import { siteOrigin } from "@/lib/site-url";
 import { passwordValid, PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/password";
 
 export type AuthState = { error?: string } | undefined;
@@ -16,13 +16,14 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   if (!email) return { error: "Please enter your email." };
   if (!passwordValid(password)) return { error: PASSWORD_REQUIREMENTS_MESSAGE };
 
+  const origin = await siteOrigin();
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { full_name: fullName },
-      emailRedirectTo: `${env.appUrl()}/auth/confirm?next=/app`,
+      emailRedirectTo: `${origin}/auth/confirm?next=/app`,
     },
   });
 
@@ -47,10 +48,11 @@ export async function sendMagicLink(_prev: AuthState, formData: FormData): Promi
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) return { error: "Enter your email first." };
 
+  const origin = await siteOrigin();
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${env.appUrl()}/auth/confirm?next=/app` },
+    options: { emailRedirectTo: `${origin}/auth/confirm?next=/app` },
   });
 
   if (error) return { error: error.message };

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, planPriceId, trialPriceId, PLANS, type PlanKey } from "@/lib/stripe";
-import { env } from "@/lib/env";
+import { siteOrigin } from "@/lib/site-url";
 
 async function loadUserAndCompany() {
   const supabase = await createClient();
@@ -26,6 +26,7 @@ async function loadUserAndCompany() {
 // status onto companies.
 export async function createCheckoutSession(plan: PlanKey) {
   if (!PLANS[plan]) throw new Error(`Unknown plan: ${plan}`);
+  const origin = await siteOrigin();
   const { supabase, user, company } = await loadUserAndCompany();
   if (!company) throw new Error("No company for user");
 
@@ -52,8 +53,8 @@ export async function createCheckoutSession(plan: PlanKey) {
       metadata: { company_id: company.id, plan },
     },
     metadata: { company_id: company.id, plan },
-    success_url: `${env.appUrl()}/onboarding?checkout=success`,
-    cancel_url: `${env.appUrl()}/checkout?checkout=cancelled`,
+    success_url: `${origin}/onboarding?checkout=success`,
+    cancel_url: `${origin}/checkout?checkout=cancelled`,
     allow_promotion_codes: true,
   });
 
@@ -63,13 +64,14 @@ export async function createCheckoutSession(plan: PlanKey) {
 
 // Stripe Customer Portal for managing billing (CLAUDE.md: no custom billing UI).
 export async function createBillingPortalSession() {
+  const origin = await siteOrigin();
   const { company } = await loadUserAndCompany();
   const customerId = company?.stripe_customer_id as string | null;
   if (!customerId) redirect("/checkout");
 
   const portal = await getStripe().billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${env.appUrl()}/settings`,
+    return_url: `${origin}/settings`,
   });
   redirect(portal.url);
 }
