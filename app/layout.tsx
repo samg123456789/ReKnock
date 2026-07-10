@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
+import DevBanner from "@/components/DevBanner";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://getreknock.com"),
@@ -55,6 +56,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <DevBanner />
         <Nav />
         {children}
         <Footer />
