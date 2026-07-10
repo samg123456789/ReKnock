@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { signIn, sendMagicLink, type AuthState } from "@/lib/supabase/auth-actions";
+import GoogleButton from "@/components/auth/GoogleButton";
 
 export default function LoginForm() {
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, undefined);
@@ -13,6 +14,14 @@ export default function LoginForm() {
 
   return (
     <div className="mt-8 flex flex-col gap-6">
+      <GoogleButton next="/app" label="Log in with Google" />
+
+      <div className="flex items-center gap-3 text-sm text-mist">
+        <span className="h-px flex-1 bg-slate/15" />
+        or
+        <span className="h-px flex-1 bg-slate/15" />
+      </div>
+
       <form action={action} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1">
           <span className="text-sm font-semibold text-slate">Email</span>

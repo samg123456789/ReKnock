@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { passwordValid, PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/password";
 
 export type AuthState = { error?: string } | undefined;
 
@@ -13,7 +14,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
 
   if (!fullName) return { error: "Please tell us your name." };
   if (!email) return { error: "Please enter your email." };
-  if (password.length < 8) return { error: "Password needs at least 8 characters." };
+  if (!passwordValid(password)) return { error: PASSWORD_REQUIREMENTS_MESSAGE };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
