@@ -31,39 +31,48 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  const redirectTo = (p: string) => {
+    const url = request.nextUrl.clone();
+    url.pathname = p;
+    url.search = "";
+    return NextResponse.redirect(url);
+  };
 
-  // Public routes that never require auth.
-  const isPublic =
-    path === "/" ||
-    path.startsWith("/login") ||
-    path.startsWith("/signup") ||
-    path.startsWith("/pricing") ||
-    path.startsWith("/privacy") ||
-    path.startsWith("/blog") ||
-    path.startsWith("/auth"); // confirmation callback
-
-  const isAppRoute =
-    path.startsWith("/app") ||
-    path.startsWith("/onboarding") ||
-    path.startsWith("/checkout") ||
-    path.startsWith("/settings") ||
-    path.startsWith("/inbox");
+  // Routes that need a paid + onboarded account.
+  const needsPaid =
+    path.startsWith("/app") || path.startsWith("/settings") || path.startsWith("/inbox");
+  // Routes that only need auth (the funnel itself).
+  const needsAuth = needsPaid || path.startsWith("/onboarding") || path.startsWith("/checkout");
 
   // Unauthenticated user hitting a protected route -> login.
-  if (!user && isAppRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+  if (!user && needsAuth) return redirectTo("/login");
 
-  // Authenticated user: decide checkout vs onboarding vs app. We read the
-  // company's subscription + onboarding state here. Full gating logic is added
-  // as Stripe (checkout) and onboarding land; keep it permissive until then so
-  // we never lock a user out of a route that does not exist yet.
-  if (user && isPublic && (path === "/login" || path === "/signup")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/app";
-    return NextResponse.redirect(url);
+  if (user) {
+    // Logged-in user should not sit on the auth pages.
+    if (path === "/login" || path === "/signup") return redirectTo("/app");
+
+    if (needsAuth) {
+      // Read the company's billing + onboarding state (RLS scopes this to the
+      // caller's own company).
+      const { data: company } = await supabase
+        .from("companies")
+        .select("subscription_status, onboarded_at")
+        .maybeSingle();
+
+      const paid =
+        company?.subscription_status === "trialing" ||
+        company?.subscription_status === "active" ||
+        company?.subscription_status === "past_due";
+      const onboarded = Boolean(company?.onboarded_at);
+
+      // Unpaid -> checkout (except when already there).
+      if (!paid && !path.startsWith("/checkout")) return redirectTo("/checkout");
+      // Paid but not onboarded -> onboarding (except when already there).
+      if (paid && !onboarded && !path.startsWith("/onboarding")) return redirectTo("/onboarding");
+      // Paid + onboarded should not sit on checkout/onboarding.
+      if (paid && onboarded && (path.startsWith("/checkout") || path.startsWith("/onboarding")))
+        return redirectTo("/app");
+    }
   }
 
   return response;
