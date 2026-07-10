@@ -1,15 +1,17 @@
-// Creates the ReKnock product and the four prices in Stripe (test mode),
-// idempotently keyed by lookup_key. Prints the price ids to paste into env.
+// Creates the ReKnock product and prices in Stripe (test mode), idempotently
+// keyed by lookup_key. The app resolves prices by lookup_key at runtime, so
+// there are no price ids to copy into env vars.
 //
 // Run from the repo root with your TEST secret key:
 //   STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs
 //
-// Prices (CLAUDE.md Phase 1):
-//   trial_first_week  $1  one-time  (entry: $1 charged up front for week one;
-//                                    the plan then starts after a 7-day trial)
-//   founding_monthly  $29 / month   (locked for life, first 20 customers)
-//   standard_monthly  $39 / month
-//   annual            $390 / year   (two months free, 10x standard monthly)
+// Prices:
+//   trial_first_week  $1   one-time  ($1 charged up front for week one; the
+//                                     plan then starts after a 7-day trial)
+//   founding_monthly  $29  / month   (locked for life, first 20 customers)
+//   founding_annual   $290 / year    (2 months free)
+//   standard_monthly  $39  / month
+//   standard_annual   $390 / year    (2 months free)
 
 import Stripe from "stripe";
 
@@ -29,8 +31,9 @@ const PRODUCT_NAME = "ReKnock";
 const PRICES = [
   { lookup_key: "trial_first_week", unit_amount: 100, interval: null, nickname: "$1 first week" },
   { lookup_key: "founding_monthly", unit_amount: 2900, interval: "month", nickname: "Founding $29/mo" },
+  { lookup_key: "founding_annual", unit_amount: 29000, interval: "year", nickname: "Founding $290/yr" },
   { lookup_key: "standard_monthly", unit_amount: 3900, interval: "month", nickname: "Standard $39/mo" },
-  { lookup_key: "annual", unit_amount: 39000, interval: "year", nickname: "Annual $390/yr" },
+  { lookup_key: "standard_annual", unit_amount: 39000, interval: "year", nickname: "Standard $390/yr" },
 ];
 
 async function ensureProduct() {
@@ -55,15 +58,7 @@ async function ensurePrice(productId, def) {
 const product = await ensureProduct();
 console.log(`Product: ${product.name} (${product.id})\n`);
 
-const envNames = {
-  trial_first_week: "STRIPE_PRICE_TRIAL",
-  founding_monthly: "STRIPE_PRICE_FOUNDING",
-  standard_monthly: "STRIPE_PRICE_STANDARD",
-  annual: "STRIPE_PRICE_ANNUAL",
-};
-
-console.log("Add these to .env.local and Vercel (Preview + Development):\n");
 for (const def of PRICES) {
   const price = await ensurePrice(product.id, def);
-  console.log(`${envNames[def.lookup_key]}=${price.id}`);
+  console.log(`${def.lookup_key.padEnd(18)} ${price.id}  ($${(price.unit_amount / 100).toFixed(2)})`);
 }

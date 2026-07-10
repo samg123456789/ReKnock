@@ -8,49 +8,44 @@ export function getStripe(): Stripe {
   return _stripe;
 }
 
-// Plans a customer can pick at checkout. Price ids come from env, populated by
-// scripts/stripe-setup.mjs (which creates them in Stripe with these lookup_keys).
-export type PlanKey = "founding" | "standard" | "annual";
+// Founding rate is auto-applied to the first N paying customers, then it
+// silently becomes the standard rate. Nobody picks between the two.
+export const FOUNDING_LIMIT = 20;
 
-export const PLANS: Record<
-  PlanKey,
-  { label: string; blurb: string; priceEnv: string; lookupKey: string }
-> = {
-  founding: {
-    label: "Founding member",
-    blurb: "$29/month, locked for life. First 20 customers only.",
-    priceEnv: "STRIPE_PRICE_FOUNDING",
-    lookupKey: "founding_monthly",
-  },
-  standard: {
-    label: "Standard",
-    blurb: "$39/month.",
-    priceEnv: "STRIPE_PRICE_STANDARD",
-    lookupKey: "standard_monthly",
-  },
-  annual: {
-    label: "Annual",
-    blurb: "Two months free. $390/year.",
-    priceEnv: "STRIPE_PRICE_ANNUAL",
-    lookupKey: "annual",
-  },
-};
+export type Interval = "monthly" | "annual";
+export type Tier = "founding" | "standard";
 
-// The $1-first-week entry price, added to every new subscription.
-export const TRIAL_PRICE_ENV = "STRIPE_PRICE_TRIAL";
-export const TRIAL_LOOKUP_KEY = "trial_first_week";
+// lookup_keys created by scripts/stripe-setup.mjs. Prices are resolved from
+// Stripe by lookup_key at runtime (no price ids in env vars to drift/miss).
+export const LOOKUP = {
+  trial: "trial_first_week",
+  founding: { monthly: "founding_monthly", annual: "founding_annual" },
+  standard: { monthly: "standard_monthly", annual: "standard_annual" },
+} as const;
 
-export function planPriceId(plan: PlanKey): string {
-  const name = PLANS[plan].priceEnv;
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing price env var: ${name} (run scripts/stripe-setup.mjs)`);
-  return v;
+export function planLookup(tier: Tier, interval: Interval): string {
+  return LOOKUP[tier][interval];
 }
 
-export function trialPriceId(): string {
-  const v = process.env[TRIAL_PRICE_ENV];
-  if (!v) throw new Error(`Missing price env var: ${TRIAL_PRICE_ENV} (run scripts/stripe-setup.mjs)`);
-  return v;
+// Display amounts (dollars) for the UI. Source of truth for charging is the
+// Stripe price resolved by lookup_key above.
+export const PRICING: Record<Tier, Record<Interval, number>> = {
+  founding: { monthly: 29, annual: 290 },
+  standard: { monthly: 39, annual: 390 },
+};
+
+// Resolve a Stripe price id by lookup_key, cached per server instance.
+const priceCache = new Map<string, string>();
+export async function priceIdForLookup(lookupKey: string): Promise<string> {
+  const cached = priceCache.get(lookupKey);
+  if (cached) return cached;
+  const res = await getStripe().prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
+  const price = res.data[0];
+  if (!price) {
+    throw new Error(`No active Stripe price for lookup_key "${lookupKey}" (run scripts/stripe-setup.mjs)`);
+  }
+  priceCache.set(lookupKey, price.id);
+  return price.id;
 }
 
 // Map a Stripe subscription status to our companies.subscription_status enum.
