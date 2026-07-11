@@ -30,6 +30,7 @@ export default function Footer() {
             <Link className="text-white/85 hover:text-white" href="/blog">Blog</Link>
             <Link className="text-white/85 hover:text-white" href="/blog/follow-up-text-templates-for-contractors">Free follow-up scripts</Link>
             <Link className="text-white/85 hover:text-white" href="/privacy">Privacy &amp; texting policy</Link>
+            <Link className="text-white/85 hover:text-white" href="/terms">Terms &amp; conditions</Link>
             <a className="text-white/85 hover:text-white" href="mailto:hello@getreknock.com">hello@getreknock.com</a>
           </div>
         </div>
