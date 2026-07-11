@@ -103,6 +103,15 @@ export default function OnboardingWizard({
   const [profile, setProfile] = useState<VoiceProfileResult | null>(initialProfile);
   const [masterPrompt, setMasterPrompt] = useState(initialProfile?.master_prompt ?? "");
   const [genPending, setGenPending] = useState(false);
+  const [drafts, setDrafts] = useState<VoiceProfileResult[]>(initialProfile ? [initialProfile] : []);
+  const [draftIdx, setDraftIdx] = useState(initialProfile ? 0 : -1);
+
+  function showDraft(i: number) {
+    if (i < 0 || i >= drafts.length) return;
+    setDraftIdx(i);
+    setProfile(drafts[i]);
+    setMasterPrompt(drafts[i].master_prompt);
+  }
 
   const [windows, setWindows] = useState<Window[]>(initialWindows ?? defaultWindows());
   const [timezone, setTimezone] = useState(initialTimezone || "America/New_York");
@@ -148,8 +157,37 @@ export default function OnboardingWizard({
     const res = await generateVoiceProfile(q);
     setGenPending(false);
     if (!res.ok) return setError(res.error);
+    setDrafts((prev) => {
+      const next = [...prev, res.data];
+      setDraftIdx(next.length - 1);
+      return next;
+    });
     setProfile(res.data);
     setMasterPrompt(res.data.master_prompt);
+  }
+
+  // Apply Monday's hours to a set of days so one change cascades.
+  function applyHours(scope: "all" | "weekdays") {
+    const src = windows[1]; // Monday
+    setWindows(
+      windows.map((w) =>
+        scope === "all" || (w.day_of_week >= 1 && w.day_of_week <= 5)
+          ? { ...w, start_time: src.start_time, end_time: src.end_time }
+          : w,
+      ),
+    );
+  }
+
+  // Live preview of a follow-up shaped by the voice toggles (non-blocking).
+  function previewText(): string {
+    const greet = q.texting_style === "professional_brief" ? "Hello" : q.texting_style === "friendly_chatty" ? "Hi" : "Hey";
+    const name = q.uses_first_name ? " Sarah" : " there";
+    const end = q.uses_exclamation ? "!" : ".";
+    const emoji = q.uses_emojis ? " 👍" : "";
+    let t = `${greet}${name}, just following up on that roof quote${end}${emoji}`;
+    if (q.sign_off.trim()) t += ` ${q.sign_off.trim()}`;
+    if (q.casing === "lowercase") t = t.toLowerCase();
+    return t;
   }
 
   function submitBasics() {
@@ -339,6 +377,11 @@ export default function OnboardingWizard({
               <input className={input} value={q.sign_off} onChange={(e) => setQ({ ...q, sign_off: e.target.value })} placeholder="- Mike, Apex Roofing" />
             </label>
 
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-mist">Rough preview</span>
+              <div className="mt-1.5 max-w-[90%] rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{previewText()}</div>
+            </div>
+
             <div className="rounded-xl border border-sky-line bg-sky/40 p-4">
               <span className="text-sm font-semibold text-slate">Paste a few real texts you&apos;ve sent</span>
               <p className="mt-0.5 text-xs text-mist">This is what makes it sound like you. Even one helps.</p>
@@ -391,6 +434,13 @@ export default function OnboardingWizard({
           ) : profile ? (
             <>
               <p className="mt-3 text-slate">Three follow-ups in your voice. Change anything later in Settings.</p>
+              {drafts.length > 1 && (
+                <div className="mt-3 flex items-center gap-3 text-sm">
+                  <button type="button" className="cursor-pointer rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-30" disabled={draftIdx <= 0} onClick={() => showDraft(draftIdx - 1)}>←</button>
+                  <span className="text-mist">Version {draftIdx + 1} of {drafts.length}</span>
+                  <button type="button" className="cursor-pointer rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-30" disabled={draftIdx >= drafts.length - 1} onClick={() => showDraft(draftIdx + 1)}>→</button>
+                </div>
+              )}
               <div className="mt-5 flex flex-col gap-3">
                 {profile.samples.map((s, i) => (
                   <div key={i} className="max-w-[90%] self-start rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{s}</div>
@@ -439,7 +489,15 @@ export default function OnboardingWizard({
               ))}
             </select>
           </label>
-          <div className="mt-5 flex flex-col gap-2">
+          <div className="mt-4 flex flex-wrap gap-2 text-sm">
+            <button type="button" className="cursor-pointer rounded-full border border-sky-line px-3 py-1 font-semibold text-blue hover:bg-sky" onClick={() => applyHours("weekdays")}>
+              Use Monday&apos;s hours for all weekdays
+            </button>
+            <button type="button" className="cursor-pointer rounded-full border border-sky-line px-3 py-1 font-semibold text-blue hover:bg-sky" onClick={() => applyHours("all")}>
+              Use for every day
+            </button>
+          </div>
+          <div className="mt-3 flex flex-col gap-2">
             {windows.map((w, i) => (
               <div key={w.day_of_week} className="flex items-center gap-3 rounded-xl border border-slate/20 px-3 py-2.5">
                 <label className="flex w-28 items-center gap-2">
