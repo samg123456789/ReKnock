@@ -20,11 +20,12 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 - **Admin**: `/admin` (404-gated), customers table + detail, view-as support mode (audited), suspend/delete (Stripe cancel + Twilio release), `admin_audit`.
 
 **REMAINING = VERIFICATION (MVP-first; nothing from ROADMAP_V2 until this passes):**
-1. **Founder dashboard hookup:** point the Twilio number's inbound "A message comes in" webhook (POST) at `.../api/webhooks/twilio` so replies land + trigger freeze/relay/classify.
-2. **Full acceptance run** on the preview (test card `4242...`): signup -> confirm email -> pay -> onboard -> add quote -> sequence fires to `+13478425544` (test mode) -> reply freezes it -> relay + inbox. Verify Stripe (`trialing`, **$1 charged today?** one-time line + `trial_period_days:7` still unverified) and Supabase SQL.
+1. **DONE — Twilio inbound webhook configured** (primary handler, HTTP POST, no backup) at `.../api/webhooks/twilio`.
+2. **Full acceptance run IN PROGRESS** on the preview (test card `4242...`): signup -> confirm email -> pay -> onboard -> add quote -> sequence fires to `+13478425544` (test mode) -> reply freezes it -> relay + inbox. Verify Stripe (`trialing`, **$1 charged today?** one-time line + `trial_period_days:7` still unverified) and Supabase. Backend verification tools: Stripe secret key (in `.env.local`); Supabase Management API SQL — `POST https://api.supabase.com/v1/projects/hgmjkugxrsxxarjdgevc/database/query` with `Authorization: Bearer <sbp access token>` and `{"query":"..."}` (runs as postgres, bypasses RLS). Use a fresh non-admin email (e.g. a gmail +alias) so it tests as a normal customer.
 3. Fix $1-timing mechanism if deferred.
-4. **V1 tech debt to repay before real multi-tenant (see ROADMAP_V2 Part 4):** per-tenant number provisioning (Phase 3 real flow), **scope the inbound webhook by the To-number -> company** (currently matches by From phone only), sole-prop -> standard 10DLC + per-tenant registration.
-5. Then founder merges `dev` -> `main` (assistant never pushes main).
+4. Then founder merges `dev` -> `main` (assistant never pushes main).
+
+**>>> NEXT SESSION FIRST TASK (founder will restart fresh after acceptance passes):** repay the V1 tech debt before real multi-tenant (ROADMAP_V2 Part 4): (a) **scope the inbound webhook by the To-number -> company** (currently matches by From phone only across all tenants); (b) per-tenant number provisioning (Phase 3 real "pick your ReKnock number" flow + TrustHub); (c) sole-prop -> standard 10DLC migration. Also still open: Reminders/scheduled-messages feature (recorded in "Reminders / scheduled messages"), and onboarding step 5 relay-cell SMS verification (currently stored without a 6-digit verify).
 
 ---
 
