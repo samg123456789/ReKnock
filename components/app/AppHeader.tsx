@@ -51,6 +51,13 @@ export default function AppHeader() {
           <Logo />
         </Link>
 
+        {!inAdmin && me ? (
+          <div className="flex items-center gap-5 text-sm font-medium">
+            <Link href="/app" className="text-slate hover:text-ink">Dashboard</Link>
+            <Link href="/inbox" className="text-slate hover:text-ink">Inbox</Link>
+          </div>
+        ) : null}
+
         <div className="relative">
           <button
             type="button"
