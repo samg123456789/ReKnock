@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getActingCompany } from "@/lib/acting-company";
 import { generateText, generateFromImages, parseJson, AI_MODEL, type InputImage } from "@/lib/ai";
 import {
   buildVoiceProfilePrompt,
@@ -22,17 +22,16 @@ export type ActionResult<T = undefined> =
   | { ok: false; error: string };
 
 async function requireCompany() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: company } = await supabase
+  const acting = await getActingCompany();
+  if (!acting) redirect("/login");
+  if (!acting.companyId) throw new Error("No company for current user");
+  const { data: company } = await acting.client
     .from("companies")
     .select("id, name, trade, description")
-    .single();
+    .eq("id", acting.companyId)
+    .maybeSingle();
   if (!company) throw new Error("No company for current user");
-  return { supabase, company };
+  return { supabase: acting.client, company };
 }
 
 // Step 1: company basics. Trades are multi-select; timezone moved to the

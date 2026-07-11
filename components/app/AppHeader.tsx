@@ -91,10 +91,9 @@ export default function AppHeader() {
                     {inAdmin ? "Back to my app" : "Admin dashboard"}
                   </Link>
                 ) : null}
-                <span className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-mist">
+                <Link href="/settings" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-sky">
                   Settings
-                  <span className="rounded-full bg-sky px-2 py-0.5 text-[10px] font-semibold text-blue">Soon</span>
-                </span>
+                </Link>
                 <form action={createBillingPortalSession}>
                   <button type="submit" className="w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-sky">
                     Billing
