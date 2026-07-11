@@ -7,7 +7,7 @@ import AppHeader from "@/components/app/AppHeader";
 
 // Marketing routes get the marketing nav + footer; logged-in app routes get the
 // app header and no footer. Keeps the two experiences from bleeding together.
-const APP_PREFIXES = ["/app", "/onboarding", "/checkout", "/settings", "/inbox"];
+const APP_PREFIXES = ["/app", "/onboarding", "/checkout", "/settings", "/inbox", "/admin"];
 
 export default function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
