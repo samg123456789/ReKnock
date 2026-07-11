@@ -6,32 +6,25 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 
 ---
 
-## Where we left off (session handoff, 2026-07-10 pm) — delete once Phase 1 acceptance passes
+## Where we left off (session handoff, 2026-07-11 pm) — the full MVP surface is BUILT + deployed on `dev`; remaining work is verification
 
-**Infrastructure: DONE.**
-- Environments (section 1b) done: `dev` -> preview `https://reknock-git-dev-re-knock.vercel.app`, `main` -> prod (protected by discipline, ground rule 13). Amber DEV banner on non-prod. `OPERATIONS.md` has the runbook.
-- Supabase dev `reknock-dev` (ref `hgmjkugxrsxxarjdgevc`, us-west-2), CLI linked. Migrations applied: `initial_schema` (12 tables + RLS + triggers + pg_trgm), `auth_user_trigger`, `billing_and_company_signup` (company auto-created at signup; `subscription_status` nullable-until-paid; `stripe_subscription_id`, `onboarded_at`).
-- Resend custom SMTP is live in Supabase Auth: confirmation/reset emails send from `noreply@getreknock.com`, off the rate-limited built-in service.
-- Stripe (test mode) set up: product + 5 prices created by `scripts/stripe-setup.mjs`, resolved at runtime by `lookup_key` (trial $1 one-time, founding $29/mo + $290/yr, standard $39/mo + $390/yr). Webhook endpoint registered (4 events) pointing at the preview.
-- **Assistant now has its own access**: git pushes to `dev` directly (credential store at `~/.reknock-git-credentials`), and Vercel CLI installed locally (`--no-save`) with token in gitignored `.vercel-token`, project linked (scope `re-knock`, project `reknock`). So: after each change, push + watch the build + read deploy/runtime logs directly; only escalate for human/dashboard-only actions.
+**Infrastructure: DONE.** `dev` -> preview `https://reknock-git-dev-re-knock.vercel.app`, `main` -> prod (discipline-protected, ground rule 13). Supabase `reknock-dev` (ref `hgmjkugxrsxxarjdgevc`); migrations applied through `admin_actions`. Resend SMTP live. Stripe test mode (5 prices via `lookup_key`, webhook on preview). Inngest app synced (prod env, `/api/inngest`). Assistant has its own git-push + Vercel CLI access (`~/.reknock-git-credentials`, gitignored `.vercel-token`). Env set on Preview+Dev: Supabase, Stripe (+webhook secret), Anthropic, Twilio (SID/token/`MG` service `MGb3ea8cb172bbebb57358731b77f14777`), Inngest event+signing keys, `DEV_SMS_ALLOWLIST=+13478425544`. Founder ReKnock number `+15166876417`. Admin seeded for `samuelgoldberg98@gmail.com`.
 
-**Phase 1 (auth, payments, paywall): NEARLY DONE, build green, needs an end-to-end run.**
-- DONE + deployed to preview (latest Ready deploy is commit on `dev`): email/password signup (email-first two-step UX, Google-first ordering), Google SSO (`/auth/callback`), password rules (8+/capital/symbol, shared validator + live strength meter), confirmation callback, paywall middleware (unpaid->/checkout, paid+unonboarded->/onboarding), Stripe checkout, webhook mirroring status onto `companies`, billing portal action, stub `/app` and `/onboarding`.
-- Redirect origin now derived from request headers (email/Stripe links no longer point to localhost on the preview).
-- Client env inlining fixed (browser Supabase client reads `process.env.NEXT_PUBLIC_*` as direct literals; Google SSO no longer throws "Missing env var").
-- **Checkout redesign + founding automation DONE (committed, deployed, NOT yet runtime-verified):** single Solo card matching `/pricing`, Monthly/Annual toggle, `$29` struck `$39` founding treatment, "Founding rate, X of 20 spots left"; founding is auto-applied server-side while <20 taken then silently standard (user never chooses); Pro/Crew stay marketing-only; `app/checkout/error.tsx` friendly retry boundary. Old BUG 1 (Founding crash) root cause was a missing `STRIPE_PRICE_FOUNDING` env var; killed that whole failure class by resolving prices via `lookup_key`.
+**BUILT + deployed (all on `dev`, build green):**
+- **Phase 1** auth/checkout/paywall (email-first signup, Google SSO, founding auto-applied, single Solo card + Pro/Crew coming-soon).
+- **Phase 2** onboarding: website-scrape inference, multi-trade + GC picker, voice from typed samples + screenshot OCR, casing, background voice gen + regen history, market/timezone + apply-to-all hours. App shell (header + avatar), dashboard with "Add your first quote".
+- **Phase 4** intake: upload photo/PDF/paste/type -> Haiku extract -> confirm (low-confidence highlighted) -> create prospect + 10DLC consent path.
+- **Phase 5** sequencing: Inngest `prospect-sequence` (test-mode = minutes off-prod), atomic freeze via `cancelOn`, at-send status/cap/window checks, idempotent `sendSms` gated to allowlist; inbound `/api/webhooks/twilio` (signature-verified, STOP/HELP exact replies, reply -> freeze + classify + relay).
+- **Phase 6** inbox: conversation list + thread (bubbles, day separators, ticks, greyed scheduled bubbles), composer (manual send pauses sequence), won/lost/pause/resume.
+- **Phase 7** settings: company/hours/voice/relay-cell/ReKnock-line/billing + coming-soon Notify-me.
+- **Admin**: `/admin` (404-gated), customers table + detail, view-as support mode (audited), suspend/delete (Stripe cancel + Twilio release), `admin_audit`.
 
-**BROKEN / HALF-DONE / UNVERIFIED:**
-- The new checkout has NOT been exercised with a real test card on the preview. Founding auto-pick, the Monthly/Annual toggle, and the webhook flipping `subscription_status` are built but unconfirmed at runtime.
-- **$1 charge timing is unverified**: checkout uses a one-time $1 line item + `trial_period_days: 7`. Must confirm in Stripe test mode that the $1 actually charges TODAY (not deferred to trial end). If deferred, change the mechanism.
-- Funnel visual-consistency pass (signup/login/check-email/onboarding/app vs marketing site) was STARTED (gathered Nav/home/pricing patterns) but NOT finished; no fixes applied yet.
-- Old crash digest `3987695101` runtime logs were not pulled (fix supersedes it); can confirm via `vercel logs` if desired.
-
-**EXACT NEXT STEPS (priority order):**
-1. Run the Phase 1 acceptance test on the preview with test card `4242 4242 4242 4242`: fresh signup -> confirm email (from noreply@getreknock.com) -> `/checkout` -> pay -> lands `/onboarding`; verify via Stripe (subscription `trialing`, and whether $1 charged today) and Supabase SQL (`companies.subscription_status='trialing'`, `plan`, customer/sub ids set). Unpaid cannot reach `/app`.
-2. Fix the $1-timing mechanism if the acceptance test shows the dollar is deferred.
-3. Finish the funnel visual-consistency pass against the marketing site; apply fixes.
-4. Then Phase 1 is complete -> founder merges `dev` -> `main` (assistant never pushes main).
+**REMAINING = VERIFICATION (MVP-first; nothing from ROADMAP_V2 until this passes):**
+1. **Founder dashboard hookup:** point the Twilio number's inbound "A message comes in" webhook (POST) at `.../api/webhooks/twilio` so replies land + trigger freeze/relay/classify.
+2. **Full acceptance run** on the preview (test card `4242...`): signup -> confirm email -> pay -> onboard -> add quote -> sequence fires to `+13478425544` (test mode) -> reply freezes it -> relay + inbox. Verify Stripe (`trialing`, **$1 charged today?** one-time line + `trial_period_days:7` still unverified) and Supabase SQL.
+3. Fix $1-timing mechanism if deferred.
+4. **V1 tech debt to repay before real multi-tenant (see ROADMAP_V2 Part 4):** per-tenant number provisioning (Phase 3 real flow), **scope the inbound webhook by the To-number -> company** (currently matches by From phone only), sole-prop -> standard 10DLC + per-tenant registration.
+5. Then founder merges `dev` -> `main` (assistant never pushes main).
 
 ---
 
