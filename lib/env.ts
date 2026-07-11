@@ -37,4 +37,18 @@ export const env = {
   stripeWebhookSecret: () => required("STRIPE_WEBHOOK_SECRET"),
   resendApiKey: () => required("RESEND_API_KEY"),
   anthropicApiKey: () => required("ANTHROPIC_API_KEY"),
+
+  twilioAccountSid: () => required("TWILIO_ACCOUNT_SID"),
+  twilioAuthToken: () => required("TWILIO_AUTH_TOKEN"),
+  twilioMessagingServiceSid: () => required("TWILIO_MESSAGING_SERVICE_SID"),
+
+  inngestEventKey: () => required("INNGEST_EVENT_KEY"),
+  inngestSigningKey: () => required("INNGEST_SIGNING_KEY"),
+
+  // Comma-separated E.164 numbers dev is allowed to text. Empty in production.
+  devSmsAllowlist: () =>
+    (process.env.DEV_SMS_ALLOWLIST ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
 };

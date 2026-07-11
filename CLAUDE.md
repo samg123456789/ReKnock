@@ -326,6 +326,21 @@ Data: a `reminders` (or reuse `messages` with `scheduled_for` + a `kind`) table;
 
 ---
 
+## Platform admin (single admin, one login, /admin)
+
+Founder-only. Not a separate login: the founder is also a normal ReKnock user; admin is a capability layered on that one account.
+
+1. `users.platform_admin boolean default false`, seeded true for the founder's email. Everything gates on this flag, server-side.
+2. `/admin` routes are server-gated on `platform_admin`. Non-admins get a **404** (notFound()), never a permission error, so the surface is not advertised. An "Admin" toggle appears in the avatar menu only for the admin, switching between their own customer UI and the admin dashboard. No separate auth flow ever.
+3. **Customers table:** company name, trade, email, signup date, subscription status + plan, trial usage, number provisioning status, 10DLC status, prospect count, messages sent, last activity. Searchable + sortable. (Reads cross-tenant via the service-role client, only inside admin-gated routes.)
+4. **Customer detail:** profile, voice profile, prospects, message threads, sequence state, recent `events` + `failed_jobs`.
+5. **Suspend / delete:** suspend = pause all sending + access; delete = full removal incl. cancel Stripe subscription + release Twilio number. Both behind a type-to-confirm modal.
+6. **View-as-customer (support mode):** from a customer detail page, enter their app UI exactly as they see it, with a persistent banner ("Viewing as {company}, exit"). Implemented as an admin-only impersonation context (signed, server-set, never client-forgeable), scoped so RLS/queries resolve to the target company.
+7. In support mode the admin can do anything the customer can (fix a prospect, edit a campaign, retry a failed send, adjust settings) for unbreaking things + manual onboarding help.
+8. **Audit:** every admin action and every support-mode session is written to an append-only audit log (`events` with an `admin_*` type, or a dedicated `admin_audit` table) with actor, target company, action, timestamp.
+
+Security (CISO): impersonation must be server-side and unforgeable (do not trust a client cookie/param alone); admin cross-tenant reads only within `/admin`; never widen RLS. Build after the core loop; it is operational leverage, not customer value.
+
 ## 9. Testing priorities (in this order)
 
 1. The freeze race: reply arrives while a touch job is mid-flight → no send.

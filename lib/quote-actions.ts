@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { generateText, generateFromMedia, parseJson, AI_MODEL, type MediaInput } from "@/lib/ai";
+import { inngest } from "@/lib/inngest/client";
 import {
   buildQuoteExtractorPrompt,
   QUOTE_EXTRACTOR_PROMPT_VERSION,
@@ -143,6 +144,26 @@ export async function createQuote(input: {
     type: "prospect_created",
     payload: { prospect_id: prospect.id, source: input.source, consent_path: input.consent_path },
   });
+
+  // Enroll into the sequence engine. Off production runs in test mode (day
+  // offsets compressed to minutes). Never fail the quote if enqueue hiccups.
+  try {
+    await inngest.send({
+      name: "prospect/enrolled",
+      data: {
+        company_id: company.id,
+        prospect_id: prospect.id,
+        test_mode: process.env.VERCEL_ENV !== "production",
+      },
+    });
+  } catch {
+    await supabase.from("failed_jobs").insert({
+      company_id: company.id,
+      job_type: "sequence_enroll",
+      payload: { prospect_id: prospect.id },
+      error: "inngest.send failed",
+    });
+  }
 
   const base = new Date(`${quoteDate}T12:00:00`);
   const steps = (campaign?.steps as { day_offset: number }[] | null) ?? [
