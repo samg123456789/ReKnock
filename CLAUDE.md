@@ -35,6 +35,32 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 
 ---
 
+## CTO review (2026-07-11) — first-principles pass, keep until Phase 6 ships
+
+The test for every screen: **does it help a contractor get value in the first 10 minutes and win a deal in the first week?** Value = seeing ReKnock chase a *real* quote in their voice. Everything else is overhead to minimize.
+
+**(a) Already built that must change**
+1. **Onboarding dead-ends at a stub `/app`.** This is the churn moment and it currently delivers nothing. Fundamental fix: onboarding must land in the real app with exactly one next action — **Add your first quote** — because the first chased quote is the entire value proposition. (Blocker.)
+2. **The app wears the marketing header.** No portal feel, no way to sign out/manage billing. Logged-in routes need an app shell (logo, avatar menu). Convention, but here it's load-bearing for trust.
+3. **Onboarding asks what it could infer.** A voice *questionnaire* asks the contractor to self-describe a thing the AI can extract from two real texts or their website. Trade + description are inferable from their website. First principle: never ask for what we can infer and let them confirm. Website becomes the unlock (scrape -> AI drafts trade/description/voice); the questionnaire becomes the fallback when there are no samples.
+4. **Voice generation blocks on a white screen.** It should pre-generate in the background the moment we have signal (samples/website) so the reveal feels instant. AI work happens off the critical path.
+5. **Timezone asked in step 1** with no immediate payoff. Move it to the sending-hours step as a US-market dropdown; infer + confirm.
+
+**(b) What changes in Phases 2-6**
+- **Phase 2:** infer-first onboarding (website -> AI prefill), pre-generated voice, land in app with the first-quote CTA, app shell. Voice captured from real samples (typed or screenshot-OCR) over self-description.
+- **Phase 4 (prioritized next):** "Add a quote" is the hero of the product, not a form buried in settings. AI extracts from a photo/paste/forward; the human confirms. Optimize this path above all else.
+- **Phase 5/6:** the human confirms, never creates. Drafted touches and suggested replies are shown for one-tap approval. Show the scheduled chase (in their voice, with times) the instant a quote is added — proof of value even before the number goes live.
+- **Everywhere:** every form field asks "can AI prefill this?"; every screen has one obvious next action; integrations/teams/analytics stay greyed.
+
+**(c) Top-5 leverage for winning/keeping early customers (ranked)**
+1. **No dead end:** onboarding -> app -> "Add your first quote." Momentum is survival.
+2. **First-quote intake that feels like magic:** snap/paste/forward -> AI-extracted prospect -> confirm. This is the value moment; make it 15 seconds.
+3. **Show the chase before any send:** the moment a quote lands, show the 4 drafted follow-ups and their send dates. Value is visible even while the number is still activating.
+4. **Website-driven onboarding:** cut the wizard to confirmations by inferring trade/description/voice from their site.
+5. **Voice that sounds like them from real samples,** pre-generated so the reveal is instant. This is the "holy shit" moment that earns the testimonial.
+
+---
+
 ## 0. Ground rules (never violate these)
 
 1. Existing repo: Next.js 15 App Router, deployed on Vercel via git push. Keep that loop. Never break the deploy.
