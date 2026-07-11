@@ -76,9 +76,10 @@ export const prospectSequence = inngest.createFunction(
 
         const { data: co } = await admin
           .from("companies")
-          .select("name, subscription_status, trial_messages_used")
+          .select("name, subscription_status, trial_messages_used, suspended_at")
           .eq("id", company_id)
           .single();
+        if (co?.suspended_at) return { skipped: "suspended" };
         if (co?.subscription_status === "trialing" && (co.trial_messages_used ?? 0) >= TRIAL_CAP) {
           await admin.from("prospects").update({ status: "paused" }).eq("id", prospect_id);
           await admin.from("events").insert({ company_id, type: "cap_reached", payload: { prospect_id } });

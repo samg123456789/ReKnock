@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getActingCompany } from "@/lib/acting-company";
 
 const STATUS_LABEL: Record<string, string> = {
   new: "New",
@@ -13,24 +13,23 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function AppHome() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const acting = await getActingCompany();
+  if (!acting) redirect("/login");
+  const cid = acting.companyId;
+  const sb = acting.client;
 
-  const { data: company } = await supabase.from("companies").select("name").single();
-
-  const { data: prospects } = await supabase
-    .from("prospects")
-    .select("id, first_name, last_name, job_type, status, created_at")
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  const { data: phone } = await supabase
-    .from("phone_numbers")
-    .select("status, e164")
-    .maybeSingle();
+  const { data: company } = cid ? await sb.from("companies").select("name").eq("id", cid).maybeSingle() : { data: null };
+  const { data: prospects } = cid
+    ? await sb
+        .from("prospects")
+        .select("id, first_name, last_name, job_type, status, created_at")
+        .eq("company_id", cid)
+        .order("created_at", { ascending: false })
+        .limit(20)
+    : { data: [] };
+  const { data: phone } = cid
+    ? await sb.from("phone_numbers").select("status").eq("company_id", cid).maybeSingle()
+    : { data: null };
 
   const numberLive = phone?.status === "active";
   const hasQuotes = (prospects?.length ?? 0) > 0;
@@ -40,7 +39,6 @@ export default async function AppHome() {
       <p className="eyebrow mb-2">Dashboard</p>
       <h1 className="display text-3xl md:text-4xl">{company?.name ? `Welcome, ${company.name}.` : "Welcome."}</h1>
 
-      {/* setup status */}
       <div className="mt-5 flex flex-wrap gap-2 text-sm">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-sky px-3 py-1 text-blue-ink">
           <span className="text-mint">✓</span> Your voice is ready
@@ -56,10 +54,7 @@ export default async function AppHome() {
           <p className="mx-auto mt-2 max-w-sm text-slate">
             Drop in a job you just quoted. We&apos;ll show you exactly how and when we&apos;ll chase it, in your voice.
           </p>
-          <Link
-            href="/app/quotes/new"
-            className="mt-6 inline-block cursor-pointer rounded-xl bg-blue px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-blue-deep"
-          >
+          <Link href="/app/quotes/new" className="mt-6 inline-block cursor-pointer rounded-xl bg-blue px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-blue-deep">
             Add your first quote
           </Link>
         </div>
@@ -75,9 +70,7 @@ export default async function AppHome() {
             {prospects!.map((p) => (
               <div key={p.id} className="flex items-center gap-3 rounded-xl border border-sky-line bg-white px-4 py-3">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-ink">
-                    {p.first_name} {p.last_name ?? ""}
-                  </p>
+                  <p className="truncate font-semibold text-ink">{p.first_name} {p.last_name ?? ""}</p>
                   <p className="truncate text-sm text-slate">{p.job_type ?? "Quote"}</p>
                 </div>
                 <span className="ml-auto rounded-full bg-sky px-2.5 py-1 text-xs font-semibold text-blue">

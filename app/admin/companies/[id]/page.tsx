@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin";
+import CompanyActions from "@/components/admin/CompanyActions";
 
 export const metadata = { title: "Customer - ReKnock Admin" };
 
@@ -34,7 +35,11 @@ export default async function CompanyDetail({ params }: { params: Promise<{ id: 
   return (
     <div>
       <Link href="/admin" className="cursor-pointer text-sm text-blue hover:underline">← All customers</Link>
-      <h1 className="display mt-2 text-2xl">{company.name ?? "(no name)"}</h1>
+      <h1 className="display mt-2 text-2xl">
+        {company.name ?? "(no name)"}
+        {company.suspended_at ? <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 align-middle">Suspended</span> : null}
+      </h1>
+      <CompanyActions companyId={company.id} companyName={company.name ?? ""} suspended={Boolean(company.suspended_at)} />
 
       <Section title="Profile">
         <div className="grid grid-cols-2 gap-2 text-slate">

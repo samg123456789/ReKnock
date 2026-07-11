@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getActingCompany } from "@/lib/acting-company";
+import { logAudit } from "@/lib/admin";
 import { generateText, generateFromMedia, parseJson, AI_MODEL, type MediaInput } from "@/lib/ai";
 import { inngest } from "@/lib/inngest/client";
 import {
@@ -26,14 +27,12 @@ function normalizePhone(raw: string): string | null {
 }
 
 async function requireCompany() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: company } = await supabase.from("companies").select("id").single();
-  if (!company) throw new Error("No company for current user");
-  return { supabase, company };
+  const acting = await getActingCompany();
+  if (!acting) redirect("/login");
+  if (!acting.companyId) throw new Error("No company for current user");
+  // When an admin is in view-as, `client` is the service-role client scoped to
+  // the target company; otherwise it is the user's RLS client (own company).
+  return { supabase: acting.client, company: { id: acting.companyId }, acting };
 }
 
 // AI extraction from images/PDF or pasted text. Never invents fields.
@@ -107,7 +106,7 @@ export async function createQuote(input: {
     ? input.quote_date
     : new Date().toISOString().slice(0, 10);
 
-  const { supabase, company } = await requireCompany();
+  const { supabase, company, acting } = await requireCompany();
 
   const { data: campaign } = await supabase
     .from("campaigns")
@@ -162,6 +161,16 @@ export async function createQuote(input: {
       job_type: "sequence_enroll",
       payload: { prospect_id: prospect.id },
       error: "inngest.send failed",
+    });
+  }
+
+  if (acting.impersonating) {
+    await logAudit(acting.client, {
+      actorUserId: acting.actorUserId,
+      actorEmail: acting.actorEmail,
+      action: "support_create_quote",
+      targetCompanyId: company.id,
+      metadata: { prospect_id: prospect.id },
     });
   }
 

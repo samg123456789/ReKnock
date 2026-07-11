@@ -56,8 +56,11 @@ export async function updateSession(request: NextRequest) {
       // caller's own company).
       const { data: company } = await supabase
         .from("companies")
-        .select("subscription_status, onboarded_at")
+        .select("subscription_status, onboarded_at, suspended_at")
         .maybeSingle();
+
+      // Suspended by an admin: pause access (except the suspended notice).
+      if (company?.suspended_at && !path.startsWith("/suspended")) return redirectTo("/suspended");
 
       const paid =
         company?.subscription_status === "trialing" ||
