@@ -82,6 +82,51 @@ export async function generateFromImages(opts: {
   };
 }
 
+export type MediaInput = { mediaType: string; dataBase64: string };
+
+// Vision + document call: images and/or PDFs plus a prompt. PDFs go as document
+// blocks (Haiku 4.5, 200K context, handles up to 100 pages), images as image
+// blocks. Used for quote OCR/extraction.
+export async function generateFromMedia(opts: {
+  system?: string;
+  prompt: string;
+  media: MediaInput[];
+  temperature?: number;
+  maxTokens?: number;
+}): Promise<{ text: string; usage: AiUsage }> {
+  const blocks: Anthropic.ContentBlockParam[] = opts.media.map((m) => {
+    if (m.mediaType === "application/pdf") {
+      return {
+        type: "document",
+        source: { type: "base64", media_type: "application/pdf", data: m.dataBase64 },
+      } satisfies Anthropic.DocumentBlockParam;
+    }
+    return {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: m.mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+        data: m.dataBase64,
+      },
+    } satisfies Anthropic.ImageBlockParam;
+  });
+  const res = await anthropic().messages.create({
+    model: AI_MODEL,
+    max_tokens: opts.maxTokens ?? 1024,
+    temperature: opts.temperature ?? 0.3,
+    ...(opts.system ? { system: opts.system } : {}),
+    messages: [{ role: "user", content: [...blocks, { type: "text", text: opts.prompt }] }],
+  });
+  const text = res.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+  return {
+    text,
+    usage: { inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens },
+  };
+}
+
 // Pull the first JSON object/array out of a model response, tolerating code
 // fences and leading prose. Returns null if nothing parses.
 export function parseJson<T>(text: string): T | null {
