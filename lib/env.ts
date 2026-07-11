@@ -36,4 +36,5 @@ export const env = {
   stripeSecretKey: () => required("STRIPE_SECRET_KEY"),
   stripeWebhookSecret: () => required("STRIPE_WEBHOOK_SECRET"),
   resendApiKey: () => required("RESEND_API_KEY"),
+  anthropicApiKey: () => required("ANTHROPIC_API_KEY"),
 };

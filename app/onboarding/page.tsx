@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
+import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 
 export const metadata: Metadata = { title: "Set up your account - ReKnock" };
 
-// Stub. The real onboarding wizard is Phase 2. For now this is where a paid,
-// not-yet-onboarded user lands so Phase 1 acceptance ("lands on onboarding
-// step 1") has a target.
 export default async function Onboarding() {
   const supabase = await createClient();
   const {
@@ -14,15 +13,51 @@ export default async function Onboarding() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Load any saved state so onboarding is resumable and editable later.
+  const { data: company } = await supabase
+    .from("companies")
+    .select("name, trade, website, description, timezone")
+    .single();
+
+  const { data: voice } = await supabase
+    .from("voice_profiles")
+    .select("questionnaire, master_prompt, sample_messages")
+    .eq("is_latest", true)
+    .maybeSingle();
+
+  const { data: windows } = await supabase
+    .from("sending_windows")
+    .select("day_of_week, start_time, end_time, enabled")
+    .order("day_of_week", { ascending: true });
+
+  const initialProfile: VoiceProfileResult | null =
+    voice?.master_prompt
+      ? { master_prompt: voice.master_prompt, samples: (voice.sample_messages as string[]) ?? [] }
+      : null;
+
   return (
-    <main className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-5 py-16">
-      <p className="eyebrow mb-4">Step 1 of 7</p>
-      <h1 className="display text-4xl md:text-5xl">You are paid up. Let us set you up.</h1>
-      <p className="mt-4 leading-relaxed text-slate">
-        This is where onboarding begins: your company, your voice, your texting
-        line. The full wizard is coming next. For now, payment worked and you are
-        in the right place.
-      </p>
+    <main className="min-h-[70vh]">
+      <OnboardingWizard
+        initialBasics={{
+          name: company?.name ?? "",
+          trade: company?.trade ?? "",
+          website: company?.website ?? "",
+          description: company?.description ?? "",
+          timezone: company?.timezone ?? "",
+        }}
+        initialQuestionnaire={(voice?.questionnaire as VoiceQuestionnaire) ?? null}
+        initialProfile={initialProfile}
+        initialWindows={
+          windows && windows.length
+            ? windows.map((w) => ({
+                day_of_week: w.day_of_week,
+                start_time: (w.start_time as string).slice(0, 5),
+                end_time: (w.end_time as string).slice(0, 5),
+                enabled: w.enabled,
+              }))
+            : null
+        }
+      />
     </main>
   );
 }
