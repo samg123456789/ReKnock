@@ -41,6 +41,47 @@ export async function generateText(opts: {
   };
 }
 
+export type InputImage = { mediaType: string; dataBase64: string };
+
+// Vision call: images + a prompt. Haiku 4.5 supports image input. Reused for
+// onboarding text-screenshot OCR now and quote OCR in Phase 4.
+export async function generateFromImages(opts: {
+  system?: string;
+  prompt: string;
+  images: InputImage[];
+  temperature?: number;
+  maxTokens?: number;
+}): Promise<{ text: string; usage: AiUsage }> {
+  const content: Anthropic.ContentBlockParam[] = [
+    ...opts.images.map(
+      (img): Anthropic.ImageBlockParam => ({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: img.mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+          data: img.dataBase64,
+        },
+      }),
+    ),
+    { type: "text", text: opts.prompt },
+  ];
+  const res = await anthropic().messages.create({
+    model: AI_MODEL,
+    max_tokens: opts.maxTokens ?? 1024,
+    temperature: opts.temperature ?? 0.3,
+    ...(opts.system ? { system: opts.system } : {}),
+    messages: [{ role: "user", content }],
+  });
+  const text = res.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+  return {
+    text,
+    usage: { inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens },
+  };
+}
+
 // Pull the first JSON object/array out of a model response, tolerating code
 // fences and leading prose. Returns null if nothing parses.
 export function parseJson<T>(text: string): T | null {

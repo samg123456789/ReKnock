@@ -2,13 +2,19 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { generateText, parseJson, AI_MODEL } from "@/lib/ai";
+import { generateText, generateFromImages, parseJson, AI_MODEL, type InputImage } from "@/lib/ai";
 import {
   buildVoiceProfilePrompt,
   VOICE_PROFILE_PROMPT_VERSION,
   type VoiceQuestionnaire,
   type VoiceProfileResult,
 } from "@/lib/prompts/voice-profile";
+import {
+  buildWebsiteSummaryPrompt,
+  WEBSITE_SUMMARY_PROMPT_VERSION,
+  type WebsiteSummary,
+} from "@/lib/prompts/website-summary";
+import { buildTextOcrPrompt, type TextOcrResult } from "@/lib/prompts/text-ocr";
 import { TRADE_VALUES } from "@/lib/trades";
 
 export type ActionResult<T = undefined> =
@@ -29,32 +35,132 @@ async function requireCompany() {
   return { supabase, company };
 }
 
-// Step 1: company basics.
+// Step 1: company basics. Trades are multi-select; timezone moved to the
+// sending-hours step. Website drives inference (see scrapeAndSummarize).
 export async function saveCompanyBasics(input: {
   name: string;
-  trade: string;
+  trades: string[];
   website: string;
   description: string;
-  timezone: string;
+  heard_about: string;
+  avg_quote_amount: string;
+  quotes_per_month: string;
 }): Promise<ActionResult> {
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Please enter your business name." };
-  if (!TRADE_VALUES.includes(input.trade as (typeof TRADE_VALUES)[number]))
-    return { ok: false, error: "Please pick your trade." };
+
+  const trades = input.trades.filter((t) => TRADE_VALUES.includes(t as (typeof TRADE_VALUES)[number]));
+  if (trades.length === 0) return { ok: false, error: "Please pick at least one trade." };
+
+  const description = input.description.trim();
+  const website = input.website.trim();
+  if (!website && !description)
+    return { ok: false, error: "Please add your website, or tell us what you do." };
+
+  const avg = input.avg_quote_amount.replace(/[^0-9.]/g, "");
+  const qpm = input.quotes_per_month.replace(/[^0-9]/g, "");
 
   const { supabase, company } = await requireCompany();
   const { error } = await supabase
     .from("companies")
     .update({
       name,
-      trade: input.trade,
-      website: input.website.trim() || null,
-      description: input.description.trim() || null,
-      timezone: input.timezone || "America/New_York",
+      trades,
+      trade: trades[0], // back-compat mirror
+      website: website || null,
+      description: description || null,
+      heard_about: input.heard_about.trim() || null,
+      avg_quote_amount: avg ? Number(avg) : null,
+      quotes_per_month: qpm ? Number(qpm) : null,
     })
     .eq("id", company.id);
   if (error) return { ok: false, error: "Could not save. Please try again." };
   return { ok: true, data: undefined };
+}
+
+// Fetch a contractor's website and summarize it with Haiku. Best-effort: any
+// failure returns null so onboarding is never blocked.
+export async function scrapeAndSummarize(url: string): Promise<ActionResult<WebsiteSummary>> {
+  let target = url.trim();
+  if (!target) return { ok: false, error: "No website given." };
+  if (!/^https?:\/\//i.test(target)) target = `https://${target}`;
+
+  const { supabase, company } = await requireCompany();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const resp = await fetch(target, {
+      signal: controller.signal,
+      headers: { "user-agent": "ReKnock-Onboarding/1.0" },
+      redirect: "follow",
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return { ok: false, error: "Could not read that site." };
+
+    const html = await resp.text();
+    const siteText = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 8000);
+    if (siteText.length < 40) return { ok: false, error: "That site had no readable text." };
+
+    const { system, prompt, temperature, maxTokens } = buildWebsiteSummaryPrompt(target, siteText);
+    const { text, usage } = await generateText({ system, prompt, temperature, maxTokens });
+    const parsed = parseJson<WebsiteSummary>(text);
+    if (!parsed) return { ok: false, error: "Could not summarize that site." };
+
+    await supabase.from("events").insert({
+      company_id: company.id,
+      type: "ai.website_summarized",
+      payload: {
+        model: AI_MODEL,
+        prompt_version: WEBSITE_SUMMARY_PROMPT_VERSION,
+        input_tokens: usage.inputTokens,
+        output_tokens: usage.outputTokens,
+      },
+    });
+    const tradeGuess = Array.isArray(parsed.trade_guess)
+      ? parsed.trade_guess.filter((t) => TRADE_VALUES.includes(t as (typeof TRADE_VALUES)[number]))
+      : [];
+    return { ok: true, data: { description: (parsed.description ?? "").trim(), trade_guess: tradeGuess } };
+  } catch {
+    await supabase.from("failed_jobs").insert({
+      company_id: company.id,
+      job_type: "website_summary",
+      payload: { url: target },
+      error: "fetch or summary failed",
+    });
+    return { ok: false, error: "Could not reach that site." };
+  }
+}
+
+// Read screenshots of real text threads into the contractor's outgoing messages.
+export async function ocrTextSamples(images: InputImage[]): Promise<ActionResult<string[]>> {
+  if (!images.length) return { ok: false, error: "No images to read." };
+  const { supabase, company } = await requireCompany();
+  try {
+    const { system, prompt, temperature, maxTokens } = buildTextOcrPrompt();
+    const { text, usage } = await generateFromImages({ system, prompt, images, temperature, maxTokens });
+    const parsed = parseJson<TextOcrResult>(text);
+    if (!parsed || !Array.isArray(parsed.messages)) return { ok: false, error: "Could not read those screenshots." };
+    await supabase.from("events").insert({
+      company_id: company.id,
+      type: "ai.text_samples_ocr",
+      payload: { model: AI_MODEL, input_tokens: usage.inputTokens, output_tokens: usage.outputTokens },
+    });
+    return { ok: true, data: parsed.messages.map((m) => String(m).trim()).filter(Boolean).slice(0, 6) };
+  } catch {
+    await supabase.from("failed_jobs").insert({
+      company_id: company.id,
+      job_type: "text_samples_ocr",
+      payload: { count: images.length },
+      error: "vision call failed",
+    });
+    return { ok: false, error: "Could not read those screenshots. Try typing a sample instead." };
+  }
 }
 
 // Step 3: generate the voice profile (does not persist — the contractor approves first).
@@ -129,11 +235,15 @@ export async function saveVoiceProfile(input: {
   return { ok: true, data: undefined };
 }
 
-// Step 4: sending schedule. Replaces the company's windows with the seven given rows.
+// Step 4: sending schedule + timezone/market. Replaces the company's windows.
 export async function saveSchedule(
   windows: { day_of_week: number; start_time: string; end_time: string; enabled: boolean }[],
+  timezone: string,
 ): Promise<ActionResult> {
   const { supabase, company } = await requireCompany();
+  if (timezone) {
+    await supabase.from("companies").update({ timezone }).eq("id", company.id);
+  }
   await supabase.from("sending_windows").delete().eq("company_id", company.id);
   const rows = windows.map((w) => ({ ...w, company_id: company.id }));
   const { error } = await supabase.from("sending_windows").insert(rows);

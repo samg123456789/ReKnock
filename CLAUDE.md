@@ -299,6 +299,33 @@ These are non-negotiable rules that cut across the phases above. Where a table o
 - **Never build outbound automation for Facebook/Instagram DMs or group posting** (Meta ToS; only reactive 24h-window Page replies are ever permitted). Intake from screenshots of those chats is fine; automated outbound to them is not. WhatsApp is the only planned second outbound channel, gated behind a per-contact channel choice; keep the `messages.channel` column channel-aware so adding it later is not a rewrite.
 - **No Redis, no message buses, no `setTimeout`/cron scripts for scheduling.** Inngest covers all delayed work. SQL over `events` and `messages` is the analytics layer; do not add an analytics vendor.
 
+## SMS compliance (registered behavior) — the app MUST always match what we registered with the carriers
+
+These are hard product requirements, not guidelines. The 10DLC campaign was registered describing exactly this behavior; drift is a compliance violation.
+
+1. **First-message identification + opt-out.** The first message to any prospect always identifies the contractor (business/name) and includes the exact phrase "Reply STOP to opt out."
+2. **Opt-out keywords halt everything.** `STOP`, `OPTOUT`, `CANCEL`, `END`, `QUIT`, `UNSUBSCRIBE`, `REVOKE`, `STOPALL` (case-insensitive) immediately halt all messaging to that number (set the prospect `opted_out`, suppress across every quote forever, cancel pending sends). Send exactly one confirmation: `You have successfully been unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe.`
+3. **HELP/INFO reply.** `HELP` or `INFO` returns exactly: `ReKnock quote follow-ups on behalf of your contractor. Reply STOP to unsubscribe. Msg & Data Rates May Apply.`
+4. **No links in outbound texts.** Never embed URLs/links in any automated outbound message. Phone numbers are allowed. (Applies to the `followup_drafter` prompt guardrails and any template.)
+5. **Consent required + recorded per prospect.** Only message prospects whose consent path is recorded: `verbal_at_quote` or `web_form`. Store the consent path (and timestamp/source) on each prospect; never message a prospect with no recorded consent path. Manual and OCR intake must capture the consent path; email/web intake records its own path.
+6. **Sequence shape.** Typical sequence is 1 to 4 messages over ~20 days, stopping on any reply. Per-prospect "remind me later" rescheduling at the prospect's request is allowed. Quiet hours + TCPA floor from Phase 5 still apply.
+
+Implementation notes: keywords + confirmations live in the Twilio inbound handler (Phase 3/5); the "no links" and identification rules are guardrails in the drafting prompts (section 4); consent-path storage needs a `prospects.consent_path` + `consent_captured_at` column (added in `onboarding_v2`) and a required field in every intake path.
+
+## Reminders / scheduled messages (registered 10DLC behavior — build in Phases 5/6)
+
+Registered behavior, so it is a hard requirement, not optional. Depends on the Phase 5 sending engine (Inngest) and the Phase 6 prospect thread, so build it there — do not stub it against missing foundations.
+
+1. From any prospect/conversation, the contractor can set a reminder to contact that homeowner at a future date/time, including months out ("circle back in March").
+2. Two modes: **(a) Remind me** — at that time the contractor gets a text/notification with one tap to send a drafted message; **(b) Schedule it** — the AI-drafted message (contractor's voice, references the earlier quote and that they asked us to circle back) sends automatically at that time, within sending hours.
+3. When a prospect reply implies timing ("not until spring", "call me next month"), the reply classifier detects it and suggests the reminder with the date pre-filled, one tap to confirm.
+4. Scheduled messages evaluate sending windows, TCPA quiet hours, and opt-out status **at send time, not at schedule time** (a STOP between now and then must cancel it).
+5. Show upcoming reminders/scheduled sends in the prospect thread as greyed future bubbles (same treatment as scheduled sequence steps), plus one place to see all upcoming ones.
+
+Data: a `reminders` (or reuse `messages` with `scheduled_for` + a `kind`) table; whichever, keep the `messages` ledger idempotent and opt-out-checked at send. This is a superset of the default sequence, so implement the sequence engine and reminders on the same scheduled-send primitive.
+
+---
+
 ## 9. Testing priorities (in this order)
 
 1. The freeze race: reply arrives while a touch job is mid-flight → no send.

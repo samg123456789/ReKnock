@@ -13,10 +13,9 @@ export default async function Onboarding() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Load any saved state so onboarding is resumable and editable later.
   const { data: company } = await supabase
     .from("companies")
-    .select("name, trade, website, description, timezone")
+    .select("name, website, description, trades, trade, heard_about, avg_quote_amount, quotes_per_month, timezone")
     .single();
 
   const { data: voice } = await supabase
@@ -30,22 +29,34 @@ export default async function Onboarding() {
     .select("day_of_week, start_time, end_time, enabled")
     .order("day_of_week", { ascending: true });
 
-  const initialProfile: VoiceProfileResult | null =
-    voice?.master_prompt
-      ? { master_prompt: voice.master_prompt, samples: (voice.sample_messages as string[]) ?? [] }
-      : null;
+  const initialProfile: VoiceProfileResult | null = voice?.master_prompt
+    ? { master_prompt: voice.master_prompt, samples: (voice.sample_messages as string[]) ?? [] }
+    : null;
+
+  // Only reuse a stored questionnaire if it matches the current shape.
+  const rawQ = voice?.questionnaire as Record<string, unknown> | null;
+  const initialQuestionnaire =
+    rawQ && Array.isArray(rawQ.samples) ? (rawQ as unknown as VoiceQuestionnaire) : null;
+
+  const initialTrades: string[] = Array.isArray(company?.trades)
+    ? (company!.trades as string[])
+    : company?.trade
+      ? [company.trade]
+      : [];
 
   return (
     <main className="min-h-[70vh]">
       <OnboardingWizard
         initialBasics={{
           name: company?.name ?? "",
-          trade: company?.trade ?? "",
           website: company?.website ?? "",
           description: company?.description ?? "",
-          timezone: company?.timezone ?? "",
+          heard_about: company?.heard_about ?? "",
+          avg_quote_amount: company?.avg_quote_amount != null ? String(company.avg_quote_amount) : "",
+          quotes_per_month: company?.quotes_per_month != null ? String(company.quotes_per_month) : "",
         }}
-        initialQuestionnaire={(voice?.questionnaire as VoiceQuestionnaire) ?? null}
+        initialTrades={initialTrades}
+        initialQuestionnaire={initialQuestionnaire}
         initialProfile={initialProfile}
         initialWindows={
           windows && windows.length
@@ -57,6 +68,7 @@ export default async function Onboarding() {
               }))
             : null
         }
+        initialTimezone={company?.timezone ?? ""}
       />
     </main>
   );
