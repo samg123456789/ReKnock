@@ -29,7 +29,7 @@ All committed + pushed to `dev` (build green each push), Inngest re-synced on th
 - TrustHub/10DLC API submission per tenant + relay-cell 6-digit verification at onboarding.
 - Level 2 AI agent (suggested replies in relay ping, "text 1 to send") per docs/AI_AGENT_STRATEGY.md.
 - Full human acceptance run (signup->pay->onboard->quote->reply->relay on a real phone) before founder merges dev->main; $1-charge timing on the Stripe trial still unverified.
-- **SECURITY:** the sbp_ Supabase PAT was scrubbed from `.claude/settings.local.json` this session, but the token itself is still LIVE. Founder must rotate it (Supabase Account -> Access Tokens) and put the new one in `.env.local` as `SUPABASE_ACCESS_TOKEN` if assistant DB access should continue.
+- **SECURITY: RESOLVED.** The exposed sbp_ PAT was scrubbed from `.claude/settings.local.json` and the founder rotated it (old token verified dead, HTTP 401). The new PAT lives in gitignored `.env.local` as `SUPABASE_ACCESS_TOKEN`; assistant DB access = Management API SQL using that var (verified working).
 - One pre-existing dev prospect was left status='sequencing' with no scheduled rows (its old-engine Inngest run is orphaned); Resume it from the inbox if it should keep chasing.
 
 ---
