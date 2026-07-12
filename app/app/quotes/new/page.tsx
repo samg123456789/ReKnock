@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AddQuoteForm from "@/components/app/AddQuoteForm";
@@ -15,6 +16,12 @@ export default async function NewQuote() {
   return (
     <main className="mx-auto max-w-lg px-5 py-12">
       <AddQuoteForm />
+      <p className="mt-10 border-t border-sky-line pt-5 text-sm text-slate">
+        Importing a bunch?{" "}
+        <Link href="/app/quotes/import" className="text-blue underline">
+          Upload a CSV
+        </Link>
+      </p>
     </main>
   );
 }
