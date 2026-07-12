@@ -121,6 +121,29 @@ export async function updateProspect(prospectId: string, fields: Record<string, 
   return { ok: true };
 }
 
+// Move one upcoming touch to a different day/time. Only works while the row
+// is still scheduled; all send-time checks (opt-out, windows, cap) still
+// apply when it fires.
+export async function rescheduleStep(prospectId: string, stepIndex: number, newIso: string): Promise<InboxResult> {
+  const when = new Date(newIso);
+  if (Number.isNaN(when.getTime())) return { ok: false, error: "Pick a date and time." };
+  if (when.getTime() < Date.now() + 2 * 60_000) return { ok: false, error: "Pick a time in the future." };
+
+  const a = await acting();
+  const { data: updated, error } = await a.client
+    .from("messages")
+    .update({ scheduled_for: when.toISOString(), send_meta: { reason: "user_reschedule" } })
+    .eq("prospect_id", prospectId)
+    .eq("company_id", a.companyId!)
+    .eq("sequence_step", stepIndex)
+    .eq("kind", "sequence")
+    .eq("status", "scheduled")
+    .select("id");
+  if (error) return { ok: false, error: "Could not reschedule." };
+  if (!updated?.length) return { ok: false, error: "That follow-up already went out or was canceled." };
+  return { ok: true };
+}
+
 // Reminders ("circle back in March"). remind_me pings the contractor's cell at
 // that time; auto_send schedules an AI-drafted message (in their voice,
 // referencing the earlier quote) that sends automatically inside sending

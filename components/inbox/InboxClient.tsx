@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendManualMessage, setProspectStatus, updateProspect, getScheduledDraft, setStepOverride, createReminder, cancelReminder, type DraftResult } from "@/lib/inbox-actions";
+import { sendManualMessage, setProspectStatus, updateProspect, getScheduledDraft, setStepOverride, rescheduleStep, createReminder, cancelReminder, type DraftResult } from "@/lib/inbox-actions";
 
 export type Conversation = { id: string; name: string; jobType: string; status: string; snippet: string; time: string; needsAttention: boolean };
 export type ThreadMessage = { body: string; direction: "inbound" | "outbound"; status: string; createdAt: string };
@@ -394,6 +394,9 @@ function ScheduledEditor({ prospect, bubble, onClose, onSaved }: { prospect: Pro
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [moveDate, setMoveDate] = useState(bubble.date);
+  const [moveTime, setMoveTime] = useState("10:00");
 
   async function load() {
     setDraft(null);
@@ -450,11 +453,29 @@ function ScheduledEditor({ prospect, bubble, onClose, onSaved }: { prospect: Pro
           {draft?.ok && draft.kind !== "skip" ? (
             <button type="button" disabled={busy} onClick={() => act(() => setStepOverride(prospect.id, bubble.index, "skip"))} className="cursor-pointer rounded-lg border border-amber/40 px-3 py-1.5 text-xs font-semibold text-amber hover:bg-amber/10 disabled:opacity-50">Skip this step</button>
           ) : null}
+          {draft?.ok && draft.kind !== "skip" && !editing ? (
+            <button type="button" onClick={() => setMoving((v) => !v)} className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold ${moving ? "border-blue bg-sky text-blue" : "border-slate/20 text-slate hover:border-blue hover:text-blue"}`}>Reschedule</button>
+          ) : null}
           {kind === "custom" || kind === "skip" ? (
             <button type="button" disabled={busy} onClick={() => act(() => setStepOverride(prospect.id, bubble.index, "clear"))} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1.5 text-xs font-semibold text-slate hover:border-slate/40 disabled:opacity-50">Reset to auto</button>
           ) : null}
           <button type="button" onClick={onClose} className="ml-auto cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate hover:bg-sky">Close</button>
         </div>
+
+        {moving ? (
+          <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-sky-line bg-sky/20 p-3">
+            <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">New date</span><input type="date" className={panelInput} value={moveDate} onChange={(e) => setMoveDate(e.target.value)} /></label>
+            <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Time</span><input type="time" className={panelInput} value={moveTime} onChange={(e) => setMoveTime(e.target.value)} /></label>
+            <button
+              type="button"
+              disabled={busy || !moveDate}
+              onClick={() => act(() => rescheduleStep(prospect.id, bubble.index, new Date(`${moveDate}T${moveTime}`).toISOString()))}
+              className="cursor-pointer rounded-lg bg-blue px-3 py-2 text-xs font-semibold text-white hover:bg-blue-deep disabled:opacity-50"
+            >
+              Move it
+            </button>
+          </div>
+        ) : null}
       </div>
     </>
   );
