@@ -4,6 +4,8 @@ import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
 import { sendSms, sendClaimedMessage, canSendNow, nextSendTime } from "@/lib/twilio";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
+import { notifyAdmin } from "@/lib/notify-admin";
+import { env } from "@/lib/env";
 
 // Scheduled-send engine. Every future send is a `messages` row with
 // status='scheduled'; the dispatcher cron finds due rows and fans out one
@@ -335,4 +337,140 @@ export const fireReminder = inngest.createFunction(
   },
 );
 
-export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder];
+function twilioAuth(): string {
+  return "Basic " + Buffer.from(`${env.twilioAccountSid()}:${env.twilioAuthToken()}`).toString("base64");
+}
+
+// Release a company's Twilio numbers (subscription canceled). Fired by the
+// Stripe webhook; the webhook itself only enqueues (persist raw, ack fast).
+// Rows are kept with status='released' for the audit trail.
+export const releaseCompanyNumbers = inngest.createFunction(
+  { id: "release-company-numbers", triggers: [{ event: "company/numbers.release" }] },
+  async ({ event, step }) => {
+    const { company_id, reason } = event.data as { company_id: string; reason: string };
+    const admin = createAdminClient();
+
+    return await step.run("release", async () => {
+      const { data: rows } = await admin
+        .from("phone_numbers")
+        .select("id, e164, twilio_sid, status")
+        .eq("company_id", company_id)
+        .neq("status", "released");
+      if (!rows?.length) return { released: 0 };
+
+      const released: string[] = [];
+      for (const n of rows) {
+        if (n.twilio_sid) {
+          const sid = env.twilioAccountSid();
+          const resp = await fetch(
+            `https://api.twilio.com/2010-04-01/Accounts/${sid}/IncomingPhoneNumbers/${n.twilio_sid}.json`,
+            { method: "DELETE", headers: { Authorization: twilioAuth() } },
+          );
+          // 404 = already gone in Twilio; anything else non-2xx is a real failure.
+          if (!resp.ok && resp.status !== 404) {
+            await admin.from("failed_jobs").insert({
+              company_id,
+              job_type: "number_release",
+              payload: { e164: n.e164, twilio_sid: n.twilio_sid },
+              error: `Twilio ${resp.status}`,
+            });
+            continue;
+          }
+        }
+        await admin
+          .from("phone_numbers")
+          .update({ status: "released", released_at: new Date().toISOString() })
+          .eq("id", n.id);
+        await admin.from("events").insert({
+          company_id,
+          type: "number_released",
+          payload: { e164: n.e164, reason },
+        });
+        if (n.twilio_sid) released.push(n.e164 ?? n.twilio_sid);
+      }
+      if (released.length) {
+        await notifyAdmin("Twilio number released", [
+          `Company: ${company_id}`,
+          `Reason: ${reason}`,
+          `Numbers: ${released.join(", ")}`,
+          "Recurring Twilio cost stopped.",
+        ]);
+      }
+      return { released: released.length };
+    });
+  },
+);
+
+// Weekly reconciliation: compare Twilio's number list against our records so
+// no number quietly bills without an active company behind it. Also runnable
+// on demand via the admin/reconcile.requested event.
+export const numberReconciliation = inngest.createFunction(
+  { id: "number-reconciliation", triggers: [{ cron: "0 13 * * 1" }, { event: "admin/reconcile.requested" }] },
+  async ({ step }) => {
+    const admin = createAdminClient();
+
+    return await step.run("reconcile", async () => {
+      // Everything we are paying for in Twilio.
+      const sid = env.twilioAccountSid();
+      const twilioNumbers: string[] = [];
+      let url: string | null = `/2010-04-01/Accounts/${sid}/IncomingPhoneNumbers.json?PageSize=100`;
+      while (url) {
+        const resp: Response = await fetch(`https://api.twilio.com${url}`, { headers: { Authorization: twilioAuth() } });
+        if (!resp.ok) throw new Error(`Twilio list ${resp.status}`);
+        const json = (await resp.json()) as { incoming_phone_numbers?: Array<{ phone_number: string }>; next_page_uri?: string | null };
+        for (const n of json.incoming_phone_numbers ?? []) twilioNumbers.push(n.phone_number);
+        url = json.next_page_uri ?? null;
+      }
+
+      // Everything we think we own, with the owning company's standing.
+      const { data: rows } = await admin
+        .from("phone_numbers")
+        .select("e164, twilio_sid, status, company_id, companies(name, subscription_status, suspended_at)")
+        .neq("status", "released");
+      const live = rows ?? [];
+      const liveE164 = new Set(live.map((r) => r.e164).filter(Boolean));
+      const shared = new Set(
+        (process.env.TWILIO_SHARED_NUMBERS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+      );
+
+      // Twilio numbers nobody accounts for (still billing, no owner).
+      const orphans = twilioNumbers.filter((n) => !liveE164.has(n) && !shared.has(n));
+      // Our rows whose company canceled: release should have fired.
+      const shouldRelease = live
+        .filter((r) => {
+          const raw = r.companies as unknown;
+          const c = (Array.isArray(raw) ? raw[0] : raw) as { subscription_status: string | null } | null;
+          return !c || c.subscription_status === "canceled";
+        })
+        .map((r) => ({ e164: r.e164, company_id: r.company_id }));
+      // Rows claiming a real Twilio number that Twilio no longer lists.
+      const dangling = live
+        .filter((r) => r.twilio_sid && r.e164 && !twilioNumbers.includes(r.e164))
+        .map((r) => ({ e164: r.e164, company_id: r.company_id }));
+
+      const flags = orphans.length + shouldRelease.length + dangling.length;
+      await admin.from("events").insert({
+        company_id: null,
+        type: "admin.number_reconciliation",
+        payload: {
+          twilio_count: twilioNumbers.length,
+          tracked_count: live.length,
+          orphans,
+          should_release: shouldRelease,
+          dangling,
+        },
+      });
+      if (flags > 0) {
+        await notifyAdmin("Number reconciliation found issues", [
+          `Orphan Twilio numbers (billing, untracked): ${orphans.join(", ") || "none"}`,
+          `Tracked numbers on canceled companies: ${shouldRelease.map((r) => r.e164).join(", ") || "none"}`,
+          `Tracked numbers missing in Twilio: ${dangling.map((r) => r.e164).join(", ") || "none"}`,
+          "Details in the admin.number_reconciliation event.",
+        ]);
+      }
+      return { twilio: twilioNumbers.length, tracked: live.length, flags };
+    });
+  },
+);
+
+export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, releaseCompanyNumbers, numberReconciliation];

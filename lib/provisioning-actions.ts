@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { sendSms } from "@/lib/twilio";
 import { logAudit } from "@/lib/admin";
+import { notifyAdmin } from "@/lib/notify-admin";
 
 // Phase 3: pick-your-ReKnock-number. Search available local numbers in an
 // area code, one tap to claim. Claiming buys the number via Twilio and
@@ -66,10 +67,22 @@ export async function claimNumber(e164: string): Promise<ProvisionResult<{ e164:
 
   if (!/^\+1\d{10}$/.test(e164)) return { ok: false, error: "That number does not look right. Search again." };
 
+  // Paid-subscription gate: claiming requires a live paid subscription
+  // (trialing counts: the trial is card-charged $1 and the number is part of
+  // onboarding). past_due/canceled/suspended cannot spend money.
+  const { data: co } = await admin
+    .from("companies")
+    .select("name, subscription_status, suspended_at")
+    .eq("id", a.companyId!)
+    .maybeSingle();
+  const paid = co && !co.suspended_at && (co.subscription_status === "trialing" || co.subscription_status === "active");
+  if (!paid) return { ok: false, error: "Your subscription is not active, so we cannot set up a number. Check Billing in Settings." };
+
   const { data: existing } = await admin
     .from("phone_numbers")
     .select("id, e164")
     .eq("company_id", a.companyId!)
+    .neq("status", "released")
     .limit(1)
     .maybeSingle();
   if (existing) return { ok: false, error: `You already have a ReKnock number (${existing.e164 ?? "pending"}).` };
@@ -123,8 +136,22 @@ export async function claimNumber(e164: string): Promise<ProvisionResult<{ e164:
     tendlc_status: canBuy ? { state: "not_submitted" } : { state: "not_submitted", simulated: true },
   });
   if (insertErr) {
-    // Unique e164 across the platform: someone else grabbed it between search and claim.
-    if (insertErr.code === "23505") return { ok: false, error: "Someone just took that number. Pick another." };
+    // The DB is the real limit: unique e164 across the platform AND unique
+    // live number per company (both raceable at the app layer).
+    if (insertErr.code === "23505") {
+      const dup = insertErr.message.includes("phone_numbers_company_uq")
+        ? "You already have a ReKnock number."
+        : "Someone just took that number. Pick another.";
+      // If we already bought it from Twilio, that money is now unattached;
+      // flag it loudly instead of failing silently (weekly recon also catches it).
+      if (twilioSid) {
+        await notifyAdmin("Number purchase needs attention", [
+          `Bought ${e164} (sid ${twilioSid}) for company ${a.companyId} but the DB insert hit a duplicate.`,
+          "Release it in Twilio or attach it manually.",
+        ]);
+      }
+      return { ok: false, error: dup };
+    }
     return { ok: false, error: "Could not save your number. Try again." };
   }
 
@@ -133,6 +160,15 @@ export async function claimNumber(e164: string): Promise<ProvisionResult<{ e164:
     type: "number_claimed",
     payload: { e164, simulated: !canBuy },
   });
+  if (canBuy) {
+    // Money moved in Twilio: the founder always hears about it.
+    await notifyAdmin("Twilio number purchased", [
+      `Company: ${co?.name ?? a.companyId}`,
+      `Number: ${e164}`,
+      `Twilio SID: ${twilioSid}`,
+      "Recurring cost: about $1.15/mo until released.",
+    ]);
+  }
   if (a.impersonating) {
     await logAudit(a.client, {
       actorUserId: a.actorUserId,

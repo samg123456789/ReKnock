@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { getStripe, mapSubStatus } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { inngest } from "@/lib/inngest/client";
 
 // Stripe webhook. Invariant 6: verify signature, persist raw, ack fast. We
 // mirror subscription status onto companies (Stripe is the source of truth).
@@ -72,6 +73,22 @@ export async function POST(request: NextRequest) {
           .from("companies")
           .update({ subscription_status: status, stripe_subscription_id: sub.id })
           .eq("stripe_customer_id", customerId);
+
+        // Canceled = stop paying Twilio for their number. Enqueue only (ack
+        // fast); the release-company-numbers Inngest function does the work.
+        if (status === "canceled") {
+          const { data: canceledCo } = await admin
+            .from("companies")
+            .select("id")
+            .eq("stripe_customer_id", customerId)
+            .maybeSingle();
+          if (canceledCo) {
+            await inngest.send({
+              name: "company/numbers.release",
+              data: { company_id: canceledCo.id, reason: "subscription_canceled" },
+            });
+          }
+        }
         break;
       }
 
