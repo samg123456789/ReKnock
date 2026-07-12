@@ -41,9 +41,11 @@ export async function saveCompanyBasics(input: {
   trades: string[];
   website: string;
   description: string;
-  heard_about: string;
-  avg_quote_amount: string;
-  quotes_per_month: string;
+  // Optional: only written when present. Onboarding saves these on their own
+  // step (saveQuoteVolume); Settings still submits everything in one card.
+  heard_about?: string;
+  avg_quote_amount?: string;
+  quotes_per_month?: string;
 }): Promise<ActionResult> {
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Please enter your business name." };
@@ -56,22 +58,43 @@ export async function saveCompanyBasics(input: {
   if (!website && !description)
     return { ok: false, error: "Please add your website, or tell us what you do." };
 
+  const update: Record<string, unknown> = {
+    name,
+    trades,
+    trade: trades[0], // back-compat mirror
+    website: website || null,
+    description: description || null,
+  };
+  if (input.heard_about !== undefined) update.heard_about = input.heard_about.trim() || null;
+  if (input.avg_quote_amount !== undefined) {
+    const avg = input.avg_quote_amount.replace(/[^0-9.]/g, "");
+    update.avg_quote_amount = avg ? Number(avg) : null;
+  }
+  if (input.quotes_per_month !== undefined) {
+    const qpm = input.quotes_per_month.replace(/[^0-9]/g, "");
+    update.quotes_per_month = qpm ? Number(qpm) : null;
+  }
+
+  const { supabase, company } = await requireCompany();
+  const { error } = await supabase.from("companies").update(update).eq("id", company.id);
+  if (error) return { ok: false, error: "Could not save. Please try again." };
+  return { ok: true, data: undefined };
+}
+
+// Step 2: quote volume. Required; it tunes follow-up copy and the ROI math.
+export async function saveQuoteVolume(input: {
+  avg_quote_amount: string;
+  quotes_per_month: string;
+}): Promise<ActionResult> {
   const avg = input.avg_quote_amount.replace(/[^0-9.]/g, "");
   const qpm = input.quotes_per_month.replace(/[^0-9]/g, "");
+  if (!avg || !Number(avg)) return { ok: false, error: "Roughly how big is a typical quote?" };
+  if (!qpm || !Number(qpm)) return { ok: false, error: "About how many quotes do you send a month?" };
 
   const { supabase, company } = await requireCompany();
   const { error } = await supabase
     .from("companies")
-    .update({
-      name,
-      trades,
-      trade: trades[0], // back-compat mirror
-      website: website || null,
-      description: description || null,
-      heard_about: input.heard_about.trim() || null,
-      avg_quote_amount: avg ? Number(avg) : null,
-      quotes_per_month: qpm ? Number(qpm) : null,
-    })
+    .update({ avg_quote_amount: Number(avg), quotes_per_month: Number(qpm) })
     .eq("id", company.id);
   if (error) return { ok: false, error: "Could not save. Please try again." };
   return { ok: true, data: undefined };
@@ -162,7 +185,7 @@ export async function ocrTextSamples(images: InputImage[]): Promise<ActionResult
   }
 }
 
-// Step 3: generate the voice profile (does not persist — the contractor approves first).
+// Step 3: generate the voice profile (does not persist; the contractor approves first).
 export async function generateVoiceProfile(
   q: VoiceQuestionnaire,
 ): Promise<ActionResult<VoiceProfileResult>> {
@@ -251,8 +274,14 @@ export async function saveSchedule(
 }
 
 // Finish: seed the default 4-touch campaign (if none) and mark onboarding complete.
-export async function finishOnboarding(): Promise<void> {
+// heardAbout is the low-key optional question on the last screen.
+// TODO: optional "finish setting up" reminder email for accounts that stall mid-wizard.
+export async function finishOnboarding(heardAbout?: string): Promise<void> {
   const { supabase, company } = await requireCompany();
+
+  if (heardAbout?.trim()) {
+    await supabase.from("companies").update({ heard_about: heardAbout.trim() }).eq("id", company.id);
+  }
 
   const { data: existing } = await supabase
     .from("campaigns")

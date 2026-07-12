@@ -45,6 +45,20 @@ export default async function Onboarding() {
       ? [company.trade]
       : [];
 
+  // Resume where they left off, derived from what is already saved (no extra
+  // column needed). Steps: 0 business, 1 quotes, 2 voice questions, 3 voice
+  // review, 4 hours, 5 done. A saved voice profile means the review step was
+  // approved, and sending_windows rows only exist once the hours step saved.
+  const hasBasics = Boolean(company?.name && initialTrades.length > 0 && (company?.description || company?.website));
+  const hasQuotes = company?.avg_quote_amount != null && company?.quotes_per_month != null;
+  const hasVoice = Boolean(initialProfile);
+  const hasWindows = Boolean(windows && windows.length);
+  let initialStep = 0;
+  if (hasBasics) initialStep = 1;
+  if (hasBasics && hasQuotes) initialStep = 2;
+  if (hasBasics && hasQuotes && hasVoice) initialStep = 4;
+  if (hasBasics && hasQuotes && hasVoice && hasWindows) initialStep = 5;
+
   return (
     <main className="min-h-[70vh]">
       <OnboardingWizard
@@ -70,6 +84,7 @@ export default async function Onboarding() {
             : null
         }
         initialTimezone={company?.timezone ?? ""}
+        initialStep={initialStep}
       />
     </main>
   );

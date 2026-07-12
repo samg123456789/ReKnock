@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import type { InputImage } from "@/lib/ai";
 import TradePicker from "@/components/onboarding/TradePicker";
 import {
   saveCompanyBasics,
+  saveQuoteVolume,
   scrapeAndSummarize,
   ocrTextSamples,
   generateVoiceProfile,
@@ -25,6 +26,7 @@ type Basics = {
 type Window = { day_of_week: number; start_time: string; end_time: string; enabled: boolean };
 
 const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const US_MARKETS = [
   { tz: "America/New_York", label: "Eastern (New York)" },
   { tz: "America/Chicago", label: "Central (Chicago)" },
@@ -33,6 +35,14 @@ const US_MARKETS = [
   { tz: "America/Los_Angeles", label: "Pacific (Los Angeles)" },
   { tz: "America/Anchorage", label: "Alaska (Anchorage)" },
   { tz: "America/Honolulu", label: "Hawaii (Honolulu)" },
+];
+const HEARD_OPTIONS = [
+  "A friend or another contractor",
+  "Google search",
+  "Facebook or Instagram",
+  "YouTube",
+  "Podcast or radio",
+  "Somewhere else",
 ];
 
 function defaultWindows(): Window[] {
@@ -43,7 +53,7 @@ function defaultWindows(): Window[] {
   });
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
 const primaryBtn =
   "cursor-pointer rounded-xl bg-blue px-8 py-3.5 text-lg font-semibold text-white transition-colors hover:bg-blue-deep disabled:cursor-not-allowed disabled:opacity-60";
@@ -69,6 +79,7 @@ export default function OnboardingWizard({
   initialProfile,
   initialWindows,
   initialTimezone,
+  initialStep = 0,
 }: {
   initialBasics: Basics;
   initialTrades: string[];
@@ -76,8 +87,9 @@ export default function OnboardingWizard({
   initialProfile: VoiceProfileResult | null;
   initialWindows: Window[] | null;
   initialTimezone: string;
+  initialStep?: number;
 }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(Math.min(Math.max(initialStep, 0), TOTAL_STEPS - 1));
   const [error, setError] = useState<string | null>(null);
   const [finishing, startFinish] = useTransition();
 
@@ -116,6 +128,7 @@ export default function OnboardingWizard({
 
   const [windows, setWindows] = useState<Window[]>(initialWindows ?? defaultWindows());
   const [timezone, setTimezone] = useState(initialTimezone || "America/New_York");
+  const [copyFrom, setCopyFrom] = useState<number | null>(null); // day_of_week with the copy panel open
 
   useEffect(() => {
     if (!initialTimezone) {
@@ -167,13 +180,15 @@ export default function OnboardingWizard({
     setMasterPrompt(res.data.master_prompt);
   }
 
-  // Apply Monday's hours to a set of days so one change cascades.
-  function applyHours(scope: "all" | "weekdays") {
-    const src = windows[1]; // Monday
+  // Copy one day's hours onto a set of days. Copying also enables the target:
+  // if you copy hours onto Sunday you mean to text on Sunday.
+  function copyHours(srcDay: number, targetDays: number[]) {
+    const src = windows.find((w) => w.day_of_week === srcDay);
+    if (!src) return;
     setWindows(
       windows.map((w) =>
-        scope === "all" || (w.day_of_week >= 1 && w.day_of_week <= 5)
-          ? { ...w, start_time: src.start_time, end_time: src.end_time }
+        targetDays.includes(w.day_of_week) && w.day_of_week !== srcDay
+          ? { ...w, start_time: src.start_time, end_time: src.end_time, enabled: true }
           : w,
       ),
     );
@@ -197,13 +212,22 @@ export default function OnboardingWizard({
     if (!noWebsite && !basics.website.trim() && !basics.description.trim())
       return setError("Add your website, or tap 'I don't have a website' and tell us what you do.");
     if (!basics.description.trim()) return setError("Tell us what you do in a sentence.");
-    persist(saveCompanyBasics({ ...basics, trades }));
+    persist(saveCompanyBasics({ name: basics.name, website: basics.website, description: basics.description, trades }));
     goTo(1);
+  }
+
+  function submitQuotes() {
+    const avg = basics.avg_quote_amount.replace(/[^0-9.]/g, "");
+    const qpm = basics.quotes_per_month.replace(/[^0-9]/g, "");
+    if (!avg || !Number(avg)) return setError("Roughly how big is a typical quote? A ballpark is fine.");
+    if (!qpm || !Number(qpm)) return setError("About how many quotes do you send a month? A guess is fine.");
+    persist(saveQuoteVolume({ avg_quote_amount: basics.avg_quote_amount, quotes_per_month: basics.quotes_per_month }));
+    goTo(2);
   }
 
   function submitSchedule() {
     persist(saveSchedule(windows, timezone));
-    goTo(4);
+    goTo(5);
   }
 
   async function onScreenshots(files: FileList | null) {
@@ -237,15 +261,18 @@ export default function OnboardingWizard({
     if (tag === "TEXTAREA") return;
     e.preventDefault();
     if (step === 0) submitBasics();
-    else if (step === 1) {
+    else if (step === 1) submitQuotes();
+    else if (step === 2) {
       setProfile(null);
       runGenerate();
-      goTo(2);
-    } else if (step === 3) submitSchedule();
+      goTo(3);
+    } else if (step === 4) submitSchedule();
   }
 
   const setSample = (i: number, v: string) =>
     setQ({ ...q, samples: q.samples.map((s, j) => (j === i ? v : s)) });
+
+  const heardInOptions = !basics.heard_about || HEARD_OPTIONS.includes(basics.heard_about);
 
   return (
     <div className="mx-auto max-w-lg px-5 py-12" onKeyDown={onKeyDown}>
@@ -301,24 +328,6 @@ export default function OnboardingWizard({
               <span className="text-sm font-semibold text-slate">Tell us what you do</span>
               <textarea className={input} rows={2} value={basics.description} onChange={(e) => setBasics({ ...basics, description: e.target.value })} placeholder="Residential roof repair and replacement across the Denver metro." />
             </label>
-
-            <details className="rounded-xl border border-slate/20 p-4">
-              <summary className="cursor-pointer text-sm font-semibold text-slate">A couple quick things (optional) that help us tune your follow-ups</summary>
-              <div className="mt-3 flex flex-col gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm text-slate">Typical quote size</span>
-                  <input className={input} inputMode="decimal" value={basics.avg_quote_amount} onChange={(e) => setBasics({ ...basics, avg_quote_amount: e.target.value })} placeholder="$8,500" />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm text-slate">Quotes per month, roughly</span>
-                  <input className={input} inputMode="numeric" value={basics.quotes_per_month} onChange={(e) => setBasics({ ...basics, quotes_per_month: e.target.value })} placeholder="20" />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm text-slate">How did you hear about us?</span>
-                  <input className={input} value={basics.heard_about} onChange={(e) => setBasics({ ...basics, heard_about: e.target.value })} placeholder="A friend, Facebook, Google..." />
-                </label>
-              </div>
-            </details>
           </div>
           <div className="mt-8 flex justify-end">
             <button className={primaryBtn} onClick={submitBasics}>Continue</button>
@@ -326,8 +335,31 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 2: voice */}
+      {/* Step 2: quote volume */}
       {step === 1 && (
+        <div>
+          <p className="eyebrow mb-3">Your quotes</p>
+          <h1 className="display text-3xl md:text-4xl">What do your quotes look like?</h1>
+          <p className="mt-3 text-slate">Ballpark is fine. This tunes how we write your follow-ups and shows you what ReKnock brings back.</p>
+          <div className="mt-6 flex flex-col gap-4">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-slate">Typical quote size</span>
+              <input className={input} inputMode="decimal" value={basics.avg_quote_amount} onChange={(e) => setBasics({ ...basics, avg_quote_amount: e.target.value })} placeholder="$8,500" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-slate">Quotes you send in a typical month</span>
+              <input className={input} inputMode="numeric" value={basics.quotes_per_month} onChange={(e) => setBasics({ ...basics, quotes_per_month: e.target.value })} placeholder="20" />
+            </label>
+          </div>
+          <div className="mt-8 flex items-center justify-between">
+            <button className={ghostBtn} onClick={() => goTo(0)}>Back</button>
+            <button className={primaryBtn} onClick={submitQuotes}>Continue</button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: voice */}
+      {step === 2 && (
         <div>
           <p className="eyebrow mb-3">Your voice</p>
           <h1 className="display text-3xl md:text-4xl">How do you text customers?</h1>
@@ -403,13 +435,13 @@ export default function OnboardingWizard({
             </label>
           </div>
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(0)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(1)}>Back</button>
             <button
               className={primaryBtn}
               onClick={() => {
                 setProfile(null);
                 runGenerate();
-                goTo(2);
+                goTo(3);
               }}
             >
               Build my voice
@@ -418,8 +450,8 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 3: voice review */}
-      {step === 2 && (
+      {/* Step 4: voice review - the reveal */}
+      {step === 3 && (
         <div>
           <p className="eyebrow mb-3">Your voice</p>
           <h1 className="display text-3xl md:text-4xl">Here&apos;s how we&apos;ll sound.</h1>
@@ -434,39 +466,68 @@ export default function OnboardingWizard({
             </div>
           ) : profile ? (
             <>
-              <p className="mt-3 text-slate">Three follow-ups in your voice. Change anything later in Settings.</p>
+              <p className="mt-3 text-slate">Three real follow-ups, written the way you text. Homeowners see these from your number.</p>
+
+              {/* Phone-style reveal, same visual language as the landing page thread */}
+              <div className="card mx-auto mt-6 w-full max-w-sm p-4">
+                <div className="mb-3 flex items-center justify-between px-1">
+                  <p className="truncate text-xs font-medium text-mist">{basics.name.trim() || "Your company"} &middot; follow-ups</p>
+                  <span className="shrink-0 rounded-full bg-sky px-2.5 py-1 text-[10px] font-semibold tracking-wide text-blue">
+                    YOUR VOICE
+                  </span>
+                </div>
+                <div key={`draft-${draftIdx}`} className="flex flex-col gap-1.5">
+                  {profile.samples.map((s, i) => (
+                    <Fragment key={i}>
+                      <div
+                        className="bubble max-w-[85%] self-end px-4 py-2.5 text-[15px] leading-[1.4] text-white"
+                        style={{
+                          background: "linear-gradient(180deg, #2E9BFF 0%, #0A7CFF 100%)",
+                          borderRadius: "18px 18px 5px 18px",
+                          animationDelay: `${0.15 + i * 0.55}s`,
+                        }}
+                      >
+                        {s}
+                      </div>
+                      <p className="bubble self-end pr-1 text-[11px] font-medium text-mist" style={{ animationDelay: `${0.35 + i * 0.55}s` }}>
+                        Follow-up {i + 1} &middot; sent by ReKnock
+                      </p>
+                    </Fragment>
+                  ))}
+                </div>
+              </div>
+
               {drafts.length > 1 && (
-                <div className="mt-3 flex items-center gap-3 text-sm">
-                  <button type="button" className="cursor-pointer rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-30" disabled={draftIdx <= 0} onClick={() => showDraft(draftIdx - 1)}>←</button>
+                <div className="mt-4 flex items-center justify-center gap-3 text-sm">
+                  <button type="button" className="cursor-pointer rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-30" disabled={draftIdx <= 0} onClick={() => showDraft(draftIdx - 1)} aria-label="Previous version">&larr;</button>
                   <span className="text-mist">Version {draftIdx + 1} of {drafts.length}</span>
-                  <button type="button" className="cursor-pointer rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-30" disabled={draftIdx >= drafts.length - 1} onClick={() => showDraft(draftIdx + 1)}>→</button>
+                  <button type="button" className="cursor-pointer rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-30" disabled={draftIdx >= drafts.length - 1} onClick={() => showDraft(draftIdx + 1)} aria-label="Next version">&rarr;</button>
                 </div>
               )}
-              <div className="mt-5 flex flex-col gap-3">
-                {profile.samples.map((s, i) => (
-                  <div key={i} className="max-w-[90%] self-start rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{s}</div>
-                ))}
-              </div>
-              <details className="mt-6 rounded-xl border border-slate/20 p-4">
-                <summary className="cursor-pointer text-sm font-semibold text-slate">Fine-tune the details</summary>
-                <textarea className={`${input} mt-3`} rows={8} value={masterPrompt} onChange={(e) => setMasterPrompt(e.target.value)} />
-                <p className="mt-2 text-xs text-mist">This is the guide we follow when writing your texts. Edit anything that isn&apos;t you.</p>
-              </details>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex gap-2">
-                  <button className={ghostBtn} onClick={() => goTo(1)}>Adjust answers</button>
-                  <button className={ghostBtn} disabled={genPending} onClick={runGenerate}>{genPending ? "..." : "Regenerate"}</button>
-                </div>
+
+              <div className="mt-8 flex flex-col gap-3">
                 <button
                   className={primaryBtn}
                   onClick={() => {
                     persist(saveVoiceProfile({ questionnaire: q, masterPrompt, samples: profile.samples }));
-                    goTo(3);
+                    goTo(4);
                   }}
                 >
                   Sounds like me
                 </button>
+                <div className="flex items-center justify-center gap-2">
+                  <button className={ghostBtn} onClick={() => goTo(2)}>Adjust answers</button>
+                  <button className={ghostBtn} disabled={genPending} onClick={runGenerate}>{genPending ? "Writing..." : "Try another take"}</button>
+                </div>
               </div>
+
+              <details className="mt-6">
+                <summary className="cursor-pointer text-center text-sm text-mist underline decoration-dotted underline-offset-4 hover:text-slate">
+                  Fine-tune the details
+                </summary>
+                <textarea className={`${input} mt-3`} rows={8} value={masterPrompt} onChange={(e) => setMasterPrompt(e.target.value)} />
+                <p className="mt-2 text-xs text-mist">This is the guide we follow when writing your texts. Edit anything that isn&apos;t you.</p>
+              </details>
             </>
           ) : (
             <div className="mt-6">
@@ -476,8 +537,8 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 4: schedule + market */}
-      {step === 3 && (
+      {/* Step 5: schedule + market */}
+      {step === 4 && (
         <div>
           <p className="eyebrow mb-3">When we text</p>
           <h1 className="display text-3xl md:text-4xl">Your sending hours.</h1>
@@ -490,36 +551,62 @@ export default function OnboardingWizard({
               ))}
             </select>
           </label>
-          <div className="mt-4 flex flex-wrap gap-2 text-sm">
-            <button type="button" className="cursor-pointer rounded-full border border-sky-line px-3 py-1 font-semibold text-blue hover:bg-sky" onClick={() => applyHours("weekdays")}>
-              Use Monday&apos;s hours for all weekdays
-            </button>
-            <button type="button" className="cursor-pointer rounded-full border border-sky-line px-3 py-1 font-semibold text-blue hover:bg-sky" onClick={() => applyHours("all")}>
-              Use for every day
-            </button>
-          </div>
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-4 flex flex-col gap-2">
             {windows.map((w, i) => (
-              <div key={w.day_of_week} className="flex items-center gap-3 rounded-xl border border-slate/20 px-3 py-2.5">
-                <label className="flex w-28 items-center gap-2">
-                  <input type="checkbox" checked={w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x)))} />
-                  <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
-                </label>
-                <input type="time" className="rounded-lg border border-slate/20 px-2 py-1.5 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
-                <span className="text-mist">to</span>
-                <input type="time" className="rounded-lg border border-slate/20 px-2 py-1.5 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
+              <div key={w.day_of_week}>
+                <div className="flex items-center gap-3 rounded-xl border border-slate/20 px-3 py-2.5">
+                  <label className="flex w-24 items-center gap-2 sm:w-28">
+                    <input type="checkbox" checked={w.enabled} onChange={(e) => { setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x))); if (!e.target.checked && copyFrom === w.day_of_week) setCopyFrom(null); }} />
+                    <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
+                  </label>
+                  <input type="time" className="min-w-0 rounded-lg border border-slate/20 px-2 py-1.5 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
+                  <span className="text-mist">to</span>
+                  <input type="time" className="min-w-0 rounded-lg border border-slate/20 px-2 py-1.5 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
+                  {w.enabled ? (
+                    <button
+                      type="button"
+                      className={`ml-auto shrink-0 cursor-pointer rounded-lg px-2 py-1 text-xs font-semibold ${copyFrom === w.day_of_week ? "bg-blue text-white" : "text-blue hover:bg-sky"}`}
+                      aria-expanded={copyFrom === w.day_of_week}
+                      onClick={() => setCopyFrom(copyFrom === w.day_of_week ? null : w.day_of_week)}
+                    >
+                      Copy to...
+                    </button>
+                  ) : null}
+                </div>
+                {copyFrom === w.day_of_week ? (
+                  <div className="mt-1 rounded-xl bg-sky/60 px-3 py-2.5">
+                    <p className="text-xs font-semibold text-slate">Copy {DAY_LABELS[w.day_of_week]}&apos;s hours to:</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <button type="button" className="cursor-pointer rounded-full border border-sky-line bg-white px-3 py-1.5 text-xs font-semibold text-blue hover:border-blue" onClick={() => copyHours(w.day_of_week, [1, 2, 3, 4, 5])}>
+                        Weekdays
+                      </button>
+                      <button type="button" className="cursor-pointer rounded-full border border-sky-line bg-white px-3 py-1.5 text-xs font-semibold text-blue hover:border-blue" onClick={() => copyHours(w.day_of_week, [0, 1, 2, 3, 4, 5, 6])}>
+                        Every day
+                      </button>
+                      <span aria-hidden className="mx-0.5 h-4 w-px bg-sky-line" />
+                      {windows.filter((x) => x.day_of_week !== w.day_of_week).map((x) => (
+                        <button key={x.day_of_week} type="button" className="cursor-pointer rounded-full border border-sky-line bg-white px-2.5 py-1.5 text-xs font-semibold text-slate hover:border-blue hover:text-blue" onClick={() => copyHours(w.day_of_week, [x.day_of_week])}>
+                          {DAY_SHORT[x.day_of_week]}
+                        </button>
+                      ))}
+                      <button type="button" className="ml-auto cursor-pointer px-2 py-1.5 text-xs font-semibold text-mist hover:text-ink" onClick={() => setCopyFrom(null)}>
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(2)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(3)}>Back</button>
             <button className={primaryBtn} onClick={submitSchedule}>Continue</button>
           </div>
         </div>
       )}
 
-      {/* Step 5: done */}
-      {step === 4 && (
+      {/* Step 6: done */}
+      {step === 5 && (
         <div>
           <p className="eyebrow mb-3">You&apos;re set up</p>
           <h1 className="display text-3xl md:text-4xl">Your voice is ready.</h1>
@@ -530,8 +617,18 @@ export default function OnboardingWizard({
               Ask every lead: &quot;What&apos;s the best number to text your quote to?&quot; A number you can text is a lead ReKnock can chase.
             </p>
           </div>
+          <label className="mt-6 flex flex-col gap-1">
+            <span className="text-sm text-mist">How did you hear about us? <span>(optional)</span></span>
+            <select className={input} value={basics.heard_about} onChange={(e) => setBasics({ ...basics, heard_about: e.target.value })}>
+              <option value="">Pick one if you like</option>
+              {!heardInOptions ? <option value={basics.heard_about}>{basics.heard_about}</option> : null}
+              {HEARD_OPTIONS.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </label>
           <div className="mt-8 flex justify-end">
-            <button className={primaryBtn} disabled={finishing} onClick={() => startFinish(() => finishOnboarding())}>
+            <button className={primaryBtn} disabled={finishing} onClick={() => startFinish(() => finishOnboarding(basics.heard_about))}>
               {finishing ? "Setting up your dashboard..." : "Add my first quote"}
             </button>
           </div>
