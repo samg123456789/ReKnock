@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/Logo";
+import NotificationsBell from "@/components/app/NotificationsBell";
 import { createClient } from "@/lib/supabase/client";
 import { signOut } from "@/lib/supabase/auth-actions";
 import { createBillingPortalSession } from "@/lib/billing-actions";
@@ -58,6 +59,8 @@ export default function AppHeader() {
           </div>
         ) : null}
 
+        <div className="flex items-center gap-1.5">
+        {!inAdmin && me ? <NotificationsBell /> : null}
         <div className="relative">
           <button
             type="button"
@@ -107,6 +110,7 @@ export default function AppHeader() {
               </div>
             </>
           ) : null}
+        </div>
         </div>
       </nav>
     </header>
