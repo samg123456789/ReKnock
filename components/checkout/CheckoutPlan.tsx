@@ -4,14 +4,14 @@ import { useState } from "react";
 import { createCheckoutSession } from "@/lib/billing-actions";
 import { PRICING } from "@/lib/stripe";
 
-// TODO(founder): swap in supplied Starter bullets
-const starterFeatures = [
-  "Unlimited quotes & follow-up sequences",
-  "1 dedicated local texting number",
-  "Pick your tone: friendly, professional, or straight-shooter",
-  "Instant reply alerts + text relay to your phone",
-  "Email, text-in, and 10-second manual intake",
-  "Monthly closed-jobs report",
+// Founder-supplied Starter copy (2026-07-12).
+const starterFeatures: { lead: string; rest: string }[] = [
+  { lead: "Never chase a quote again.", rest: " Unlimited follow-up sequences, sent for you" },
+  { lead: "Sounds like you, not a robot.", rest: " AI learns your voice from your real texts" },
+  { lead: "Your own local number", rest: " homeowners recognize and reply to" },
+  { lead: "Reply = you take over.", rest: " Follow-ups stop instantly, pinged straight to your phone" },
+  { lead: "10-second intake.", rest: " Forward the email, snap a photo, done" },
+  { lead: "See the money.", rest: " Quotes chased, jobs won, revenue recovered" },
 ];
 const growthFeatures = [
   "Everything in Starter",
@@ -106,9 +106,9 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
 
         <ul className="mt-6 flex-1 space-y-3">
           {starterFeatures.map((f) => (
-            <li key={f} className="flex gap-2.5 text-[15px] leading-snug text-slate">
+            <li key={f.lead} className="flex gap-2.5 text-[15px] leading-snug text-slate">
               <span aria-hidden className="mt-0.5 font-bold text-mint">✓</span>
-              {f}
+              <span><strong className="font-semibold text-ink">{f.lead}</strong>{f.rest}</span>
             </li>
           ))}
         </ul>
