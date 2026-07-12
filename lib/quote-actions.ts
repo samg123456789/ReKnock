@@ -7,7 +7,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/admin";
 import { generateText, generateFromMedia, parseJson, AI_MODEL, type MediaInput } from "@/lib/ai";
 import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES } from "@/lib/quote-limits";
-import { inngest } from "@/lib/inngest/client";
+import { scheduleSequence } from "@/lib/enrollment";
+import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import {
   buildQuoteExtractorPrompt,
   QUOTE_EXTRACTOR_PROMPT_VERSION,
@@ -197,25 +198,27 @@ export async function createQuote(input: {
     : [];
   const avgConf = conf.length ? conf.reduce((a, b) => a + b, 0) / conf.length : null;
 
-  // Enroll into the sequence engine. Off production runs in test mode (day
-  // offsets compressed to minutes). Never fail the quote if enqueue hiccups.
-  const enroll = inngest
-    .send({
-      name: "prospect/enrolled",
-      data: {
-        company_id: company.id,
-        prospect_id: prospect.id,
-        test_mode: process.env.VERCEL_ENV !== "production",
-      },
-    })
-    .catch(() =>
-      supabase.from("failed_jobs").insert({
-        company_id: company.id,
-        job_type: "sequence_enroll",
-        payload: { prospect_id: prospect.id },
-        error: "inngest.send failed",
-      }),
-    );
+  // Enroll: write the scheduled `messages` rows the dispatcher will fire.
+  // Off production runs in test mode (day offsets compressed to minutes).
+  // Never fail the quote if scheduling hiccups.
+  const steps = ((campaign?.steps as CampaignStep[] | null) ?? []).length
+    ? (campaign!.steps as CampaignStep[])
+    : DEFAULT_CAMPAIGN_STEPS;
+  const base = new Date(`${quoteDate}T12:00:00Z`);
+  const enroll = scheduleSequence({
+    companyId: company.id,
+    prospectId: prospect.id,
+    steps,
+    baseDate: base,
+    testMode: process.env.VERCEL_ENV !== "production",
+  }).catch(() =>
+    supabase.from("failed_jobs").insert({
+      company_id: company.id,
+      job_type: "sequence_enroll",
+      payload: { prospect_id: prospect.id },
+      error: "scheduleSequence failed",
+    }),
+  );
 
   await Promise.all([
     // Persist the uploaded source file(s) as quote rows, linked to the
@@ -249,18 +252,16 @@ export async function createQuote(input: {
       : Promise.resolve(),
   ]);
 
-  const base = new Date(`${quoteDate}T12:00:00`);
-  const steps = (campaign?.steps as { day_offset: number }[] | null) ?? [
-    { day_offset: 2 },
-    { day_offset: 5 },
-    { day_offset: 10 },
-    { day_offset: 20 },
-  ];
-  const touches: ScheduledTouch[] = steps.map((s, i) => {
-    const d = new Date(base);
-    d.setDate(d.getDate() + s.day_offset);
-    return { step: i + 1, dayOffset: s.day_offset, date: d.toISOString().slice(0, 10) };
-  });
+  // Preview always shows the real-world cadence (days), even though dev test
+  // mode compresses the actual scheduled rows to minutes.
+  const touches: ScheduledTouch[] = steps
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => s.enabled !== false)
+    .map(({ s, i }) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + (s.day_offset ?? 0));
+      return { step: i + 1, dayOffset: s.day_offset ?? 0, date: d.toISOString().slice(0, 10) };
+    });
 
   return { ok: true, data: { prospectId: prospect.id, firstName, touches } };
 }

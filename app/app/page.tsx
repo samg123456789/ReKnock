@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getActingCompany } from "@/lib/acting-company";
 import DashboardTable, { type ProspectRow } from "@/components/app/DashboardTable";
 import EducationCards from "@/components/app/EducationCards";
-import { DEFAULT_STEPS, nextTouch, type Step } from "@/lib/schedule";
+import NumberPicker from "@/components/app/NumberPicker";
 
 export default async function AppHome() {
   const acting = await getActingCompany();
@@ -12,7 +12,7 @@ export default async function AppHome() {
   const sb = acting.client;
 
   // Independent queries run in parallel.
-  const [{ data: company }, { data: prospects }, { data: messages }, { data: campaigns }, { data: phone }, { data: owner }] =
+  const [{ data: company }, { data: prospects }, { data: messages }, { data: phone }, { data: owner }] =
     cid
       ? await Promise.all([
           sb.from("companies").select("name, forwarding_slug").eq("id", cid).maybeSingle(),
@@ -23,43 +23,38 @@ export default async function AppHome() {
             .order("created_at", { ascending: false }),
           sb
             .from("messages")
-            .select("prospect_id, direction, sequence_step, created_at")
+            .select("prospect_id, direction, status, kind, scheduled_for, created_at")
             .eq("company_id", cid)
             .limit(5000),
-          sb.from("campaigns").select("id, steps").eq("company_id", cid),
           sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
           sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
         ])
-      : [{ data: null }, { data: [] }, { data: [] }, { data: [] }, { data: null }, { data: null }];
+      : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: null }];
 
   const numberLive = phone?.status === "active";
   const hasQuotes = (prospects?.length ?? 0) > 0;
 
-  // Per-prospect: last activity + which steps already sent (0-based indices).
+  // Per-prospect: last activity (sent/received only) + the next scheduled
+  // send, straight from the engine's scheduled rows (source of truth).
   const lastAct = new Map<string, string>();
-  const sentByProspect = new Map<string, Set<number>>();
+  const nextSend = new Map<string, string>();
   for (const m of messages ?? []) {
     if (!m.prospect_id) continue;
+    if (m.status === "scheduled") {
+      const cur = nextSend.get(m.prospect_id);
+      const when = m.scheduled_for ?? m.created_at;
+      if (!cur || when < cur) nextSend.set(m.prospect_id, when);
+      continue;
+    }
+    if (m.status === "canceled") continue;
     const prev = lastAct.get(m.prospect_id);
     if (!prev || m.created_at > prev) lastAct.set(m.prospect_id, m.created_at);
-    if (m.direction === "outbound" && m.sequence_step != null) {
-      const set = sentByProspect.get(m.prospect_id) ?? new Set<number>();
-      set.add(m.sequence_step as number);
-      sentByProspect.set(m.prospect_id, set);
-    }
-  }
-  const stepsById = new Map<string, Step[]>();
-  for (const c of campaigns ?? []) {
-    const cs = c.steps as Step[] | null;
-    if (Array.isArray(cs) && cs.length) stepsById.set(c.id, cs);
   }
 
   const rows: ProspectRow[] = (prospects ?? []).map((p) => {
     let next: string | null = null;
-    if (p.status === "sequencing") {
-      const steps = (p.campaign_id && stepsById.get(p.campaign_id)) || DEFAULT_STEPS;
-      const base = p.quote_date ? new Date(`${p.quote_date}T12:00:00Z`) : new Date(p.created_at);
-      next = nextTouch(base, steps, sentByProspect.get(p.id) ?? new Set())?.date ?? null;
+    if (p.status === "sequencing" || p.status === "paused") {
+      next = nextSend.get(p.id)?.slice(0, 10) ?? null;
     }
     return {
       id: p.id,
@@ -84,9 +79,14 @@ export default async function AppHome() {
           <span className="text-mint">✓</span> Your voice is ready
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-line px-3 py-1 text-slate">
-          {numberLive ? <><span className="text-mint">✓</span> Number live</> : <>Texting number activating</>}
+          {numberLive ? <><span className="text-mint">✓</span> Number live</> : phone ? <>Texting number activating</> : <>Pick your number below</>}
         </span>
       </div>
+
+      <NumberPicker
+        phone={phone ? { e164: phone.e164, status: phone.status ?? "" } : null}
+        defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
+      />
 
       {!hasQuotes ? (
         <div className="card mt-8 border-blue p-7 text-center shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)]">

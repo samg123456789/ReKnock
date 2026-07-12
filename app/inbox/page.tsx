@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
-import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ProspectDetail } from "@/components/inbox/InboxClient";
-import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
+import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ReminderItem, type ProspectDetail } from "@/components/inbox/InboxClient";
 
 export const metadata: Metadata = { title: "Inbox - ReKnock" };
 
@@ -13,10 +12,10 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
   const sb = acting.client;
   const { p: selectedId } = await searchParams;
 
-  if (!cid) return <InboxClient conversations={[]} selectedId={null} thread={[]} scheduled={[]} prospect={null} />;
+  if (!cid) return <InboxClient conversations={[]} selectedId={null} thread={[]} scheduled={[]} reminders={[]} prospect={null} />;
 
   // Independent queries run in parallel (was 2 serial round-trips).
-  const [{ data: prospects }, { data: messages }] = await Promise.all([
+  const [{ data: prospects }, { data: allMessages }] = await Promise.all([
     sb
       .from("prospects")
       .select("id, first_name, last_name, job_type, status, phone_e164, email, address, quote_amount, quote_date, source, campaign_id, notes, created_at")
@@ -24,11 +23,17 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       .order("created_at", { ascending: false }),
     sb
       .from("messages")
-      .select("prospect_id, body, direction, status, sequence_step, created_at")
+      .select("prospect_id, body, direction, status, kind, sequence_step, scheduled_for, created_at")
       .eq("company_id", cid)
       .order("created_at", { ascending: true })
       .limit(2000),
   ]);
+
+  // The homeowner-facing thread: hide future/canceled rows (they render as
+  // scheduled bubbles instead) and pings sent to the contractor's own cell.
+  const messages = (allMessages ?? []).filter(
+    (m) => m.status !== "scheduled" && m.status !== "canceled" && m.kind !== "owner_ping",
+  );
 
   // Latest message + inbound-last flag per prospect.
   const latest = new Map<string, { body: string; created_at: string; direction: string }>();
@@ -56,6 +61,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
 
   let thread: ThreadMessage[] = [];
   let scheduled: ScheduledBubble[] = [];
+  let reminders: ReminderItem[] = [];
   let prospect: ProspectDetail | null = null;
 
   if (selected) {
@@ -79,28 +85,27 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       notes: selected.notes ?? null,
     };
 
-    if (selected.status === "sequencing") {
-      const sentSteps = new Set(
-        (messages ?? [])
-          .filter((m) => m.prospect_id === selected.id && m.direction === "outbound" && m.sequence_step != null)
-          .map((m) => m.sequence_step as number),
-      );
-      let steps: CampaignStep[] = DEFAULT_CAMPAIGN_STEPS;
-      if (selected.campaign_id) {
-        const { data: c } = await sb.from("campaigns").select("steps").eq("id", selected.campaign_id).maybeSingle();
-        const cs = c?.steps as CampaignStep[] | null;
-        if (Array.isArray(cs) && cs.length) steps = cs;
-      }
-      const base = selected.quote_date ? new Date(`${selected.quote_date}T12:00:00Z`) : new Date(selected.created_at);
-      scheduled = steps
-        .map((s, i) => {
-          const d = new Date(base);
-          d.setDate(d.getDate() + (s.day_offset ?? 0));
-          return { step: i + 1, index: i, date: d.toISOString().slice(0, 10), enabled: s.enabled !== false };
-        })
-        .filter((b) => !sentSteps.has(b.index) && b.enabled);
+    // Upcoming touches come straight from the scheduled `messages` rows (the
+    // engine's source of truth), so Pause/Resume/freeze always match reality.
+    if (selected.status === "sequencing" || selected.status === "paused") {
+      scheduled = (allMessages ?? [])
+        .filter((m) => m.prospect_id === selected.id && m.status === "scheduled" && m.kind === "sequence" && m.sequence_step != null)
+        .sort((a, b) => (a.scheduled_for ?? "") < (b.scheduled_for ?? "") ? -1 : 1)
+        .map((m) => ({
+          step: (m.sequence_step as number) + 1,
+          index: m.sequence_step as number,
+          date: (m.scheduled_for ?? m.created_at).slice(0, 10),
+        }));
     }
+
+    const { data: rems } = await sb
+      .from("reminders")
+      .select("id, remind_at, mode, note")
+      .eq("prospect_id", selected.id)
+      .eq("status", "pending")
+      .order("remind_at", { ascending: true });
+    reminders = (rems ?? []).map((r) => ({ id: r.id, remindAt: r.remind_at, mode: r.mode as "remind_me" | "auto_send", note: r.note }));
   }
 
-  return <InboxClient conversations={conversations} selectedId={selectedId ?? null} thread={thread} scheduled={scheduled} prospect={prospect} />;
+  return <InboxClient conversations={conversations} selectedId={selectedId ?? null} thread={thread} scheduled={scheduled} reminders={reminders} prospect={prospect} />;
 }

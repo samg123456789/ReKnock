@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendManualMessage, setProspectStatus, updateProspect, getScheduledDraft, setStepOverride, type DraftResult } from "@/lib/inbox-actions";
+import { sendManualMessage, setProspectStatus, updateProspect, getScheduledDraft, setStepOverride, createReminder, cancelReminder, type DraftResult } from "@/lib/inbox-actions";
 
 export type Conversation = { id: string; name: string; jobType: string; status: string; snippet: string; time: string; needsAttention: boolean };
 export type ThreadMessage = { body: string; direction: "inbound" | "outbound"; status: string; createdAt: string };
 export type ScheduledBubble = { step: number; index: number; date: string; enabled?: boolean };
+export type ReminderItem = { id: string; remindAt: string; mode: "remind_me" | "auto_send"; note: string | null };
 export type ProspectDetail = {
   id: string; name: string; firstName: string; lastName: string; jobType: string | null; status: string;
   phone: string | null; email: string | null; address: string | null;
@@ -38,12 +39,14 @@ export default function InboxClient({
   selectedId,
   thread,
   scheduled,
+  reminders,
   prospect,
 }: {
   conversations: Conversation[];
   selectedId: string | null;
   thread: ThreadMessage[];
   scheduled: ScheduledBubble[];
+  reminders: ReminderItem[];
   prospect: ProspectDetail | null;
 }) {
   const router = useRouter();
@@ -61,6 +64,7 @@ export default function InboxClient({
   const shownStatus = optimisticStatus ?? prospect?.status;
   const [showDetails, setShowDetails] = useState(false);
   const [editStep, setEditStep] = useState<ScheduledBubble | null>(null);
+  const [showReminder, setShowReminder] = useState(false);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -157,6 +161,9 @@ export default function InboxClient({
                 ) : (
                   <button type="button" disabled={statusPending} onClick={() => changeStatus("paused")} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-slate/40 disabled:cursor-not-allowed">Pause</button>
                 )}
+                <button type="button" onClick={() => setShowReminder(true)} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-blue hover:text-blue">
+                  Circle back later
+                </button>
                 <button type="button" onClick={() => setShowDetails((v) => !v)} className={`ml-auto cursor-pointer rounded-lg border px-3 py-1 text-xs font-semibold ${showDetails ? "border-blue bg-sky text-blue" : "border-slate/20 text-slate hover:border-slate/40"}`}>
                   {showDetails ? "Hide details" : "Details"}
                 </button>
@@ -197,7 +204,25 @@ export default function InboxClient({
                   </button>
                 </div>
               ))}
-              {thread.length === 0 && scheduled.length === 0 ? <p className="text-center text-sm text-mist">No messages yet.</p> : null}
+              {reminders.map((r) => (
+                <div key={`rem-${r.id}`} className="flex justify-end">
+                  <div className="flex max-w-[80%] items-center gap-2 rounded-2xl rounded-br-sm border border-dashed border-amber/50 bg-white px-3.5 py-2 text-[13px] italic text-slate">
+                    <span>
+                      {r.mode === "auto_send" ? "Circle-back text sends" : "We will remind you"} {dayLabel(r.remindAt)} at {timeLabel(r.remindAt)}
+                      {r.note ? ` (${r.note})` : ""}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Cancel reminder"
+                      className="cursor-pointer not-italic text-mist hover:text-red-700"
+                      onClick={async () => { await cancelReminder(r.id); router.refresh(); }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {thread.length === 0 && scheduled.length === 0 && reminders.length === 0 ? <p className="text-center text-sm text-mist">No messages yet.</p> : null}
             </div>
 
             {/* composer */}
@@ -229,6 +254,13 @@ export default function InboxClient({
                 bubble={editStep}
                 onClose={() => setEditStep(null)}
                 onSaved={() => { setEditStep(null); router.refresh(); }}
+              />
+            ) : null}
+            {showReminder ? (
+              <ReminderModal
+                prospect={prospect}
+                onClose={() => setShowReminder(false)}
+                onSaved={() => { setShowReminder(false); router.refresh(); }}
               />
             ) : null}
           </>
@@ -289,6 +321,69 @@ function ProspectPanel({ prospect, onSaved }: { prospect: ProspectDetail; onSave
         {saved ? <span className="text-xs text-mint">Saved</span> : null}
       </div>
     </div>
+  );
+}
+
+// "Circle back later": set a reminder months out. Remind-me pings the
+// contractor's cell with a one-tap relay; auto-send schedules a drafted text
+// in their voice (windows/opt-out checked at send time, not now).
+function ReminderModal({ prospect, onClose, onSaved }: { prospect: ProspectDetail; onClose: () => void; onSaved: () => void }) {
+  const inThreeDays = new Date(Date.now() + 3 * 86400_000);
+  const [date, setDate] = useState(inThreeDays.toISOString().slice(0, 10));
+  const [time, setTime] = useState("10:00");
+  const [mode, setMode] = useState<"remind_me" | "auto_send">("remind_me");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setErr(null);
+    const when = new Date(`${date}T${time}`);
+    const res = await createReminder(prospect.id, when.toISOString(), mode, note);
+    setBusy(false);
+    if (!res.ok) return setErr(res.error);
+    onSaved();
+  }
+
+  return (
+    <>
+      <button type="button" aria-label="Close" className="fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+        <h3 className="font-semibold text-ink">Circle back with {prospect.firstName || "this lead"}</h3>
+        <p className="mt-1 text-xs text-mist">Pick when. You can go months out ("not until spring" works).</p>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Date</span><input type="date" className={panelInput} value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Time</span><input type="time" className={panelInput} value={time} onChange={(e) => setTime(e.target.value)} /></label>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2">
+          <label className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 ${mode === "remind_me" ? "border-blue bg-sky/40" : "border-slate/20"}`}>
+            <input type="radio" name="rem-mode" className="mt-0.5" checked={mode === "remind_me"} onChange={() => setMode("remind_me")} />
+            <span className="text-sm"><span className="font-semibold text-ink">Text me a reminder</span><br /><span className="text-slate">We ping your cell and you reply to text them through ReKnock.</span></span>
+          </label>
+          <label className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 ${mode === "auto_send" ? "border-blue bg-sky/40" : "border-slate/20"}`}>
+            <input type="radio" name="rem-mode" className="mt-0.5" checked={mode === "auto_send"} onChange={() => setMode("auto_send")} />
+            <span className="text-sm"><span className="font-semibold text-ink">Send it for me</span><br /><span className="text-slate">We text them then, in your voice, referencing this quote. Only inside your sending hours.</span></span>
+          </label>
+        </div>
+
+        <label className="mt-3 flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-mist">Anything we should mention? (optional)</span>
+          <input className={panelInput} value={note} onChange={(e) => setNote(e.target.value)} placeholder="They said call back after the holidays" maxLength={200} />
+        </label>
+
+        {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
+
+        <div className="mt-4 flex items-center gap-2">
+          <button type="button" disabled={busy} onClick={save} className="cursor-pointer rounded-lg bg-blue px-4 py-2 text-sm font-semibold text-white hover:bg-blue-deep disabled:opacity-50">
+            {busy ? "Saving..." : "Set it"}
+          </button>
+          <button type="button" onClick={onClose} className="ml-auto cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate hover:bg-sky">Cancel</button>
+        </div>
+      </div>
+    </>
   );
 }
 

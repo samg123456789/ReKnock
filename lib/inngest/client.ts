@@ -1,9 +1,10 @@
 import { Inngest } from "inngest";
 
-// Event names used across the sequencing engine:
-//   prospect/enrolled { company_id, prospect_id, test_mode }
-//   prospect/replied  { company_id, prospect_id }
-//   prospect/opted_out { company_id, prospect_id }
+// Events used by the scheduled-send engine:
+//   message/send.requested  { message_id }   one due scheduled `messages` row
+//   reminder/fire.requested { reminder_id }  one due "remind me" ping
+// Scheduling and freezing happen directly on `messages` rows (see
+// lib/enrollment.ts); there are no enroll/cancel events anymore.
 export const inngest = new Inngest({
   id: "reknock",
   eventKey: process.env.INNGEST_EVENT_KEY,

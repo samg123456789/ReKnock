@@ -8,6 +8,7 @@ import { sendSms } from "@/lib/twilio";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
+import { cancelScheduledForProspect, rearmSequence } from "@/lib/enrollment";
 
 export type InboxResult = { ok: true } | { ok: false; error: string };
 
@@ -70,6 +71,24 @@ export async function setProspectStatus(prospectId: string, status: string): Pro
   const a = await acting();
   const { error } = await a.client.from("prospects").update({ status }).eq("id", prospectId).eq("company_id", a.companyId!);
   if (error) return { ok: false, error: "Could not update." };
+
+  // Keep the scheduled rows honest. Terminal states cancel pending touches;
+  // Resume actually re-arms them (canceled rows flip back to scheduled,
+  // re-timed from now). Paused just defers at send time.
+  if (status === "won" || status === "lost" || status === "replied") {
+    await cancelScheduledForProspect(prospectId, status);
+  } else if (status === "sequencing") {
+    const rearmed = await rearmSequence({
+      companyId: a.companyId!,
+      prospectId,
+      testMode: process.env.VERCEL_ENV !== "production",
+    });
+    await a.client.from("events").insert({
+      company_id: a.companyId!,
+      type: "sequence_resumed",
+      payload: { prospect_id: prospectId, rearmed_steps: rearmed },
+    });
+  }
   if (a.impersonating) {
     await logAudit(a.client, { actorUserId: a.actorUserId, actorEmail: a.actorEmail, action: "support_set_status", targetCompanyId: a.companyId, metadata: { prospect_id: prospectId, status } });
   }
@@ -98,6 +117,96 @@ export async function updateProspect(prospectId: string, fields: Record<string, 
   if (error) return { ok: false, error: "Could not save." };
   if (a.impersonating) {
     await logAudit(a.client, { actorUserId: a.actorUserId, actorEmail: a.actorEmail, action: "support_update_prospect", targetCompanyId: a.companyId, metadata: { prospect_id: prospectId } });
+  }
+  return { ok: true };
+}
+
+// Reminders ("circle back in March"). remind_me pings the contractor's cell at
+// that time; auto_send schedules an AI-drafted message (in their voice,
+// referencing the earlier quote) that sends automatically inside sending
+// hours. Opt-out/status/windows are evaluated at send time, not now.
+export async function createReminder(
+  prospectId: string,
+  remindAtIso: string,
+  mode: "remind_me" | "auto_send",
+  note?: string,
+): Promise<InboxResult> {
+  const when = new Date(remindAtIso);
+  if (Number.isNaN(when.getTime())) return { ok: false, error: "Pick a date and time." };
+  if (when.getTime() < Date.now() + 4 * 60_000) return { ok: false, error: "Pick a time in the future." };
+  if (when.getTime() > Date.now() + 366 * 86400_000) return { ok: false, error: "That is over a year out. Pick a closer date." };
+
+  const a = await acting();
+  const { data: p } = await a.client
+    .from("prospects")
+    .select("id, status, phone_e164")
+    .eq("id", prospectId)
+    .eq("company_id", a.companyId!)
+    .maybeSingle();
+  if (!p) return { ok: false, error: "Prospect not found." };
+  if (p.status === "opted_out" && mode === "auto_send")
+    return { ok: false, error: "This contact opted out. Set a remind-me instead and give them a call." };
+  if (!p.phone_e164 && mode === "auto_send") return { ok: false, error: "No phone number for this prospect." };
+
+  const { data: rem, error } = await a.client
+    .from("reminders")
+    .insert({
+      company_id: a.companyId!,
+      prospect_id: prospectId,
+      remind_at: when.toISOString(),
+      mode,
+      note: note?.trim() || null,
+    })
+    .select("id")
+    .single();
+  if (error || !rem) return { ok: false, error: "Could not save the reminder." };
+
+  if (mode === "auto_send") {
+    const { data: msg, error: msgErr } = await a.client
+      .from("messages")
+      .insert({
+        company_id: a.companyId!,
+        prospect_id: prospectId,
+        direction: "outbound",
+        channel: "sms",
+        kind: "reminder",
+        status: "scheduled",
+        scheduled_for: when.toISOString(),
+        idempotency_key: `reminder:${rem.id}`,
+      })
+      .select("id")
+      .single();
+    if (msgErr || !msg) {
+      await a.client.from("reminders").update({ status: "canceled" }).eq("id", rem.id);
+      return { ok: false, error: "Could not schedule the message. Try again." };
+    }
+    await a.client.from("reminders").update({ message_id: msg.id }).eq("id", rem.id);
+  }
+
+  await a.client.from("events").insert({
+    company_id: a.companyId!,
+    type: "reminder_created",
+    payload: { prospect_id: prospectId, mode, remind_at: when.toISOString() },
+  });
+  return { ok: true };
+}
+
+export async function cancelReminder(reminderId: string): Promise<InboxResult> {
+  const a = await acting();
+  const { data: rem } = await a.client
+    .from("reminders")
+    .update({ status: "canceled" })
+    .eq("id", reminderId)
+    .eq("company_id", a.companyId!)
+    .eq("status", "pending")
+    .select("message_id");
+  const messageId = rem?.[0]?.message_id;
+  if (messageId) {
+    await a.client
+      .from("messages")
+      .update({ status: "canceled", send_meta: { reason: "reminder_canceled" } })
+      .eq("id", messageId)
+      .eq("status", "scheduled");
   }
   return { ok: true };
 }
