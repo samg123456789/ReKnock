@@ -6,6 +6,29 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 
 ---
 
+## Session handoff (2026-07-12) — Phases 1-4 of the feedback batch shipped to `dev`
+
+All work below is committed + pushed to `dev` (build green, `tsc` clean each time). Latest commit `58807a4`.
+
+**Shipped tonight:**
+- **P0 BUG FIXED — quote intake.** Photos/PDFs were base64'd through the Server Action body (1MB Next / 4.5MB Vercel cap) so real files threw "Could not read that file" before Haiku ran. Now files upload to a private `quotes` Storage bucket via a server-minted signed upload URL; the extract action downloads server-side. Size guards (5MB img / 32MB PDF), in-browser downscale for big photos, paste/type fallback. Verified end-to-end with a real 687KB PDF and 1.4MB PNG (mint -> upload -> download -> Haiku). New migration `20260711230000_quote_uploads_storage.sql` (bucket + RLS) applied to dev.
+- **Add-quote:** consent question removed (defaulted per source, still editable), close (X) + Escape to exit.
+- **Performance pass:** route `loading.tsx` skeletons for all authed routes (there were none), `getActingCompany` wrapped in React `cache()` (was 2 auth+users queries per page), `Promise.all` on settings/dashboard/onboarding/inbox, optimistic inbox status buttons + `finishOnboarding` pending state, parallel `createQuote` tail.
+- **Dashboard = working surface:** prospects table (search/filter/sort, next-touch, last activity), "Get more from ReKnock" education cards (forward/BCC email w/ copy icon, relay, ReKnock line; dismissible), notifications bell + unread dot (from `events`). Shared `lib/schedule.ts` for touch math.
+- **Prospect depth:** editable detail panel + Notes (Notes fed into the AI drafting context). Scheduled follow-up pills are clickable -> show the live-drafted message with Edit / Skip, honored at send time via new `sequence_overrides` table (migration `20260711240000`). Freeze/idempotency untouched.
+- **Campaign editor** at `/campaign` (header link): edit day offsets, intent, exact copy (`{first_name}` etc.), per-step live preview, toggle steps on/off. Engine honors templates + enabled flag. Shared `lib/campaign.ts`.
+- **Verified (T17):** reply -> `prospect/replied` -> `cancelOn` cancels the job = permanent freeze; `prospect/enrolled` (the only re-arm) is emitted ONLY by `createQuote`, so NO auto-resume exists.
+
+**Still OPEN (next session):**
+- **Onboarding polish (not started):** quote-size + quotes/month as a REQUIRED step 2 (remove the collapsible optional block; move/cut "how did you hear"); hide app nav during onboarding; modernize the "Here's how we'll sound" screen (flagged 2x); per-day copy control for sending hours (replace the pill buttons); resume-at-step persistence + optional "finish setting up" email.
+- **CSV bulk upload** (200-row cap) + **password show/hide eye** on signup/login.
+- **Punch-list:** pricing page horizontal (3 tiers visible); rename Solo->"Starter", Pro->"Growth" (+ Starter bullet copy the founder supplied); email-confirm page design; founding-counter `is_internal` flag to exclude founder/test accounts.
+- **Reschedule scheduled sends + registered Reminders feature:** needs the sequence engine moved off the single Inngest `sleepUntil` loop to per-step scheduled `messages` rows (status=scheduled, scheduled_for) + a cron that checks window/opt-out/cap at send time. This ALSO fixes the "Resume doesn't actually re-arm sends" gap (Resume currently only relabels status). Do NOT do silently; discuss with founder.
+- **SECURITY (do at session start):** the Supabase Personal Access Token `sbp_292e72...` (account-level) is stored in plaintext in `.claude/settings.local.json` (3 allow-list entries) alongside a Stripe test key (line 21). File is gitignored + never committed, so exposure is local-disk only. Founder believed this token was deleted but it is LIVE. Recommend: rotate it in Supabase (Account -> Access Tokens) and scrub both secrets from the allow-list. Founder's `+acct1` test signup never paid (plan null), so no founding spot was consumed.
+- **Acceptance run** from the prior handoff (below) still not completed end-to-end.
+
+---
+
 ## Where we left off (session handoff, 2026-07-11 pm) — the full MVP surface is BUILT + deployed on `dev`; remaining work is verification
 
 **Infrastructure: DONE.** `dev` -> preview `https://reknock-git-dev-re-knock.vercel.app`, `main` -> prod (discipline-protected, ground rule 13). Supabase `reknock-dev` (ref `hgmjkugxrsxxarjdgevc`); migrations applied through `admin_actions`. Resend SMTP live. Stripe test mode (5 prices via `lookup_key`, webhook on preview). Inngest app synced (prod env, `/api/inngest`). Assistant has its own git-push + Vercel CLI access (`~/.reknock-git-credentials`, gitignored `.vercel-token`). Env set on Preview+Dev: Supabase, Stripe (+webhook secret), Anthropic, Twilio (SID/token/`MG` service `MGb3ea8cb172bbebb57358731b77f14777`), Inngest event+signing keys, `DEV_SMS_ALLOWLIST=+13478425544`. Founder ReKnock number `+15166876417`. Admin seeded for `samuelgoldberg98@gmail.com`.
