@@ -190,13 +190,16 @@ export const sendScheduledMessage = inngest.createFunction(
 
       // Compliance: identification + opt-out language go on the actual first
       // message this prospect ever receives (derived from the ledger, not the
-      // step index, so a skipped step 1 cannot dodge it).
+      // step index, so a skipped step 1 cannot dodge it). Only homeowner-facing
+      // kinds count: an owner_ping to the contractor is not contact with the
+      // prospect and must not suppress the STOP line.
       const { data: prior } = await admin
         .from("messages")
         .select("id")
         .eq("prospect_id", msg.prospect_id)
         .eq("direction", "outbound")
         .eq("status", "sent")
+        .in("kind", ["sequence", "reminder", "manual", "relay"])
         .limit(1);
       const isFirst = !prior?.length;
       const businessName = co.name ?? "your contractor";
