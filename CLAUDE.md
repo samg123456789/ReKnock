@@ -6,7 +6,35 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 
 ---
 
-## Session handoff (2026-07-12 pm) — Engine v2 + Phase 3 + full punch-list shipped to `dev`
+## CURRENT STATE + NEXT STEPS (2026-07-12, end of session) — read this first
+
+Everything below is on `dev` (HEAD `c9dd2dc`), build green, tree clean, Inngest synced against the preview. Nothing has shipped to `main`/production yet.
+
+### Where the product stands
+- **Full MVP surface works end to end on the dev preview**: signup -> Stripe test checkout -> onboarding (6 steps, voice from real samples, feature tour after) -> add quote (photo/PDF/paste/type/CSV, start-time choice) -> engine chases in the contractor's voice -> reply freezes + relays to the contractor's cell -> owner replies relay back to the homeowner -> inbox/campaign/settings/admin all live.
+- **Engine v2 is the core**: every future send is a scheduled `messages` row, all safety checks (opt-out/status/cap/windows) evaluated at send time by a 1-min Inngest dispatcher + claim-locked sender. Freeze is DB-atomic; Resume re-arms; Reminders and per-prospect timeline edits ride the same primitive.
+- **Every prospect timeline is fully editable**: touches movable to any date+time (nearest-valid-slot suggestions), deletable, addable; clicking a touch opens the message editable and the contractor's text sends verbatim; start time chosen at intake (Start now / tomorrow / in 2 days / custom). /campaign is the template new prospects inherit.
+- **Money guardrails**: real Twilio purchases only on prod with `ALLOW_NUMBER_PURCHASE=true` + hard throw off-prod; one live number per company enforced in Postgres; purchase/release -> events + admin email; Stripe cancel auto-releases numbers; weekly Twilio reconciliation cron flags orphans.
+- **Live-verified on the preview this session** (real Twilio sends to the allowlisted founder phone): due touch end-to-end w/ AI draft; reminder ping + relay session; freeze held past due time; custom override sent verbatim with the STOP line on its own blank-separated line ("ReKnock Test Co: Hey Bob - ... - Jim\n\nReply STOP to opt out"); DB rejects a second number per company; reconciliation clean run. Two real bugs were caught by live tests and fixed (owner_ping suppressed first-touch STOP line; Inngest plan concurrency cap).
+- **Test login**: test@getreknock.com / reknock123 (platform admin, fully onboarded, active/founding, `is_internal` so it never counts, relay cell = +13478425544, Stripe test customer linked).
+- **Migrations applied to dev + recorded**: ..._company_is_internal, ..._scheduled_sends (kind/send_meta/'canceled', reminders, relay_sessions, unique e164), ..._number_guardrails (one-per-company, released lifecycle), ..._flexible_timeline (step_intent/step_template/body_is_custom). `sequence_overrides` is retired (table kept, nothing reads it).
+- **Env**: `ALLOW_NUMBER_PURCHASE` (unset everywhere = no purchases), `TWILIO_SHARED_NUMBERS=+15166876417` (Vercel all envs + .env.local), Supabase PAT rotated -> gitignored `.env.local` as `SUPABASE_ACCESS_TOKEN` (old token verified dead).
+
+### Next steps, in order
+1. **BUILD: inbound email intake.** The forwarding address ({slug}@in.getreknock.com) is advertised on the dashboard card, the feature tour, and settings, but NO inbound-email webhook exists (app/api/webhooks has only stripe + twilio). A customer who forwards a quote email today gets silence. Build the Resend (or Postmark) inbound route -> extract -> match/create prospect -> enroll pipeline (spec Phase 4A), or tone down the three surfaces until it exists.
+2. **Founder acceptance run** (gates the first dev->main merge): fresh signup -> pay (4242 card) -> onboard -> pick number (dev = fake +1555, no charge) -> add quote with "Start now" -> touch arrives -> reply from the phone -> freeze + relay -> reply to the relay -> forwarded to homeowner -> Resume/won/lost. Verify in Stripe: $1 charged today + trial_period_days behavior (still unverified).
+3. **Production cutover** (founder merges dev->main in GitHub Desktop after #2): apply the 4 new migrations to the prod Supabase, sync Inngest against prod (`PUT /api/inngest`), set prod env (`TWILIO_SHARED_NUMBERS`; leave `ALLOW_NUMBER_PURCHASE` unset until 10DLC strategy for per-tenant numbers is settled), point the prod Twilio webhook + Stripe webhook at prod URLs.
+4. **Level 2 AI agent** per docs/AI_AGENT_STRATEGY.md: suggested reply inside the relay ping + "text 1 to send it", reschedule-intent -> pre-filled reminder. Highest-leverage next feature; fully inside registered behavior.
+5. **Per-tenant 10DLC**: TrustHub sole-prop submission via API, status polling, auto flip pending_10dlc -> active (today the flip is a manual SQL, see OPERATIONS.md). Plus relay-cell 6-digit verification at onboarding step 5.
+6. **Smaller open items**: 40-message trial warning (email + SMS) before the 50 cap; "finish setting up" reminder email (TODO in finishOnboarding); Phase 8 hardening (RLS test suite, webhook signature tests, Playwright happy path, Sentry); monthly ROI report (Phase 5 of original spec); one pre-existing dev prospect sits 'sequencing' with no scheduled rows (orphaned old-engine run), Resume it from the inbox if it matters.
+
+### Standing rules picked up this session
+- Commit + push to `dev` after every completed sub-task; keep this handoff current as you go (founder may hit session limits mid-queue).
+- Never push `main`. Real number purchases never happen off production. Dev SMS only to `DEV_SMS_ALLOWLIST`.
+
+---
+
+## Session handoff (2026-07-12 pm) — Engine v2 + Phase 3 + full punch-list shipped to `dev` (detail)
 
 All committed + pushed to `dev` (build green each push), Inngest re-synced on the preview.
 
