@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { extractQuote, createQuote, type CreatedQuote } from "@/lib/quote-actions";
-import type { MediaInput } from "@/lib/ai";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { extractQuote, createQuote, createQuoteUploadUrl, type CreatedQuote } from "@/lib/quote-actions";
+import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES, IMAGE_MAX_EDGE } from "@/lib/quote-limits";
 import type { QuoteExtraction, QuoteFields } from "@/lib/prompts/quote-extractor";
 
 const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
@@ -24,16 +26,28 @@ type Fields = {
 };
 const EMPTY: Fields = { first_name: "", last_name: "", phone: "", email: "", address: "", job_type: "", quote_amount: "", quote_date: "" };
 
-function fileToMedia(file: File): Promise<MediaInput> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const res = String(reader.result);
-      resolve({ mediaType: file.type || "image/png", dataBase64: res.slice(res.indexOf(",") + 1) });
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+// Downscale big phone photos in the browser before upload. Leaves PDFs and
+// already-small images untouched. Keeps OCR quality while cutting upload size.
+async function prepareImage(file: File): Promise<Blob> {
+  if (!file.type.startsWith("image/")) return file;
+  let bmp: ImageBitmap;
+  try {
+    bmp = await createImageBitmap(file);
+  } catch {
+    return file;
+  }
+  const scale = Math.min(1, IMAGE_MAX_EDGE / Math.max(bmp.width, bmp.height));
+  if (scale === 1 && file.size <= MAX_IMAGE_BYTES) return file;
+  const w = Math.round(bmp.width * scale);
+  const h = Math.round(bmp.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(bmp, 0, 0, w, h);
+  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+  return blob ?? file;
 }
 
 function prettyDate(iso: string): string {
@@ -56,22 +70,33 @@ function fieldsFromExtraction(e: QuoteExtraction): Fields {
 }
 
 export default function AddQuoteForm() {
+  const router = useRouter();
   const [view, setView] = useState<"intake" | "confirm" | "done">("intake");
   const [fields, setFields] = useState<Fields>(EMPTY);
   const [conf, setConf] = useState<QuoteExtraction["confidence"]>({});
   const [source, setSource] = useState<"manual" | "ocr_upload">("manual");
-  const [consent, setConsent] = useState("verbal_at_quote");
+  const [paths, setPaths] = useState<string[]>([]);
+  const [extraction, setExtraction] = useState<QuoteExtraction | null>(null);
   const [paste, setPaste] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<CreatedQuote | null>(null);
+
+  // Escape closes the flow back to the dashboard (bail-out, no dead end).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) router.push("/app");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router, pending]);
 
   function set<K extends keyof Fields>(k: K, v: string) {
     setFields((f) => ({ ...f, [k]: v }));
   }
   const isLow = (k: keyof QuoteFields) => conf[k] != null && (conf[k] as number) < 0.6;
 
-  async function runExtract(args: { media?: MediaInput[]; text?: string }, src: "manual" | "ocr_upload") {
+  async function runExtract(args: { paths?: string[]; text?: string }, src: "manual" | "ocr_upload") {
     setPending(true);
     setError(null);
     const res = await extractQuote(args);
@@ -79,6 +104,7 @@ export default function AddQuoteForm() {
     if (!res.ok) return setError(res.error);
     setFields(fieldsFromExtraction(res.data));
     setConf(res.data.confidence ?? {});
+    setExtraction(res.data);
     setSource(src);
     setView("confirm");
   }
@@ -88,18 +114,49 @@ export default function AddQuoteForm() {
     setPending(true);
     setError(null);
     try {
-      const media = await Promise.all(Array.from(files).slice(0, 3).map(fileToMedia));
-      await runExtract({ media }, "ocr_upload");
+      const supabase = createClient();
+      const uploaded: string[] = [];
+      for (const file of Array.from(files).slice(0, MAX_FILES)) {
+        const isPdf = file.type === "application/pdf";
+        if (!isPdf && !file.type.startsWith("image/")) {
+          setPending(false);
+          return setError("That file type is not supported. Upload a photo or PDF, or paste/type the details in.");
+        }
+        // Guard oversized files up front (do not even try to process them).
+        if (isPdf && file.size > MAX_PDF_BYTES) {
+          setPending(false);
+          return setError("That PDF is too big to read. Send just the quote page, or paste/type the details in.");
+        }
+        const blob = isPdf ? file : await prepareImage(file);
+        if (!isPdf && blob.size > MAX_IMAGE_BYTES) {
+          setPending(false);
+          return setError("That image is too big to read. Try a screenshot or smaller photo, or paste/type it in.");
+        }
+        const contentType = isPdf ? "application/pdf" : "image/jpeg";
+        const urlRes = await createQuoteUploadUrl({ contentType, sizeBytes: blob.size });
+        if (!urlRes.ok) {
+          setPending(false);
+          return setError(urlRes.error);
+        }
+        const up = await supabase.storage.from("quotes").uploadToSignedUrl(urlRes.data.path, urlRes.data.token, blob, { contentType });
+        if (up.error) {
+          setPending(false);
+          return setError("That file would not upload. Check your connection, or paste/type the details in.");
+        }
+        uploaded.push(urlRes.data.path);
+      }
+      setPaths(uploaded);
+      await runExtract({ paths: uploaded }, "ocr_upload");
     } catch {
       setPending(false);
-      setError("Could not read that file.");
+      setError("We could not read that file. Paste the details or type them in instead.");
     }
   }
 
   async function submit() {
     setPending(true);
     setError(null);
-    const res = await createQuote({ ...fields, consent_path: consent, source });
+    const res = await createQuote({ ...fields, source, storage_paths: paths, extracted: extraction });
     setPending(false);
     if (!res.ok) return setError(res.error);
     setDone(res.data);
@@ -123,7 +180,7 @@ export default function AddQuoteForm() {
         </ol>
         <p className="mt-4 rounded-xl bg-sky px-4 py-3 text-sm text-blue-ink">Sends begin once your ReKnock number finishes activating. Nothing goes out before then.</p>
         <div className="mt-8 flex gap-3">
-          <button className={primaryBtn} onClick={() => { setFields(EMPTY); setConf({}); setPaste(""); setConsent("verbal_at_quote"); setDone(null); setView("intake"); }}>
+          <button className={primaryBtn} onClick={() => { setFields(EMPTY); setConf({}); setPaste(""); setPaths([]); setExtraction(null); setDone(null); setView("intake"); }}>
             Add another quote
           </button>
           <Link href="/app" className={ghostBtn}>Back to dashboard</Link>
@@ -136,7 +193,10 @@ export default function AddQuoteForm() {
     const anyLow = (["first_name", "phone", "job_type", "quote_amount"] as (keyof QuoteFields)[]).some(isLow);
     return (
       <div>
-        <p className="eyebrow mb-3">Check this looks right</p>
+        <div className="flex items-start justify-between">
+          <p className="eyebrow mb-3">Check this looks right</p>
+          <CloseButton onClose={() => router.push("/app")} />
+        </div>
         <h1 className="display text-3xl md:text-4xl">Confirm the details.</h1>
         {anyLow && <p className="mt-3 rounded-lg bg-amber/10 px-4 py-2 text-sm text-amber">The highlighted fields were unclear. Please double-check them.</p>}
         <div className="mt-6 flex flex-col gap-4">
@@ -168,14 +228,6 @@ export default function AddQuoteForm() {
               <input className={input} type="date" value={fields.quote_date} onChange={(e) => set("quote_date", e.target.value)} />
             </label>
           </div>
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-slate">How did you get their OK to text?</span>
-            <select className={input} value={consent} onChange={(e) => setConsent(e.target.value)}>
-              <option value="verbal_at_quote">They gave me their number for the quote</option>
-              <option value="web_form">They filled out a form / requested a quote online</option>
-            </select>
-            <span className="text-xs text-mist">Required. We only text customers who agreed to hear from you.</span>
-          </label>
         </div>
         {error ? <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
         <div className="mt-8 flex items-center justify-between">
@@ -189,7 +241,10 @@ export default function AddQuoteForm() {
   // intake
   return (
     <div>
-      <p className="eyebrow mb-3">New quote</p>
+      <div className="flex items-start justify-between">
+        <p className="eyebrow mb-3">New quote</p>
+        <CloseButton onClose={() => router.push("/app")} />
+      </div>
       <h1 className="display text-3xl md:text-4xl">Add a quote to chase.</h1>
       <p className="mt-3 text-slate">Snap it, paste it, or type it. We pull out the details.</p>
 
@@ -209,9 +264,25 @@ export default function AddQuoteForm() {
 
       {error ? <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
 
-      <button className="mt-6 cursor-pointer text-sm text-blue underline" onClick={() => { setFields(EMPTY); setConf({}); setSource("manual"); setError(null); setView("confirm"); }}>
+      <button className="mt-6 cursor-pointer text-sm text-blue underline" onClick={() => { setFields(EMPTY); setConf({}); setPaths([]); setExtraction(null); setSource("manual"); setError(null); setView("confirm"); }}>
         Or just type it in
       </button>
     </div>
+  );
+}
+
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Close"
+      title="Close (Esc)"
+      onClick={onClose}
+      className="flex h-9 w-9 items-center justify-center rounded-full text-slate transition-colors hover:bg-slate/10 hover:text-ink"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M18 6 6 18M6 6l12 12" />
+      </svg>
+    </button>
   );
 }

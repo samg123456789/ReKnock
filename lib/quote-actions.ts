@@ -1,9 +1,12 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
+import { createAdminClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/admin";
 import { generateText, generateFromMedia, parseJson, AI_MODEL, type MediaInput } from "@/lib/ai";
+import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES } from "@/lib/quote-limits";
 import { inngest } from "@/lib/inngest/client";
 import {
   buildQuoteExtractorPrompt,
@@ -35,24 +38,72 @@ async function requireCompany() {
   return { supabase: acting.client, company: { id: acting.companyId }, acting };
 }
 
-// AI extraction from images/PDF or pasted text. Never invents fields.
+// Storage-backed intake. Files upload straight to the private `quotes` bucket
+// via a signed upload URL so the bytes never go through a Server Action body
+// (1MB Next limit / 4.5MB Vercel cap). Size ceilings live in lib/quote-limits.
+
+// Mint a company-scoped signed upload URL. The path is derived server-side from
+// the authenticated company, never trusted from the client.
+export async function createQuoteUploadUrl(input: {
+  contentType: string;
+  sizeBytes: number;
+}): Promise<ActionResult<{ path: string; token: string }>> {
+  const { company } = await requireCompany();
+  const isPdf = input.contentType === "application/pdf";
+  const isImage = input.contentType.startsWith("image/");
+  if (!isPdf && !isImage)
+    return { ok: false, error: "That file type is not supported. Upload a photo or PDF, or type the details in." };
+
+  const max = isPdf ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
+  if (input.sizeBytes > max) {
+    const mb = Math.round(max / 1024 / 1024);
+    return { ok: false, error: `That file is too big (max ${mb}MB). Try a smaller one, or paste/type the details instead.` };
+  }
+
+  const ext = isPdf ? "pdf" : input.contentType.split("/")[1]?.replace(/[^a-z0-9]/gi, "") || "png";
+  const path = `${company.id}/${randomUUID()}.${ext}`;
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from("quotes").createSignedUploadUrl(path);
+  if (error || !data) return { ok: false, error: "Upload could not start. Try again, or paste/type the details in." };
+  return { ok: true, data: { path: data.path, token: data.token } };
+}
+
+// AI extraction from uploaded files (Storage paths) or pasted text. Never
+// invents fields. Downloads objects server-side so no request-body limit applies.
 export async function extractQuote(input: {
-  media?: MediaInput[];
+  paths?: string[];
   text?: string;
 }): Promise<ActionResult<QuoteExtraction>> {
   const { supabase, company } = await requireCompany();
-  const hasMedia = (input.media?.length ?? 0) > 0;
+  const hasMedia = (input.paths?.length ?? 0) > 0;
   if (!hasMedia && !input.text?.trim()) return { ok: false, error: "Nothing to read." };
 
   try {
+    let media: MediaInput[] | undefined;
+    if (hasMedia) {
+      const admin = createAdminClient();
+      media = [];
+      for (const p of input.paths!.slice(0, MAX_FILES)) {
+        // Security: the object must live under this company's folder.
+        if (!p.startsWith(`${company.id}/`)) continue;
+        const { data: blob, error: dErr } = await admin.storage.from("quotes").download(p);
+        if (dErr || !blob) continue;
+        const mediaType = blob.type || (p.endsWith(".pdf") ? "application/pdf" : "image/png");
+        const dataBase64 = Buffer.from(await blob.arrayBuffer()).toString("base64");
+        media.push({ mediaType, dataBase64 });
+      }
+      if (!media.length)
+        return { ok: false, error: "We could not open that file. Paste the details or type them in." };
+    }
+
     const { system, prompt, temperature, maxTokens } = buildQuoteExtractorPrompt(
       hasMedia ? undefined : input.text,
     );
     const { text, usage } = hasMedia
-      ? await generateFromMedia({ system, prompt, media: input.media!, temperature, maxTokens })
+      ? await generateFromMedia({ system, prompt, media: media!, temperature, maxTokens })
       : await generateText({ system, prompt, temperature, maxTokens });
     const parsed = parseJson<QuoteExtraction>(text);
-    if (!parsed) return { ok: false, error: "We could not read that. Try a clearer photo or type it in." };
+    if (!parsed) return { ok: false, error: "We could not read that. Try a clearer photo, or paste/type it in." };
 
     await supabase.from("events").insert({
       company_id: company.id,
@@ -87,8 +138,9 @@ export async function createQuote(input: {
   job_type: string;
   quote_amount: string;
   quote_date: string;
-  consent_path: string;
   source: "manual" | "ocr_upload";
+  storage_paths?: string[];
+  extracted?: QuoteExtraction | null;
 }): Promise<ActionResult<CreatedQuote>> {
   const firstName = input.first_name.trim();
   if (!firstName) return { ok: false, error: "Please enter the customer's first name." };
@@ -96,9 +148,9 @@ export async function createQuote(input: {
   const phone = normalizePhone(input.phone);
   if (!phone) return { ok: false, error: "Please enter a valid US phone number." };
 
-  // 10DLC: we only message prospects with a recorded consent path.
-  if (input.consent_path !== "verbal_at_quote" && input.consent_path !== "web_form")
-    return { ok: false, error: "Please confirm how you got their OK to text." };
+  // 10DLC consent path is defaulted silently by source (never asked at intake):
+  // manual + upload = verbal-at-quote. It stays editable on the prospect record.
+  const consentPath = "verbal_at_quote";
 
   const amount = input.quote_amount.replace(/[^0-9.]/g, "");
   const quoteAmount = amount ? Number(amount) : null;
@@ -130,7 +182,7 @@ export async function createQuote(input: {
       status: "sequencing",
       campaign_id: campaign?.id ?? null,
       source: input.source,
-      consent_path: input.consent_path,
+      consent_path: consentPath,
       consent_captured_at: new Date().toISOString(),
     })
     .select("id")
@@ -138,10 +190,29 @@ export async function createQuote(input: {
 
   if (error || !prospect) return { ok: false, error: "Could not save the quote. Please try again." };
 
+  // Persist the uploaded source file(s) as quote rows, linked to the prospect,
+  // so the inbox can show/link the original photo or PDF later.
+  if (input.storage_paths?.length) {
+    const conf = input.extracted?.confidence
+      ? Object.values(input.extracted.confidence).filter((n): n is number => typeof n === "number")
+      : [];
+    const avgConf = conf.length ? conf.reduce((a, b) => a + b, 0) / conf.length : null;
+    await supabase.from("quotes").insert(
+      input.storage_paths.slice(0, MAX_FILES).map((p) => ({
+        company_id: company.id,
+        prospect_id: prospect.id,
+        raw_source: p.endsWith(".pdf") ? "pdf" : "image",
+        storage_path: p,
+        extracted: input.extracted ?? null,
+        ocr_confidence: avgConf,
+      })),
+    );
+  }
+
   await supabase.from("events").insert({
     company_id: company.id,
     type: "prospect_created",
-    payload: { prospect_id: prospect.id, source: input.source, consent_path: input.consent_path },
+    payload: { prospect_id: prospect.id, source: input.source, consent_path: consentPath },
   });
 
   // Enroll into the sequence engine. Off production runs in test mode (day
