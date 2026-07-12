@@ -110,3 +110,15 @@ Never edit tables by hand in the Supabase dashboard; always go through a migrati
   Shared pool numbers listed in `TWILIO_SHARED_NUMBERS` are exempt.
   Results land in `admin.number_reconciliation` events; issues also email
   the admins.
+
+## Flexible timelines (2026-07-12 pm)
+
+- A prospect's timeline = their scheduled `messages` rows. Each row snapshots
+  step_intent/step_template at enrollment; `body` + `body_is_custom=true`
+  means the contractor's own text sends verbatim (compliance line still
+  enforced). Move = update scheduled_for; delete = status 'canceled' with
+  send_meta.reason 'user_delete' (Resume never re-arms those); extra touches
+  are rows with sequence_step null and idempotency_key 'extra:{uuid}'.
+- `sequence_overrides` is retired (table kept for audit; nothing reads it).
+- The /campaign editor only shapes NEW enrollments; editing it does not
+  rewrite already-scheduled rows.
