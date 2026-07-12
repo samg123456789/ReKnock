@@ -91,6 +91,12 @@ export async function claimNumber(e164: string): Promise<ProvisionResult<{ e164:
   let twilioSid: string | null = null;
 
   if (canBuy) {
+    // Belt and braces: even if the gate above is ever edited wrong, no
+    // non-production environment may reach Twilio's purchase API. Money only
+    // moves on production.
+    if (process.env.VERCEL_ENV !== "production") {
+      throw new Error("Number purchase attempted outside production. Refusing.");
+    }
     try {
       const sid = env.twilioAccountSid();
       // Buy the number.
@@ -127,13 +133,18 @@ export async function claimNumber(e164: string): Promise<ProvisionResult<{ e164:
     }
   }
 
+  // Off production nothing is bought: the row gets an obviously-fake +1555
+  // test number (never the searched real one, so no drift into anything we
+  // do not own). Real sends keep flowing through the shared Messaging
+  // Service line either way, because only status='active' rows pin a From.
+  const savedE164 = canBuy ? e164 : `+1555${String(Math.floor(1000000 + Math.random() * 9000000))}`;
   const { error: insertErr } = await admin.from("phone_numbers").insert({
     company_id: a.companyId!,
     twilio_sid: twilioSid,
-    e164,
+    e164: savedE164,
     status: "pending_10dlc",
     area_code: e164.slice(2, 5),
-    tendlc_status: canBuy ? { state: "not_submitted" } : { state: "not_submitted", simulated: true },
+    tendlc_status: canBuy ? { state: "not_submitted" } : { state: "not_submitted", simulated: true, requested_e164: e164 },
   });
   if (insertErr) {
     // The DB is the real limit: unique e164 across the platform AND unique
@@ -158,7 +169,7 @@ export async function claimNumber(e164: string): Promise<ProvisionResult<{ e164:
   await admin.from("events").insert({
     company_id: a.companyId!,
     type: "number_claimed",
-    payload: { e164, simulated: !canBuy },
+    payload: { e164: savedE164, requested_e164: e164, simulated: !canBuy },
   });
   if (canBuy) {
     // Money moved in Twilio: the founder always hears about it.
@@ -192,12 +203,12 @@ export async function claimNumber(e164: string): Promise<ProvisionResult<{ e164:
       companyId: a.companyId!,
       prospectId: null,
       to: owner.cell_phone,
-      body: `This is your new ReKnock number: ${e164}. Save this contact. Your follow-up replies will show up here once carriers finish activating it (usually 1 to 2 days).`,
+      body: `This is your new ReKnock number: ${savedE164}. Save this contact. Your follow-up replies will show up here once carriers finish activating it (usually 1 to 2 days).`,
       idempotencyKey: `claim-test:${a.companyId}`,
       kind: "owner_ping",
       isRelay: true,
     });
   }
 
-  return { ok: true, data: { e164, simulated: !canBuy } };
+  return { ok: true, data: { e164: savedE164, simulated: !canBuy } };
 }
