@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { signIn, sendMagicLink, type AuthState } from "@/lib/supabase/auth-actions";
 import GoogleButton from "@/components/auth/GoogleButton";
+import PasswordInput from "@/components/auth/PasswordInput";
 
 export default function LoginForm() {
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, undefined);
@@ -36,9 +37,8 @@ export default function LoginForm() {
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-sm font-semibold text-slate">Password</span>
-          <input
+          <PasswordInput
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             className="rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue"

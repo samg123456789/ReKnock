@@ -28,7 +28,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   });
 
   if (error) return { error: error.message };
-  redirect("/signup/check-email");
+  redirect(`/signup/check-email?email=${encodeURIComponent(email)}`);
 }
 
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -56,7 +56,7 @@ export async function sendMagicLink(_prev: AuthState, formData: FormData): Promi
   });
 
   if (error) return { error: error.message };
-  redirect("/login/check-email");
+  redirect(`/login/check-email?email=${encodeURIComponent(email)}`);
 }
 
 export async function signOut() {

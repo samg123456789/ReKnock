@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 
-/* Billing toggle: annual = 2 months free. Solo founding: $29/mo or $290/yr.
-   Decrement FOUNDING_SPOTS_LEFT by hand as founding members sign up. */
-const FOUNDING_SPOTS_LEFT = 20;
+/* Billing toggle: annual = 2 months free. Starter founding: $29/mo or $290/yr.
+   spotsLeft comes from foundingStatus() in app/pricing/page.tsx (falls back to 20). */
 
 const timeline = [
   { step: "Today", title: "Set up in 10 minutes, pay $1", body: "Pick your tone, approve your follow-ups, log your open quotes. Card up front - tire-kickers don't close jobs." },
@@ -14,7 +13,8 @@ const timeline = [
   { step: "After the week", title: "Your founding rate kicks in", body: "Locked for life for the first 20 contractors. Cancel anytime with one tap." },
 ];
 
-const soloFeatures = [
+// TODO(founder): swap in supplied Starter bullets
+const starterFeatures = [
   "Unlimited quotes & follow-up sequences",
   "1 dedicated local texting number",
   "Pick your tone: friendly, professional, or straight-shooter",
@@ -22,8 +22,8 @@ const soloFeatures = [
   "Email, text-in, and 10-second manual intake",
   "Monthly closed-jobs report",
 ];
-const proFeatures = [
-  "Everything in Solo",
+const growthFeatures = [
+  "Everything in Starter",
   "Zapier connection (quotes in, results out)",
   "Direct integrations - Jobber & Housecall Pro first",
   "Review requests: auto-text a Google review ask after every won job",
@@ -32,7 +32,7 @@ const proFeatures = [
   "Extra texting numbers as an add-on (+$10/mo each)",
 ];
 const crewFeatures = [
-  "Everything in Pro",
+  "Everything in Growth",
   "Up to 5 team members",
   "3 dedicated texting numbers included",
   "Per-estimator close-rate reporting",
@@ -61,7 +61,7 @@ function Price({ monthly, annual, isAnnual, struck }: { monthly: number; annual:
   );
 }
 
-export default function PricingClient() {
+export default function PricingClient({ spotsLeft = 20 }: { spotsLeft?: number }) {
   const [annual, setAnnual] = useState(false);
 
   return (
@@ -78,8 +78,8 @@ export default function PricingClient() {
             <span className="text-mist line-through decoration-2">$39</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg text-slate">
-            The founding rate is locked for life for our first{" "}
-            {FOUNDING_SPOTS_LEFT} contractors - in exchange we&apos;ll ask for
+            The founding rate is locked for life for our first 20 contractors
+            - in exchange we&apos;ll ask for
             honest feedback and, if it wins you jobs, a testimonial.
           </p>
 
@@ -126,18 +126,19 @@ export default function PricingClient() {
 
         </div>
 
-        {/* tiers */}
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          <div className="card card-hover relative flex flex-col border-blue p-7 shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)]">
+        {/* tiers: stacked on mobile (Starter first), 3 across on desktop with
+            Starter featured in the middle since it is the only purchasable plan */}
+        <div className="mt-10 grid items-stretch gap-6 md:grid-cols-3">
+          <div className="card card-hover relative flex flex-col border-blue p-7 shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)] md:order-2 md:scale-[1.03]">
             <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue px-3 py-1 text-xs font-bold tracking-wide text-white">AVAILABLE NOW</span>
-            <h2 className="display text-3xl">Solo</h2>
+            <h2 className="display text-3xl">Starter</h2>
             <p className="mt-1 text-slate">One contractor, unlimited chasing.</p>
             <Price monthly={29} annual={290} isAnnual={annual} struck={{ monthly: 39, annual: 390 }} />
             <p className="mt-1 text-sm font-semibold text-blue">
-              Founding rate · {FOUNDING_SPOTS_LEFT} spots · locked for life
+              Founding rate · {spotsLeft} of 20 spots left · locked for life
             </p>
             <ul className="mt-6 flex-1 space-y-3">
-              {soloFeatures.map((f) => (
+              {starterFeatures.map((f) => (
                 <li key={f} className="flex gap-2.5 text-[15px] leading-snug text-slate">
                   <span aria-hidden className="mt-0.5 font-bold text-mint">✓</span>{f}
                 </li>
@@ -148,24 +149,24 @@ export default function PricingClient() {
             </Link>
           </div>
 
-          <div className="card relative flex flex-col p-7 opacity-75 grayscale-[0.3]">
+          <div className="card relative flex flex-col p-7 opacity-75 grayscale-[0.3] md:order-1">
             <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-[#e4e7ec] bg-[#f2f4f7] px-3 py-1 text-xs font-bold tracking-wide text-mist">COMING SOON</span>
-            <h2 className="display text-3xl text-slate">Pro</h2>
+            <h2 className="display text-3xl text-slate">Growth</h2>
             <p className="mt-1 text-mist">For businesses running on other tools too.</p>
             <div className="text-slate"><Price monthly={79} annual={790} isAnnual={annual} /></div>
             <ul className="mt-6 flex-1 space-y-3">
-              {proFeatures.map((f) => (
+              {growthFeatures.map((f) => (
                 <li key={f} className="flex gap-2.5 text-[15px] leading-snug text-mist">
                   <span aria-hidden className="mt-0.5 font-bold text-mist">✓</span>{f}
                 </li>
               ))}
             </ul>
-            <a href="mailto:hello@getreknock.com?subject=Waitlist: Pro plan&body=Put me on the Pro waitlist. My trade: " className="mt-8 rounded-xl border border-[#e4e7ec] bg-white px-6 py-3.5 text-center font-semibold text-slate transition-colors hover:border-mist">
+            <a href="mailto:hello@getreknock.com?subject=Waitlist: Growth plan&body=Put me on the Growth waitlist. My trade: " className="mt-8 rounded-xl border border-[#e4e7ec] bg-white px-6 py-3.5 text-center font-semibold text-slate transition-colors hover:border-mist">
               Join the waitlist
             </a>
           </div>
 
-          <div className="card relative flex flex-col p-7 opacity-75 grayscale-[0.3]">
+          <div className="card relative flex flex-col p-7 opacity-75 grayscale-[0.3] md:order-3">
             <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-[#e4e7ec] bg-[#f2f4f7] px-3 py-1 text-xs font-bold tracking-wide text-mist">COMING SOON</span>
             <h2 className="display text-3xl text-slate">Crew</h2>
             <p className="mt-1 text-mist">For teams with more than one estimator.</p>

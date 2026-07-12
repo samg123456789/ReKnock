@@ -4,7 +4,8 @@ import { useState } from "react";
 import { createCheckoutSession } from "@/lib/billing-actions";
 import { PRICING } from "@/lib/stripe";
 
-const soloFeatures = [
+// TODO(founder): swap in supplied Starter bullets
+const starterFeatures = [
   "Unlimited quotes & follow-up sequences",
   "1 dedicated local texting number",
   "Pick your tone: friendly, professional, or straight-shooter",
@@ -12,13 +13,13 @@ const soloFeatures = [
   "Email, text-in, and 10-second manual intake",
   "Monthly closed-jobs report",
 ];
-const proFeatures = [
-  "Everything in Solo",
+const growthFeatures = [
+  "Everything in Starter",
   "Zapier + direct integrations (Jobber, Housecall Pro)",
   "Auto Google-review requests after won jobs",
   "Missed-call text-back",
 ];
-const crewFeatures = ["Everything in Pro", "Up to 5 team members", "3 texting numbers included", "Per-estimator reporting"];
+const crewFeatures = ["Everything in Growth", "Up to 5 team members", "3 texting numbers included", "Per-estimator reporting"];
 
 function ComingSoon({ name, blurb, price, features }: { name: string; blurb: string; price: number; features: string[] }) {
   return (
@@ -85,9 +86,9 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
         </div>
       </div>
 
-      {/* Solo card — no card-hover here: the hover lift shifts the buy button out from under the cursor. */}
+      {/* Starter card. No card-hover here: the hover lift shifts the buy button out from under the cursor. */}
       <div className="card relative mt-8 flex flex-col border-blue p-7 shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)]">
-        <h2 className="display text-3xl">Solo</h2>
+        <h2 className="display text-3xl">Starter</h2>
         <p className="mt-1 text-slate">One contractor, unlimited chasing.</p>
 
         <p className="mt-5">
@@ -104,7 +105,7 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
         )}
 
         <ul className="mt-6 flex-1 space-y-3">
-          {soloFeatures.map((f) => (
+          {starterFeatures.map((f) => (
             <li key={f} className="flex gap-2.5 text-[15px] leading-snug text-slate">
               <span aria-hidden className="mt-0.5 font-bold text-mint">✓</span>
               {f}
@@ -126,7 +127,7 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
         </p>
       </div>
 
-      <ComingSoon name="Pro" blurb="For shops running on other tools too." price={79} features={proFeatures} />
+      <ComingSoon name="Growth" blurb="For shops running on other tools too." price={79} features={growthFeatures} />
       <ComingSoon name="Crew" blurb="For teams with more than one estimator." price={149} features={crewFeatures} />
     </div>
   );

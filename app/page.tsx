@@ -97,7 +97,7 @@ const faqs = [
   },
   {
     q: "What does the $1 trial include?",
-    a: "A full week of the Solo plan: your dedicated number, your voice-matched sequences, and your first 50 follow-up texts. The week starts the day your number goes live. Card up front, cancel with one tap.",
+    a: "A full week of the Starter plan: your dedicated number, your voice-matched sequences, and your first 50 follow-up texts. The week starts the day your number goes live. Card up front, cancel with one tap.",
   },
 ];
 
@@ -276,7 +276,7 @@ export default function Home() {
             </div>
             <p className="max-w-sm text-slate">
               Zapier connection at launch. Direct integrations rolling out to
-              Pro plans - tell us which one you need first.
+              Growth plans - tell us which one you need first.
             </p>
           </div>
           <div className="mt-10 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">

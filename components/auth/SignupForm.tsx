@@ -10,6 +10,7 @@ import {
   PASSWORD_RULES,
 } from "@/lib/password";
 import GoogleButton from "@/components/auth/GoogleButton";
+import PasswordInput from "@/components/auth/PasswordInput";
 
 const STRENGTH_COLOR: Record<string, string> = {
   Weak: "#ef4444",
@@ -128,9 +129,8 @@ export default function SignupForm() {
 
       <label className="flex flex-col gap-1">
         <span className="text-sm font-semibold text-slate">Password</span>
-        <input
+        <PasswordInput
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           value={password}
