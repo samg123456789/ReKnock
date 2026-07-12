@@ -6,6 +6,34 @@ Execute this spec phase by phase, in order. At the end of each phase, run the ac
 
 ---
 
+## Session handoff (2026-07-12 pm) — Engine v2 + Phase 3 + full punch-list shipped to `dev`
+
+All committed + pushed to `dev` (build green each push), Inngest re-synced on the preview.
+
+**Shipped:**
+- **Engine v2 (the big rewrite, founder-approved "no tech debt" directive).** Every future send is a `messages` row (status='scheduled', `scheduled_for`, kind sequence|reminder). Inngest `scheduled-send-dispatcher` (1-min cron) fans out; `send-scheduled-message` re-checks status/opt-out/cap/window/overrides AT SEND TIME, claims the row (scheduled->queued = idempotency lock), drafts, sends. Freeze is DB-atomic (webhook/actions flip rows to 'canceled'); **Resume now actually re-arms** (canceled rows -> scheduled, re-timed from now, cadence preserved). `lib/enrollment.ts` is the shared primitive (createQuote, CSV import, resume). Old `prospect-sequence` sleepUntil loop deleted; `lib/schedule.ts` deleted (dashboard/inbox read real scheduled rows).
+- **Reminders (registered 10DLC behavior).** `reminders` table + "Circle back later" in the thread: remind_me (owner ping at remind_at + opens a relay session) or auto_send (drafted in their voice referencing the quote + note, windows/opt-out checked at send). Pending ones render as amber dashed bubbles with cancel.
+- **Webhook scoped by To-number + owner relay-back.** Inbound resolves tenant via `phone_numbers.e164` (unique index), falls back to From-matching on the shared line. `relay_sessions` (24h): owner replies to a relay/reminder ping forward to that homeowner ("1)" prefix picks between open chats). STOP now also cancels scheduled rows + pending reminders.
+- **Phase 3 provisioning.** Dashboard "Pick your ReKnock number" card: area-code search (verified live against Twilio), one-tap claim. Real purchase ONLY on prod with `ALLOW_NUMBER_PURCHASE=true`; simulated elsewhere. Numbers sit pending_10dlc; sends pin From= once flipped 'active' (manual flip, see OPERATIONS.md). TrustHub API submission NOT automated yet.
+- **CSV import** at /app/quotes/import (200 cap, template, dedupe by phone, consent checkbox, enrolls via enrollment lib).
+- **Onboarding polish** (6 steps: required quote-volume step 2, heard-about moved to final screen, focused chrome without app nav, phone-frame voice reveal w/ animation, per-day "Copy to..." hours control, resume-at-step derived server-side).
+- **Punch-list:** password show/hide (shared PasswordInput), pricing 3-across w/ live founding counter, Solo->Starter / Pro->Growth renames (founder's supplied Starter bullets still TODO, copy wasn't recorded), designed check-email pages (+ email in query param), `companies.is_internal` excluded from founding counter (founder's test cos marked internal).
+- **Test account:** test@getreknock.com / reknock123 (platform admin, fully onboarded, active/founding, is_internal, relay cell = allowlisted founder phone, Stripe test customer linked).
+- **docs/AI_AGENT_STRATEGY.md**: autonomy ladder for AI agents messaging on behalf of customers (level 2 "agent proposes, human taps" is the next build; level 3 autopilot gated on re-registration + opt-in).
+- **Live-verified on the preview:** dispatcher sent a due touch end-to-end (Haiku draft -> Twilio SID), reminder fired owner ping + opened relay session. Caught + fixed a real compliance bug (owner_ping suppressed the first-touch STOP line). Freeze test: replied prospect's remaining touch flipped to 'canceled' (unclaimable by the dispatcher); monitor watching past its due time to confirm no send.
+
+**Migrations applied to dev + recorded:** `20260712100000_company_is_internal`, `20260712110000_scheduled_sends` (messages.kind/send_meta/'canceled' status, reminders, relay_sessions, unique e164).
+
+**Still OPEN:**
+- Founder's real Starter pricing bullets (swap at the two TODO(founder) comments).
+- TrustHub/10DLC API submission per tenant + relay-cell 6-digit verification at onboarding.
+- Level 2 AI agent (suggested replies in relay ping, "text 1 to send") per docs/AI_AGENT_STRATEGY.md.
+- Full human acceptance run (signup->pay->onboard->quote->reply->relay on a real phone) before founder merges dev->main; $1-charge timing on the Stripe trial still unverified.
+- **SECURITY:** the sbp_ Supabase PAT was scrubbed from `.claude/settings.local.json` this session, but the token itself is still LIVE. Founder must rotate it (Supabase Account -> Access Tokens) and put the new one in `.env.local` as `SUPABASE_ACCESS_TOKEN` if assistant DB access should continue.
+- One pre-existing dev prospect was left status='sequencing' with no scheduled rows (its old-engine Inngest run is orphaned); Resume it from the inbox if it should keep chasing.
+
+---
+
 ## Session handoff (2026-07-12) — Phases 1-4 of the feedback batch shipped to `dev`
 
 All work below is committed + pushed to `dev` (build green, `tsc` clean each time). Latest commit `58807a4`.
