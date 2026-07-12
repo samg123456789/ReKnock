@@ -3,7 +3,8 @@ import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { generateText, parseJson, AI_MODEL } from "@/lib/ai";
-import { sendSms, keywordType, STOP_CONFIRMATION, HELP_REPLY } from "@/lib/twilio";
+import { sendSms, keywordType, STOP_CONFIRMATION, HELP_REPLY, type SendResult } from "@/lib/twilio";
+import { inngest } from "@/lib/inngest/client";
 import { cancelScheduledForProspect, cancelPendingReminders } from "@/lib/enrollment";
 import {
   buildReplyClassifierPrompt,
@@ -29,6 +30,16 @@ function verifySignature(authToken: string, url: string, params: Record<string, 
 
 // Owner relay replies may start with "1)" / "2)" to pick between open chats
 // (1 = newest). Returns the 1-based pick and the message without the prefix.
+// Relay messages must not fail silently (a contractor who never hears about a
+// reply has no idea they missed a lead): a Twilio failure enqueues the Inngest
+// retry function, which re-attempts with backoff and pages the admin if it
+// never goes through.
+async function retryIfFailed(res: SendResult, data: { idempotency_key: string; company_id: string; to: string; context: string }) {
+  if (!res.sent && res.skipped === "twilio_error") {
+    await inngest.send({ name: "sms/retry.requested", data });
+  }
+}
+
 function parseRelayPrefix(body: string): { pick: number | null; text: string } {
   const m = body.match(/^\s*(\d)\s*[).:-]\s*([\s\S]*)$/);
   if (m && m[2].trim()) return { pick: Number(m[1]), text: m[2].trim() };
@@ -129,15 +140,17 @@ export async function POST(request: NextRequest) {
       }
 
       // Owner-initiated, so quiet hours do not apply (it is their lead).
-      await sendSms({
+      const relayOutKey = `relay-out:${messageSid || crypto.randomUUID()}`;
+      const relayOutRes = await sendSms({
         companyId: session.company_id,
         prospectId: target.id,
         to: target.phone_e164,
         body: text,
-        idempotencyKey: `relay-out:${messageSid || crypto.randomUUID()}`,
+        idempotencyKey: relayOutKey,
         kind: "relay",
         isRelay: true,
       });
+      await retryIfFailed(relayOutRes, { idempotency_key: relayOutKey, company_id: session.company_id, to: target.phone_e164, context: "relay_to_homeowner" });
       await admin.from("relay_sessions").update({ expires_at: new Date(Date.now() + 24 * 3600_000).toISOString() }).eq("id", session.id);
       await admin.from("events").insert({
         company_id: session.company_id,
@@ -260,16 +273,21 @@ export async function POST(request: NextRequest) {
         .gt("expires_at", nowIso);
       const name = prospect.first_name ?? "Your lead";
       const multi = (openCount ?? 0) > 0 ? ` You have ${(openCount ?? 0) + 1} open chats. Start your reply with "1)" for this one.` : "";
+      const pingKey = `relay:${messageSid || prospect.id}`;
       const res = await sendSms({
         companyId,
         prospectId: prospect.id,
         to: owner.cell_phone,
         body: `${name} replied to your follow-up: "${body}". Reply here and we will pass it on, or call them at ${from}.${multi}`,
-        idempotencyKey: `relay:${messageSid || prospect.id}`,
+        idempotencyKey: pingKey,
         kind: "owner_ping",
         isRelay: true,
       });
-      if (res.sent) {
+      await retryIfFailed(res, { idempotency_key: pingKey, company_id: companyId, to: owner.cell_phone, context: "reply_relay_ping" });
+      // Open the session on a pending retry too: if a later attempt delivers,
+      // the owner's reply must still route to this homeowner. An unused
+      // session just expires.
+      if (res.sent || res.skipped === "twilio_error") {
         await admin.from("relay_sessions").insert({
           company_id: companyId,
           prospect_id: prospect.id,

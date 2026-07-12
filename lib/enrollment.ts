@@ -18,11 +18,17 @@ export function touchKey(prospectId: string, stepIndex: number): string {
 }
 
 // Off production, day gaps compress to minutes so a full sequence can be
-// watched end to end.
+// watched end to end. On production, later touches get a few minutes of
+// random jitter so every prospect enrolled the same morning does not fire at
+// the identical instant (carriers penalize simultaneous bursts of similar
+// content).
 function gapTime(startAt: Date, gapDays: number, testMode: boolean): Date {
   const d = new Date(startAt);
   if (testMode) d.setMinutes(d.getMinutes() + gapDays);
-  else d.setDate(d.getDate() + gapDays);
+  else {
+    d.setDate(d.getDate() + gapDays);
+    if (gapDays > 0) d.setTime(d.getTime() + Math.floor(Math.random() * 10 * 60_000));
+  }
   return d;
 }
 
@@ -82,7 +88,10 @@ export function computeStartAt(opts: {
   const days = opts.choice === "tomorrow" ? 1 : 2;
   if (opts.testMode) return new Date(now.getTime() + days * 60_000);
   const morning = atMorningTz(new Date(now.getTime() + days * 24 * 3600_000), opts.tz);
-  return nextSendTime(opts.tz, opts.windows, morning) ?? morning;
+  const slot = nextSendTime(opts.tz, opts.windows, morning) ?? morning;
+  // Jitter within the window so same-day enrollments do not all fire at the
+  // exact window-open instant.
+  return new Date(slot.getTime() + Math.floor(Math.random() * 10 * 60_000));
 }
 
 export async function loadCampaignSteps(

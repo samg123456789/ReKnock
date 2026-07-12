@@ -2,7 +2,7 @@ import { inngest } from "./client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
-import { sendSms, sendClaimedMessage, canSendNow, nextSendTime } from "@/lib/twilio";
+import { sendSms, sendClaimedMessage, retrySmsTo, canSendNow, nextSendTime } from "@/lib/twilio";
 import { notifyAdmin } from "@/lib/notify-admin";
 import { env } from "@/lib/env";
 
@@ -17,6 +17,13 @@ import { env } from "@/lib/env";
 const STOP_STATUSES = new Set(["replied", "opted_out", "won", "lost", "paused"]);
 const TRIAL_CAP = 50;
 const BATCH = 50;
+// Hard floor between automated sends to the same homeowner, regardless of how
+// the contractor arranges their timeline (equal day offsets, stacked manual
+// touches). Not configurable. Prod only: dev test sequences run minutes apart.
+const MIN_GAP_MS = 2 * 3600_000;
+// Small random spread so sends stacked on the same window-open instant do not
+// leave as one burst (carriers penalize bursts of similar content).
+const jitterMs = (maxMinutes: number) => Math.floor(Math.random() * maxMinutes * 60_000);
 
 function isProd(): boolean {
   return process.env.VERCEL_ENV === "production";
@@ -147,12 +154,36 @@ export const sendScheduledMessage = inngest.createFunction(
       }
 
       // Sending window + TCPA floor, checked at send time (prod only; dev
-      // runs compressed test sequences at all hours).
+      // runs compressed test sequences at all hours). Deferred sends get a
+      // few minutes of jitter so everything queued overnight does not fire
+      // as one burst the second the window opens.
       const tz = co.timezone ?? "America/New_York";
       if (isProd() && !canSendNow(tz, windows ?? [])) {
         const next = nextSendTime(tz, windows ?? []) ?? new Date(Date.now() + 24 * 3600_000);
-        await defer(next, "window");
+        await defer(new Date(next.getTime() + jitterMs(10)), "window");
         return { deferred: "window" };
+      }
+
+      // Minimum gap between automated sends to the same homeowner, enforced
+      // at the sending layer so no timeline arrangement can stack texts.
+      if (isProd()) {
+        const { data: lastSent } = await admin
+          .from("messages")
+          .select("sent_at")
+          .eq("prospect_id", msg.prospect_id)
+          .eq("direction", "outbound")
+          .in("kind", ["sequence", "reminder", "manual", "relay"])
+          .not("sent_at", "is", null)
+          .order("sent_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const last = lastSent?.sent_at ? new Date(lastSent.sent_at).getTime() : 0;
+        if (last && Date.now() - last < MIN_GAP_MS) {
+          const earliest = new Date(last + MIN_GAP_MS + jitterMs(5));
+          const next = canSendNow(tz, windows ?? [], earliest) ? earliest : nextSendTime(tz, windows ?? [], earliest) ?? earliest;
+          await defer(next, "min_gap");
+          return { deferred: "min_gap" };
+        }
       }
 
       // Claim before drafting: scheduled -> queued is the idempotency lock,
@@ -164,14 +195,6 @@ export const sendScheduledMessage = inngest.createFunction(
         .eq("status", "scheduled")
         .select("id");
       if (!claimed?.length) return { skipped: "already_claimed" };
-
-      // Freeze-race backstop: a reply that landed between the checks above
-      // and the claim must still win.
-      const { data: p2 } = await admin.from("prospects").select("status").eq("id", msg.prospect_id).maybeSingle();
-      if (msg.kind === "sequence" && p2 && STOP_STATUSES.has(p2.status)) {
-        await admin.from("messages").update({ status: "canceled", send_meta: { reason: "frozen_after_claim" } }).eq("id", msg.id);
-        return { skipped: "frozen_after_claim" };
-      }
 
       // Compliance: identification + opt-out language go on the actual first
       // message this prospect ever receives (derived from the ledger, not the
@@ -233,6 +256,16 @@ export const sendScheduledMessage = inngest.createFunction(
             .eq("status", "queued");
           return { deferred: "draft_failed" };
         }
+      }
+
+      // Freeze-race backstop, LAST thing before Twilio: drafting above takes
+      // seconds, and a reply landing in that window flips the prospect but
+      // cannot cancel this row anymore (it is already claimed 'queued'). A
+      // recheck here shrinks the race to the Twilio call itself.
+      const { data: p2 } = await admin.from("prospects").select("status").eq("id", msg.prospect_id).maybeSingle();
+      if (p2 && (msg.kind === "sequence" ? STOP_STATUSES.has(p2.status) : p2.status === "opted_out")) {
+        await admin.from("messages").update({ status: "canceled", send_meta: { reason: "frozen_after_claim" } }).eq("id", msg.id).eq("status", "queued");
+        return { skipped: "frozen_after_claim" };
       }
 
       const res = await sendClaimedMessage({ messageId: msg.id, companyId: msg.company_id, to: p.phone_e164, body });
@@ -297,7 +330,13 @@ export const fireReminder = inngest.createFunction(
         kind: "owner_ping",
         isRelay: true,
       });
-      if (res.sent && p.status !== "opted_out") {
+      if (!res.sent && res.skipped === "twilio_error") {
+        await inngest.send({
+          name: "sms/retry.requested",
+          data: { idempotency_key: `remindme:${rem.id}`, company_id: rem.company_id, to: owner.cell_phone, context: "reminder_ping" },
+        });
+      }
+      if ((res.sent || res.skipped === "twilio_error") && p.status !== "opted_out") {
         await admin.from("relay_sessions").insert({
           company_id: rem.company_id,
           prospect_id: rem.prospect_id,
@@ -305,6 +344,47 @@ export const fireReminder = inngest.createFunction(
         });
       }
       return { sent: res.sent, skipped: res.skipped };
+    });
+  },
+);
+
+// Retry a failed relay/owner-ping send with backoff. A contractor who never
+// gets the "your lead replied" text has no idea they missed a lead, so these
+// must not fail silently: Inngest re-attempts (failed -> queued claim inside
+// retrySmsTo keeps it single-send), and the final failure pages the admin and
+// leaves an events row.
+export const retrySmsDelivery = inngest.createFunction(
+  {
+    id: "retry-sms-delivery",
+    retries: 3,
+    triggers: [{ event: "sms/retry.requested" }],
+    onFailure: async ({ event }) => {
+      const data = (event.data.event as { data: { idempotency_key: string; company_id: string; to: string; context: string } }).data;
+      const admin = createAdminClient();
+      await admin.from("failed_jobs").insert({
+        company_id: data.company_id,
+        job_type: "sms_retry_exhausted",
+        payload: { idempotency_key: data.idempotency_key, context: data.context },
+        error: "all retries failed",
+      });
+      await admin.from("events").insert({
+        company_id: data.company_id,
+        type: "relay_delivery_failed",
+        payload: { idempotency_key: data.idempotency_key, context: data.context },
+      });
+      await notifyAdmin("Relay SMS could not be delivered", [
+        `Company: ${data.company_id}`,
+        `Context: ${data.context}`,
+        `To: ${data.to}`,
+        "All retries failed. The contractor has NOT been told about this reply; check their relay cell in /admin.",
+      ]);
+    },
+  },
+  async ({ event, step }) => {
+    const { idempotency_key, to } = event.data as { idempotency_key: string; to: string };
+    return await step.run("retry", async () => {
+      // Throws on Twilio failure so Inngest backs off and retries.
+      return await retrySmsTo(idempotency_key, to);
     });
   },
 );
@@ -445,4 +525,4 @@ export const numberReconciliation = inngest.createFunction(
   },
 );
 
-export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, releaseCompanyNumbers, numberReconciliation];
+export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation];

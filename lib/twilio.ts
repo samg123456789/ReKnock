@@ -97,6 +97,11 @@ async function deliverViaTwilio(to: string, body: string, from?: string | null):
     To: to,
     Body: body,
   });
+  // Delivery-status callbacks land carrier verdicts (delivered / 30007
+  // filtering / unreachable) on the ledger row. Twilio must be able to reach
+  // the URL, so only when APP_URL is public https.
+  const appUrl = env.appUrl();
+  if (appUrl.startsWith("https://")) params.set("StatusCallback", `${appUrl}/api/webhooks/twilio/status`);
   if (from) params.set("From", from);
   const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",
@@ -175,6 +180,40 @@ export async function sendSms(opts: {
       error: msg,
     });
     return { sent: false, skipped: "twilio_error" };
+  }
+}
+
+// Re-attempt a failed send by its ledger row (used by the Inngest retry
+// function for relay/owner-ping messages, which must not fail silently).
+// Claims the row failed -> queued so concurrent retries cannot double-send;
+// throws on Twilio failure so Inngest applies its backoff and retries. The
+// recipient comes from the retry event (the ledger row does not store it).
+export async function retrySmsTo(idempotencyKey: string, to: string): Promise<SendResult> {
+  const admin = createAdminClient();
+  const isProd = process.env.VERCEL_ENV === "production";
+  if (!isProd && !env.devSmsAllowlist().includes(to)) return { sent: false, skipped: "dev_allowlist" };
+
+  const { data: claimed } = await admin
+    .from("messages")
+    .update({ status: "queued" })
+    .eq("idempotency_key", idempotencyKey)
+    .eq("status", "failed")
+    .select("id, company_id, body")
+    .maybeSingle();
+  if (!claimed?.body) return { sent: false, skipped: "not_retryable" };
+
+  try {
+    const from = await companyFromNumber(claimed.company_id);
+    const twilioSid = await deliverViaTwilio(to, claimed.body, from);
+    await admin
+      .from("messages")
+      .update({ status: "sent", twilio_sid: twilioSid, sent_at: new Date().toISOString() })
+      .eq("id", claimed.id);
+    return { sent: true };
+  } catch (e) {
+    // Back to failed so the next Inngest attempt can claim it again.
+    await admin.from("messages").update({ status: "failed" }).eq("id", claimed.id);
+    throw e;
   }
 }
 

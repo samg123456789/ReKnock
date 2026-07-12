@@ -111,6 +111,44 @@ Never edit tables by hand in the Supabase dashboard; always go through a migrati
   Results land in `admin.number_reconciliation` events; issues also email
   the admins.
 
+## Deliverability + relay reliability (2026-07-12 hardening pass)
+
+- Delivery-status callbacks: every Twilio send passes `StatusCallback` ->
+  `/api/webhooks/twilio/status` (signature-verified). Terminal verdicts land
+  on the ledger row: 'delivered', or 'failed' with
+  `send_meta.delivery_error_code`. Requires `APP_URL` to be the public https
+  URL of the deployment (set per Vercel env; localhost skips the callback).
+- Health query (no dashboard; run in Supabase SQL):
+  ```sql
+  select send_meta->>'delivery_error_code' as code, count(*)
+  from messages
+  where status = 'failed' and send_meta ? 'delivery_error_code'
+    and created_at > now() - interval '7 days'
+  group by 1 order by 2 desc;
+  ```
+  30007 = carrier filtering (content/trust score problem, act on a spike;
+  each one also writes a `delivery_filtered` event). 30003/30005/30006 =
+  handset unreachable/invalid (bad lead numbers). 30034 = unregistered
+  sender (10DLC association broken).
+- Send pacing: enrollment adds 0-10 min of jitter to morning slots and later
+  touches; window-deferred sends get jitter too. Hard floor of 2h between
+  automated sends to the same homeowner, enforced at send time (prod only).
+- Relay/owner-ping failures are NOT silent: a Twilio failure enqueues
+  `sms/retry.requested` -> Inngest `retry-sms-delivery` (3 retries with
+  backoff, failed->queued claim prevents double-send). Final failure writes
+  `failed_jobs` + a `relay_delivery_failed` event and emails the admins.
+- STOP/HELP handling is custom-parsed in the inbound webhook with the
+  carrier-registered exact reply strings. VERIFY IN TWILIO CONSOLE which
+  opt-out mode the Messaging Service uses: if Twilio's default opt-out is
+  active it will blacklist the number AND send its own canned reply, so our
+  confirmation would 21610-fail (double-reply risk / wrong copy). Correct
+  setup: Advanced Opt-Out enabled with response strings matching the
+  registered copy, or Twilio default responses disabled so ours are the only
+  ones. Keep our webhook parsing either way (it is what cancels sends + sets
+  opted_out in the DB).
+- Freeze race is covered by `scripts/freeze-race-test.mjs` (runs the real
+  claim/freeze SQL against dev concurrently; needs SUPABASE_ACCESS_TOKEN).
+
 ## Flexible timelines (2026-07-12 pm)
 
 - A prospect's timeline = their scheduled `messages` rows. Each row snapshots
