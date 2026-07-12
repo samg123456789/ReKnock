@@ -63,3 +63,31 @@ Never edit tables by hand in the Supabase dashboard; always go through a migrati
 - **Re-run a failed send:** _TODO (Phase 5)._
 - **Where every webhook lives:** _TODO — Stripe `/api/webhooks/stripe`, Twilio `/api/webhooks/twilio`, Resend `/api/webhooks/resend`, Inngest `/api/inngest` (added per phase)._
 - **Refund / cancel a customer:** via Stripe Customer Portal / dashboard (Phase 1). _TODO: exact steps._
+
+## Phone numbers (Phase 3)
+
+- Claiming: dashboard "Pick your ReKnock number" card -> `lib/provisioning-actions.ts`.
+  Real Twilio purchases happen only on production with `ALLOW_NUMBER_PURCHASE=true`;
+  everywhere else the claim is simulated (`tendlc_status.simulated=true`, no charge).
+- New numbers sit in `pending_10dlc`. Outbound keeps using the shared Messaging
+  Service pool until the number is flipped to `active`; then all sends and the
+  inbound webhook pin to the tenant's own number.
+- Flip to active after carrier registration clears (manual for now):
+  `update phone_numbers set status='active' where e164='+1...';`
+- 10DLC sole-prop submission via TrustHub API is NOT automated yet
+  (`tendlc_status.state='not_submitted'`). Until then, register the number on
+  the existing campaign in the Twilio console, then flip the status.
+
+## Scheduled sends (engine v2, 2026-07-12)
+
+- Every future send = `messages` row (status='scheduled', `scheduled_for`,
+  kind sequence|reminder). Inngest `scheduled-send-dispatcher` cron (1 min)
+  fans out; `send-scheduled-message` re-checks status/opt-out/cap/window at
+  send time, claims the row (scheduled->queued, the idempotency lock), drafts,
+  sends. Freeze = webhook/actions flip rows to 'canceled'; Resume re-arms them.
+- Stuck rows: status='queued' with no `twilio_sid` and old `updated_at` means
+  a crash mid-send. Never auto-retry these (the Twilio call may have gone
+  out); check Twilio logs for the recipient, then mark the row 'failed' or
+  'sent' by hand.
+- Reminders: `reminders` table. remind_me -> owner ping + relay session at
+  `remind_at`; auto_send -> linked scheduled messages row, same safety path.
