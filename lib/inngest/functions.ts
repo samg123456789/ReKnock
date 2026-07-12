@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
 import { sendSms, sendClaimedMessage, canSendNow, nextSendTime } from "@/lib/twilio";
-import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import { notifyAdmin } from "@/lib/notify-admin";
 import { env } from "@/lib/env";
 
@@ -69,7 +68,7 @@ export const sendScheduledMessage = inngest.createFunction(
     return await step.run("process", async () => {
       const { data: msg } = await admin
         .from("messages")
-        .select("id, company_id, prospect_id, kind, sequence_step, status, scheduled_for")
+        .select("id, company_id, prospect_id, kind, sequence_step, status, scheduled_for, body, body_is_custom, step_intent, step_template")
         .eq("id", messageId)
         .maybeSingle();
       if (!msg || msg.status !== "scheduled" || !msg.prospect_id) return { skipped: "not_scheduled" };
@@ -90,7 +89,7 @@ export const sendScheduledMessage = inngest.createFunction(
       const [{ data: p }, { data: co }, { data: windows }, { data: voice }] = await Promise.all([
         admin
           .from("prospects")
-          .select("status, phone_e164, first_name, job_type, quote_amount, quote_date, campaign_id, notes")
+          .select("status, phone_e164, first_name, job_type, quote_amount, quote_date, notes")
           .eq("id", msg.prospect_id)
           .maybeSingle(),
         admin
@@ -156,22 +155,6 @@ export const sendScheduledMessage = inngest.createFunction(
         return { deferred: "window" };
       }
 
-      // Per-prospect override from the thread (skip or contractor's own text).
-      let overrideText: string | null = null;
-      if (msg.kind === "sequence" && msg.sequence_step != null) {
-        const { data: override } = await admin
-          .from("sequence_overrides")
-          .select("action, custom_text")
-          .eq("prospect_id", msg.prospect_id)
-          .eq("step_index", msg.sequence_step)
-          .maybeSingle();
-        if (override?.action === "skip") {
-          await cancel("user_skip");
-          return { skipped: "user_skip" };
-        }
-        if (override?.action === "custom" && override.custom_text?.trim()) overrideText = override.custom_text.trim();
-      }
-
       // Claim before drafting: scheduled -> queued is the idempotency lock,
       // so a duplicate event or racing dispatcher tick can never double-send.
       const { data: claimed } = await admin
@@ -207,28 +190,17 @@ export const sendScheduledMessage = inngest.createFunction(
       const businessName = co.name ?? "your contractor";
       const fillCtx = { firstName: p.first_name ?? "there", jobType: p.job_type, quoteAmount: p.quote_amount, businessName };
 
-      let steps: CampaignStep[] = DEFAULT_CAMPAIGN_STEPS;
-      if (p.campaign_id) {
-        const { data: c } = await admin.from("campaigns").select("steps").eq("id", p.campaign_id).maybeSingle();
-        const cs = c?.steps as CampaignStep[] | null;
-        if (Array.isArray(cs) && cs.length) steps = cs;
-      }
-      const stepDef = msg.sequence_step != null ? steps[msg.sequence_step] : undefined;
-
-      // The campaign editor can toggle a step off after enrollment; honor it.
-      if (msg.kind === "sequence" && stepDef?.enabled === false && !overrideText) {
-        await admin.from("messages").update({ status: "canceled", send_meta: { reason: "step_disabled" } }).eq("id", msg.id);
-        return { skipped: "step_disabled" };
-      }
-
+      // The row is self-contained: the contractor's own text fully overrides
+      // our draft; otherwise the enrollment-snapshotted template, otherwise an
+      // AI draft from the snapshotted intent.
       let body: string | null = null;
-      if (overrideText) {
-        body = enforceCompliance(overrideText, isFirst, businessName);
-      } else if (msg.kind === "sequence" && stepDef?.template?.trim()) {
-        body = enforceCompliance(fillTemplate(stepDef.template, fillCtx), isFirst, businessName);
+      if (msg.body_is_custom && msg.body?.trim()) {
+        body = enforceCompliance(msg.body, isFirst, businessName);
+      } else if (msg.step_template?.trim()) {
+        body = enforceCompliance(fillTemplate(msg.step_template, fillCtx), isFirst, businessName);
       } else {
         let note = p.notes ?? null;
-        let intent = stepDef?.intent ?? "friendly follow-up";
+        let intent = msg.step_intent ?? "friendly follow-up";
         if (msg.kind === "reminder") {
           const { data: rem } = await admin.from("reminders").select("note").eq("message_id", msg.id).maybeSingle();
           intent = "circle back now, as the customer asked us to earlier; reference the earlier quote naturally";

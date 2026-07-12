@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import { logAudit } from "@/lib/admin";
 import { normalizePhone } from "@/lib/phone";
-import { scheduleSequence } from "@/lib/enrollment";
+import { scheduleSequence, computeStartAt } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import { CSV_ROW_CAP } from "@/lib/csv";
 
@@ -156,6 +156,18 @@ export async function bulkCreateProspects(
   let enrolled = 0;
   if (enroll) {
     const testMode = process.env.VERCEL_ENV !== "production";
+    // Bulk imports start on the recommended cadence (first touch in ~2 days,
+    // morning slot); individual timelines stay fully editable afterwards.
+    const [{ data: co }, { data: windows }] = await Promise.all([
+      supabase.from("companies").select("timezone").eq("id", companyId).maybeSingle(),
+      supabase.from("sending_windows").select("day_of_week, start_time, end_time, enabled").eq("company_id", companyId),
+    ]);
+    const startAt = computeStartAt({
+      choice: "recommended",
+      tz: co?.timezone ?? "America/New_York",
+      windows: windows ?? [],
+      testMode,
+    });
     for (let i = 0; i < created.length; i += 10) {
       const chunk = created.slice(i, i + 10);
       await Promise.all(
@@ -164,7 +176,7 @@ export async function bulkCreateProspects(
             companyId,
             prospectId: p.id,
             steps,
-            baseDate: new Date(`${p.quote_date}T12:00:00Z`),
+            startAt,
             testMode,
           })
             .then(() => {

@@ -58,14 +58,17 @@ export function enforceCompliance(text: string, isFirstTouch: boolean, businessN
   t = t.replace(/https?:\/\/\S+/gi, "").replace(/\bwww\.\S+/gi, "").replace(/\s{2,}/g, " ").trim();
   t = t.replace(/—/g, " "); // strip em-dashes
   if (isFirstTouch) {
-    if (!/reply stop/i.test(t)) t = `${t} Reply STOP to opt out.`;
-    // Carrier-registered phrase is exact-cased; normalize whatever casing the
-    // model produced (a lowercase voice writes "reply stop to opt out").
-    t = t.replace(/reply stop to opt out\.?/i, "Reply STOP to opt out.");
+    // The opt-out goes on its own line, blank-line separated from the message
+    // body (founder directive), in the carrier-registered exact casing. Strip
+    // any version the model wrote inline first.
+    t = t.replace(/\s*reply stop to opt out\.?/gi, "").trim();
     if (businessName && !t.toLowerCase().includes(businessName.toLowerCase().slice(0, 12))) {
       t = `${businessName}: ${t}`;
     }
+    if (t.length > 290) t = t.slice(0, 287).trimEnd() + "...";
+    t = `${t}\n\nReply STOP to opt out`;
+  } else if (t.length > 320) {
+    t = t.slice(0, 317).trimEnd() + "...";
   }
-  if (t.length > 320) t = t.slice(0, 317).trimEnd() + "...";
   return t;
 }

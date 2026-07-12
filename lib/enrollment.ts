@@ -1,11 +1,15 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { DEFAULT_CAMPAIGN_STEPS, stepEnabled, type CampaignStep } from "@/lib/campaign";
+import { canSendNow, nextSendTime, type Window } from "@/lib/twilio";
 
 // The scheduled-send primitive. Every future automated send is a `messages`
 // row with status='scheduled' + scheduled_for; the Inngest dispatcher fires
-// them and re-checks status/opt-out/cap/window at send time. Enroll, freeze
-// (cancel), and Resume (re-arm) all operate on those rows.
+// them and re-checks status/opt-out/cap/window at send time. Each row
+// snapshots its drafting inputs (step_intent/step_template) at enrollment, so
+// a prospect's timeline is fully self-contained and individually editable:
+// move it, rewrite it, delete it, add to it. The campaign in /campaign is
+// only the template new prospects inherit.
 
 export type ScheduledStep = { step: number; scheduledFor: string };
 
@@ -13,13 +17,72 @@ export function touchKey(prospectId: string, stepIndex: number): string {
   return `touch:${prospectId}:${stepIndex}`;
 }
 
-// Off production, day offsets compress to minutes so a full sequence can be
-// watched end to end. Same rule the old engine used.
-function stepTime(base: Date, dayOffset: number, testMode: boolean): Date {
-  const d = new Date(base);
-  if (testMode) d.setMinutes(d.getMinutes() + dayOffset);
-  else d.setDate(d.getDate() + dayOffset);
+// Off production, day gaps compress to minutes so a full sequence can be
+// watched end to end.
+function gapTime(startAt: Date, gapDays: number, testMode: boolean): Date {
+  const d = new Date(startAt);
+  if (testMode) d.setMinutes(d.getMinutes() + gapDays);
+  else d.setDate(d.getDate() + gapDays);
   return d;
+}
+
+export type StartChoice = "now" | "tomorrow" | "recommended" | "custom";
+
+function tzDayKey(d: Date, tz: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
+// The instant a given calendar day (company tz) reaches 8am local.
+function atMorningTz(base: Date, tz: string): Date {
+  const key = tzDayKey(base, tz);
+  const t = new Date(base.getTime() - 30 * 3600_000);
+  for (let i = 0; i < 60 * 4; i++) {
+    t.setTime(t.getTime() + 15 * 60_000);
+    if (tzDayKey(t, tz) === key) {
+      try {
+        const hour = Number(
+          new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", hour12: false })
+            .formatToParts(t)
+            .find((p) => p.type === "hour")?.value ?? "0",
+        );
+        if (hour >= 8) return new Date(t);
+      } catch {
+        return base;
+      }
+    }
+  }
+  return base;
+}
+
+// When the first touch goes out, per the contractor's choice at quote intake:
+// "now" sends on the next dispatcher tick (windows still respected at send),
+// "tomorrow" and the recommended "in 2 days" land in the morning slot of that
+// day, custom times outside sending hours roll forward to the nearest valid
+// slot. Off production the day choices compress to minutes.
+export function computeStartAt(opts: {
+  choice: StartChoice;
+  customIso?: string | null;
+  tz: string;
+  windows: Window[];
+  testMode: boolean;
+}): Date {
+  const now = new Date();
+  if (opts.choice === "custom" && opts.customIso) {
+    const when = new Date(opts.customIso);
+    if (!Number.isNaN(when.getTime()) && when.getTime() > now.getTime()) {
+      if (canSendNow(opts.tz, opts.windows, when)) return when;
+      return nextSendTime(opts.tz, opts.windows, when) ?? when;
+    }
+  }
+  if (opts.choice === "now") return now;
+  const days = opts.choice === "tomorrow" ? 1 : 2;
+  if (opts.testMode) return new Date(now.getTime() + days * 60_000);
+  const morning = atMorningTz(new Date(now.getTime() + days * 24 * 3600_000), opts.tz);
+  return nextSendTime(opts.tz, opts.windows, morning) ?? morning;
 }
 
 export async function loadCampaignSteps(
@@ -32,14 +95,16 @@ export async function loadCampaignSteps(
   return Array.isArray(cs) && cs.length ? cs : DEFAULT_CAMPAIGN_STEPS;
 }
 
-// Create the scheduled rows for a fresh enrollment. Idempotent: steps that
-// already have a row (any status) are left alone, so a double-enroll can
-// never double-schedule (unique idempotency_key backstops a race).
+// Create the scheduled rows for a fresh enrollment. The first enabled step
+// goes out at `startAt` (the contractor's choice: now, tomorrow morning, in
+// 2 days, or any custom time); later steps keep the template's spacing
+// relative to the first. Idempotent: steps that already have a row (any
+// status) are left alone; the unique idempotency_key backstops a race.
 export async function scheduleSequence(opts: {
   companyId: string;
   prospectId: string;
   steps: CampaignStep[];
-  baseDate: Date;
+  startAt: Date;
   testMode: boolean;
 }): Promise<ScheduledStep[]> {
   const admin = createAdminClient();
@@ -50,9 +115,12 @@ export async function scheduleSequence(opts: {
     .eq("kind", "sequence");
   const have = new Set((existing ?? []).map((r) => r.sequence_step));
 
-  const rows = opts.steps
-    .map((s, i) => ({ s, i }))
-    .filter(({ s, i }) => stepEnabled(s) && !have.has(i))
+  const enabled = opts.steps.map((s, i) => ({ s, i })).filter(({ s }) => stepEnabled(s));
+  if (!enabled.length) return [];
+  const firstOffset = enabled[0].s.day_offset ?? 0;
+
+  const rows = enabled
+    .filter(({ i }) => !have.has(i))
     .map(({ s, i }) => ({
       company_id: opts.companyId,
       prospect_id: opts.prospectId,
@@ -60,8 +128,10 @@ export async function scheduleSequence(opts: {
       channel: "sms",
       kind: "sequence",
       status: "scheduled",
-      scheduled_for: stepTime(opts.baseDate, s.day_offset ?? 0, opts.testMode).toISOString(),
+      scheduled_for: gapTime(opts.startAt, (s.day_offset ?? 0) - firstOffset, opts.testMode).toISOString(),
       sequence_step: i,
+      step_intent: s.intent ?? null,
+      step_template: s.template?.trim() || null,
       idempotency_key: touchKey(opts.prospectId, i),
     }));
   if (!rows.length) return [];
@@ -104,67 +174,43 @@ export async function cancelPendingReminders(prospectId: string, reason: string)
   await cancelScheduledForProspect(prospectId, reason, ["reminder"]);
 }
 
-// Resume: re-arm the remaining (never-sent) steps. Canceled rows flip back to
-// scheduled; missing rows are inserted. Times restart from now, preserving the
-// campaign's cadence between the remaining steps.
+// Resume: re-arm the remaining (never-sent) touches. Canceled rows flip back
+// to scheduled with their spacing preserved relative to the first re-armed
+// one; user-deleted touches stay deleted.
 export async function rearmSequence(opts: {
   companyId: string;
   prospectId: string;
   testMode: boolean;
 }): Promise<number> {
   const admin = createAdminClient();
-  const { data: prospect } = await admin
-    .from("prospects")
-    .select("campaign_id")
-    .eq("id", opts.prospectId)
-    .maybeSingle();
-  const steps = await loadCampaignSteps(prospect?.campaign_id ?? null);
-
   const { data: existing } = await admin
     .from("messages")
-    .select("id, sequence_step, status")
+    .select("id, sequence_step, status, scheduled_for, send_meta")
     .eq("prospect_id", opts.prospectId)
-    .eq("kind", "sequence");
-  const byStep = new Map((existing ?? []).map((r) => [r.sequence_step, r]));
+    .eq("kind", "sequence")
+    .eq("status", "canceled")
+    .order("scheduled_for", { ascending: true });
 
-  const remaining = steps
-    .map((s, i) => ({ s, i }))
-    .filter(({ s, i }) => {
-      if (!stepEnabled(s)) return false;
-      const row = byStep.get(i);
-      return !row || row.status === "canceled";
-    });
-  if (!remaining.length) return 0;
+  const rearmable = (existing ?? []).filter((r) => {
+    const reason = (r.send_meta as { reason?: string } | null)?.reason;
+    return reason !== "user_delete" && reason !== "user_skip";
+  });
+  if (!rearmable.length) return 0;
 
-  // First remaining step goes out shortly after resume; later ones keep their
-  // original spacing relative to it.
-  const firstOffset = remaining[0].s.day_offset ?? 0;
-  const base = new Date(Date.now() + 5 * 60 * 1000);
+  // Preserve the original gaps between the remaining touches, restarted from
+  // shortly after now.
+  const firstOriginal = new Date(rearmable[0].scheduled_for ?? Date.now()).getTime();
+  const base = Date.now() + 5 * 60 * 1000;
   let count = 0;
-  for (const { s, i } of remaining) {
-    const when = stepTime(base, (s.day_offset ?? 0) - firstOffset, opts.testMode).toISOString();
-    const row = byStep.get(i);
-    if (row) {
-      const { error } = await admin
-        .from("messages")
-        .update({ status: "scheduled", scheduled_for: when, send_meta: { reason: "resumed" } })
-        .eq("id", row.id)
-        .eq("status", "canceled");
-      if (!error) count++;
-    } else {
-      const { error } = await admin.from("messages").insert({
-        company_id: opts.companyId,
-        prospect_id: opts.prospectId,
-        direction: "outbound",
-        channel: "sms",
-        kind: "sequence",
-        status: "scheduled",
-        scheduled_for: when,
-        sequence_step: i,
-        idempotency_key: touchKey(opts.prospectId, i),
-      });
-      if (!error) count++;
-    }
+  for (const row of rearmable) {
+    const gapMs = Math.max(0, new Date(row.scheduled_for ?? firstOriginal).getTime() - firstOriginal);
+    const when = new Date(base + gapMs).toISOString();
+    const { error } = await admin
+      .from("messages")
+      .update({ status: "scheduled", scheduled_for: when, send_meta: { reason: "resumed" } })
+      .eq("id", row.id)
+      .eq("status", "canceled");
+    if (!error) count++;
   }
   return count;
 }

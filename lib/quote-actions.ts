@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/admin";
 import { generateText, generateFromMedia, parseJson, AI_MODEL, type MediaInput } from "@/lib/ai";
 import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES } from "@/lib/quote-limits";
-import { scheduleSequence } from "@/lib/enrollment";
+import { scheduleSequence, computeStartAt, type StartChoice } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import {
   buildQuoteExtractorPrompt,
@@ -19,7 +19,7 @@ export type ActionResult<T = undefined> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-export type ScheduledTouch = { step: number; dayOffset: number; date: string };
+export type ScheduledTouch = { step: number; iso: string };
 export type CreatedQuote = { prospectId: string; firstName: string; touches: ScheduledTouch[] };
 
 function normalizePhone(raw: string): string | null {
@@ -142,6 +142,8 @@ export async function createQuote(input: {
   source: "manual" | "ocr_upload";
   storage_paths?: string[];
   extracted?: QuoteExtraction | null;
+  start_choice?: StartChoice;
+  start_custom_iso?: string;
 }): Promise<ActionResult<CreatedQuote>> {
   const firstName = input.first_name.trim();
   if (!firstName) return { ok: false, error: "Please enter the customer's first name." };
@@ -161,12 +163,16 @@ export async function createQuote(input: {
 
   const { supabase, company, acting } = await requireCompany();
 
-  const { data: campaign } = await supabase
-    .from("campaigns")
-    .select("id, steps")
-    .eq("company_id", company.id)
-    .eq("is_default", true)
-    .maybeSingle();
+  const [{ data: campaign }, { data: co }, { data: windows }] = await Promise.all([
+    supabase
+      .from("campaigns")
+      .select("id, steps")
+      .eq("company_id", company.id)
+      .eq("is_default", true)
+      .maybeSingle(),
+    supabase.from("companies").select("timezone").eq("id", company.id).maybeSingle(),
+    supabase.from("sending_windows").select("day_of_week, start_time, end_time, enabled").eq("company_id", company.id),
+  ]);
 
   const { data: prospect, error } = await supabase
     .from("prospects")
@@ -199,26 +205,39 @@ export async function createQuote(input: {
   const avgConf = conf.length ? conf.reduce((a, b) => a + b, 0) / conf.length : null;
 
   // Enroll: write the scheduled `messages` rows the dispatcher will fire.
-  // Off production runs in test mode (day offsets compressed to minutes).
+  // The first touch lands at the contractor's chosen start ("Start now" goes
+  // out on the next dispatcher tick); later touches keep the template's
+  // spacing. Off production runs in test mode (gaps compressed to minutes).
   // Never fail the quote if scheduling hiccups.
   const steps = ((campaign?.steps as CampaignStep[] | null) ?? []).length
     ? (campaign!.steps as CampaignStep[])
     : DEFAULT_CAMPAIGN_STEPS;
-  const base = new Date(`${quoteDate}T12:00:00Z`);
-  const enroll = scheduleSequence({
-    companyId: company.id,
-    prospectId: prospect.id,
-    steps,
-    baseDate: base,
-    testMode: process.env.VERCEL_ENV !== "production",
-  }).catch(() =>
-    supabase.from("failed_jobs").insert({
+  const testMode = process.env.VERCEL_ENV !== "production";
+  const startAt = computeStartAt({
+    choice: input.start_choice ?? "recommended",
+    customIso: input.start_custom_iso ?? null,
+    tz: co?.timezone ?? "America/New_York",
+    windows: windows ?? [],
+    testMode,
+  });
+  let touches: ScheduledTouch[] = [];
+  try {
+    const scheduled = await scheduleSequence({
+      companyId: company.id,
+      prospectId: prospect.id,
+      steps,
+      startAt,
+      testMode,
+    });
+    touches = scheduled.map((s) => ({ step: s.step, iso: s.scheduledFor }));
+  } catch {
+    await supabase.from("failed_jobs").insert({
       company_id: company.id,
       job_type: "sequence_enroll",
       payload: { prospect_id: prospect.id },
       error: "scheduleSequence failed",
-    }),
-  );
+    });
+  }
 
   await Promise.all([
     // Persist the uploaded source file(s) as quote rows, linked to the
@@ -238,9 +257,8 @@ export async function createQuote(input: {
     supabase.from("events").insert({
       company_id: company.id,
       type: "prospect_created",
-      payload: { prospect_id: prospect.id, source: input.source, consent_path: consentPath },
+      payload: { prospect_id: prospect.id, source: input.source, consent_path: consentPath, start_choice: input.start_choice ?? "recommended" },
     }),
-    enroll,
     acting.impersonating
       ? logAudit(acting.client, {
           actorUserId: acting.actorUserId,
@@ -252,16 +270,7 @@ export async function createQuote(input: {
       : Promise.resolve(),
   ]);
 
-  // Preview always shows the real-world cadence (days), even though dev test
-  // mode compresses the actual scheduled rows to minutes.
-  const touches: ScheduledTouch[] = steps
-    .map((s, i) => ({ s, i }))
-    .filter(({ s }) => s.enabled !== false)
-    .map(({ s, i }) => {
-      const d = new Date(base);
-      d.setDate(d.getDate() + (s.day_offset ?? 0));
-      return { step: i + 1, dayOffset: s.day_offset ?? 0, date: d.toISOString().slice(0, 10) };
-    });
-
+  // The preview shows the actual scheduled rows (real dates AND times), so
+  // what the contractor sees is exactly what will fire.
   return { ok: true, data: { prospectId: prospect.id, firstName, touches } };
 }

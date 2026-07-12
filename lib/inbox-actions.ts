@@ -4,10 +4,9 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import { logAudit } from "@/lib/admin";
-import { sendSms } from "@/lib/twilio";
+import { sendSms, canSendNow, nextSendTime } from "@/lib/twilio";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
-import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import { cancelScheduledForProspect, rearmSequence } from "@/lib/enrollment";
 
 export type InboxResult = { ok: true } | { ok: false; error: string };
@@ -121,26 +120,122 @@ export async function updateProspect(prospectId: string, fields: Record<string, 
   return { ok: true };
 }
 
-// Move one upcoming touch to a different day/time. Only works while the row
-// is still scheduled; all send-time checks (opt-out, windows, cap) still
-// apply when it fires.
-export async function rescheduleStep(prospectId: string, stepIndex: number, newIso: string): Promise<InboxResult> {
-  const when = new Date(newIso);
-  if (Number.isNaN(when.getTime())) return { ok: false, error: "Pick a date and time." };
-  if (when.getTime() < Date.now() + 2 * 60_000) return { ok: false, error: "Pick a time in the future." };
+// Timeline editing. The scheduled `messages` rows ARE the prospect's
+// timeline: every touch is individually movable, rewritable, deletable, and
+// new touches can be added at any date/time. Times are validated against the
+// company's sending windows + the TCPA floor; an out-of-window pick returns
+// the nearest valid slot as a suggestion instead of silently deferring.
 
+export type TimeResult = { ok: true } | { ok: false; error: string; suggestionIso?: string };
+
+async function checkSendTime(
+  client: ReturnType<typeof Object> & { from: (t: string) => any },
+  companyId: string,
+  iso: string,
+): Promise<{ when: Date } | { error: string; suggestionIso?: string }> {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return { error: "Pick a date and time." };
+  if (when.getTime() < Date.now() + 2 * 60_000) return { error: "Pick a time in the future." };
+  if (when.getTime() > Date.now() + 366 * 86400_000) return { error: "That is over a year out. Pick a closer date." };
+
+  const [{ data: co }, { data: windows }] = await Promise.all([
+    client.from("companies").select("timezone").eq("id", companyId).maybeSingle(),
+    client.from("sending_windows").select("day_of_week, start_time, end_time, enabled").eq("company_id", companyId),
+  ]);
+  const tz = co?.timezone ?? "America/New_York";
+  if (!canSendNow(tz, windows ?? [], when)) {
+    const next = nextSendTime(tz, windows ?? [], when);
+    return {
+      error: "That time is outside your sending hours (or the 8am to 9pm texting rules).",
+      suggestionIso: next?.toISOString(),
+    };
+  }
+  return { when };
+}
+
+// Move one upcoming touch to any date and time.
+export async function rescheduleTouch(messageId: string, newIso: string): Promise<TimeResult> {
   const a = await acting();
+  const check = await checkSendTime(a.client, a.companyId!, newIso);
+  if ("error" in check) return { ok: false, error: check.error, suggestionIso: check.suggestionIso };
+
   const { data: updated, error } = await a.client
     .from("messages")
-    .update({ scheduled_for: when.toISOString(), send_meta: { reason: "user_reschedule" } })
-    .eq("prospect_id", prospectId)
+    .update({ scheduled_for: check.when.toISOString(), send_meta: { reason: "user_reschedule" } })
+    .eq("id", messageId)
     .eq("company_id", a.companyId!)
-    .eq("sequence_step", stepIndex)
-    .eq("kind", "sequence")
     .eq("status", "scheduled")
     .select("id");
   if (error) return { ok: false, error: "Could not reschedule." };
   if (!updated?.length) return { ok: false, error: "That follow-up already went out or was canceled." };
+  return { ok: true };
+}
+
+// The contractor's own words fully override our draft for that send. Empty
+// text switches the touch back to auto-drafting.
+export async function saveTouchMessage(messageId: string, text: string): Promise<InboxResult> {
+  const a = await acting();
+  const custom = text.trim();
+  const { data: updated, error } = await a.client
+    .from("messages")
+    .update(custom ? { body: custom.slice(0, 320), body_is_custom: true } : { body: null, body_is_custom: false })
+    .eq("id", messageId)
+    .eq("company_id", a.companyId!)
+    .eq("status", "scheduled")
+    .select("id");
+  if (error) return { ok: false, error: "Could not save." };
+  if (!updated?.length) return { ok: false, error: "That follow-up already went out or was canceled." };
+  return { ok: true };
+}
+
+// Remove a touch from the timeline entirely (kept in the ledger as canceled;
+// Resume never brings user-deleted touches back).
+export async function deleteTouch(messageId: string): Promise<InboxResult> {
+  const a = await acting();
+  const { data: updated, error } = await a.client
+    .from("messages")
+    .update({ status: "canceled", send_meta: { reason: "user_delete" } })
+    .eq("id", messageId)
+    .eq("company_id", a.companyId!)
+    .eq("status", "scheduled")
+    .select("id");
+  if (error || !updated?.length) return { ok: false, error: "That follow-up already went out or was canceled." };
+  return { ok: true };
+}
+
+// Add an extra touch at any date/time, with optional custom text (otherwise
+// we draft it in their voice at send time).
+export async function addTouch(prospectId: string, iso: string, customText?: string): Promise<TimeResult> {
+  const a = await acting();
+  const { data: p } = await a.client
+    .from("prospects")
+    .select("id, status, phone_e164")
+    .eq("id", prospectId)
+    .eq("company_id", a.companyId!)
+    .maybeSingle();
+  if (!p) return { ok: false, error: "Prospect not found." };
+  if (p.status === "opted_out") return { ok: false, error: "This contact opted out. You cannot text them." };
+  if (!p.phone_e164) return { ok: false, error: "No phone number for this prospect." };
+
+  const check = await checkSendTime(a.client, a.companyId!, iso);
+  if ("error" in check) return { ok: false, error: check.error, suggestionIso: check.suggestionIso };
+
+  const custom = customText?.trim();
+  const { error } = await a.client.from("messages").insert({
+    company_id: a.companyId!,
+    prospect_id: prospectId,
+    direction: "outbound",
+    channel: "sms",
+    kind: "sequence",
+    status: "scheduled",
+    scheduled_for: check.when.toISOString(),
+    sequence_step: null,
+    step_intent: "friendly follow-up",
+    body: custom ? custom.slice(0, 320) : null,
+    body_is_custom: Boolean(custom),
+    idempotency_key: `extra:${crypto.randomUUID()}`,
+  });
+  if (error) return { ok: false, error: "Could not add the follow-up." };
   return { ok: true };
 }
 
@@ -235,47 +330,54 @@ export async function cancelReminder(reminderId: string): Promise<InboxResult> {
 }
 
 export type DraftResult =
-  | { ok: true; text: string; kind: "ai" | "custom" | "template" | "skip" }
+  | { ok: true; text: string; kind: "ai" | "custom" | "template" }
   | { ok: false; error: string };
 
-// The actual message a given upcoming step will send: an override, a fixed
-// template, or a live AI draft in the contractor's voice. Used when a scheduled
-// pill is opened in the thread. On-demand so the inbox load stays fast.
-export async function getScheduledDraft(prospectId: string, stepIndex: number): Promise<DraftResult> {
+// The actual message a scheduled touch will send: the contractor's own text
+// if they set one, the snapshotted template, or a live AI draft in their
+// voice. On-demand so the inbox load stays fast.
+export async function draftTouchPreview(messageId: string): Promise<DraftResult> {
   const a = await acting();
   const sb = a.client;
+  const { data: msg } = await sb
+    .from("messages")
+    .select("prospect_id, body, body_is_custom, step_intent, step_template")
+    .eq("id", messageId)
+    .eq("company_id", a.companyId!)
+    .eq("status", "scheduled")
+    .maybeSingle();
+  if (!msg?.prospect_id) return { ok: false, error: "That follow-up already went out or was canceled." };
+  if (msg.body_is_custom && msg.body?.trim()) return { ok: true, text: msg.body, kind: "custom" };
+
   const [{ data: p }, { data: co }, { data: voice }] = await Promise.all([
-    sb.from("prospects").select("first_name, job_type, quote_amount, quote_date, campaign_id, notes").eq("id", prospectId).eq("company_id", a.companyId!).maybeSingle(),
+    sb.from("prospects").select("first_name, job_type, quote_amount, quote_date, notes").eq("id", msg.prospect_id).maybeSingle(),
     sb.from("companies").select("name").eq("id", a.companyId!).maybeSingle(),
     sb.from("voice_profiles").select("master_prompt").eq("company_id", a.companyId!).eq("is_latest", true).maybeSingle(),
   ]);
   if (!p) return { ok: false, error: "Prospect not found." };
 
-  let steps: CampaignStep[] = DEFAULT_CAMPAIGN_STEPS;
-  if (p.campaign_id) {
-    const { data: c } = await sb.from("campaigns").select("steps").eq("id", p.campaign_id).maybeSingle();
-    const cs = c?.steps as CampaignStep[] | null;
-    if (Array.isArray(cs) && cs.length) steps = cs;
-  }
-  const s = steps[stepIndex];
-  if (!s) return { ok: false, error: "No such step." };
-
   const businessName = co?.name ?? "your contractor";
-  const { data: override } = await sb.from("sequence_overrides").select("action, custom_text").eq("prospect_id", prospectId).eq("step_index", stepIndex).maybeSingle();
-  if (override?.action === "skip") return { ok: true, text: "", kind: "skip" };
-  if (override?.action === "custom" && override.custom_text?.trim()) return { ok: true, text: override.custom_text, kind: "custom" };
-
   const fillCtx = { firstName: p.first_name ?? "there", jobType: p.job_type, quoteAmount: p.quote_amount, businessName };
-  if (s.template?.trim()) return { ok: true, text: fillTemplate(s.template, fillCtx), kind: "template" };
+  if (msg.step_template?.trim()) return { ok: true, text: fillTemplate(msg.step_template, fillCtx), kind: "template" };
 
-  const isFirst = stepIndex === 0;
+  // Same first-touch rule as the engine: it is first if nothing has been
+  // sent to this homeowner yet.
+  const { data: prior } = await sb
+    .from("messages")
+    .select("id")
+    .eq("prospect_id", msg.prospect_id)
+    .eq("direction", "outbound")
+    .eq("status", "sent")
+    .in("kind", ["sequence", "reminder", "manual", "relay"])
+    .limit(1);
+  const isFirst = !prior?.length;
   const daysSince = p.quote_date
     ? Math.max(0, Math.round((Date.now() - new Date(`${p.quote_date}T12:00:00Z`).getTime()) / 86400000))
-    : s.day_offset ?? 0;
+    : 0;
   const { system, prompt, temperature, maxTokens } = buildFollowupDrafterPrompt(
     voice?.master_prompt ?? "",
     { businessName, firstName: p.first_name ?? "there", jobType: p.job_type, quoteAmount: p.quote_amount, daysSinceQuote: daysSince, notes: p.notes },
-    s.intent ?? "friendly follow-up",
+    msg.step_intent ?? "friendly follow-up",
     isFirst,
   );
   try {
@@ -284,37 +386,4 @@ export async function getScheduledDraft(prospectId: string, stepIndex: number): 
   } catch {
     return { ok: false, error: "Could not draft that. Try again." };
   }
-}
-
-// Edit or skip a specific upcoming step for one prospect. Honored by the
-// sequence engine at send time (opt-out/status still win).
-export async function setStepOverride(
-  prospectId: string,
-  stepIndex: number,
-  action: "skip" | "custom" | "clear",
-  customText?: string,
-): Promise<InboxResult> {
-  const a = await acting();
-  const sb = a.client;
-  const { data: p } = await sb.from("prospects").select("id").eq("id", prospectId).eq("company_id", a.companyId!).maybeSingle();
-  if (!p) return { ok: false, error: "Prospect not found." };
-
-  if (action === "clear") {
-    await sb.from("sequence_overrides").delete().eq("prospect_id", prospectId).eq("step_index", stepIndex).eq("company_id", a.companyId!);
-    return { ok: true };
-  }
-  if (action === "custom" && !customText?.trim()) return { ok: false, error: "Enter a message." };
-  const { error } = await sb.from("sequence_overrides").upsert(
-    {
-      company_id: a.companyId!,
-      prospect_id: prospectId,
-      step_index: stepIndex,
-      action,
-      custom_text: action === "custom" ? customText!.trim() : null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "prospect_id,step_index" },
-  );
-  if (error) return { ok: false, error: "Could not save." };
-  return { ok: true };
 }

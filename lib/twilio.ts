@@ -24,7 +24,7 @@ export function keywordType(body: string): KeywordType {
   return null;
 }
 
-type Window = { day_of_week: number; start_time: string; end_time: string; enabled: boolean };
+export type Window = { day_of_week: number; start_time: string; end_time: string; enabled: boolean };
 
 function minutesOfDay(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);

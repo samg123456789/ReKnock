@@ -23,7 +23,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       .order("created_at", { ascending: false }),
     sb
       .from("messages")
-      .select("prospect_id, body, direction, status, kind, sequence_step, scheduled_for, created_at")
+      .select("id, prospect_id, body, direction, status, kind, sequence_step, scheduled_for, created_at")
       .eq("company_id", cid)
       .order("created_at", { ascending: true })
       .limit(2000),
@@ -89,12 +89,12 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
     // engine's source of truth), so Pause/Resume/freeze always match reality.
     if (selected.status === "sequencing" || selected.status === "paused") {
       scheduled = (allMessages ?? [])
-        .filter((m) => m.prospect_id === selected.id && m.status === "scheduled" && m.kind === "sequence" && m.sequence_step != null)
-        .sort((a, b) => (a.scheduled_for ?? "") < (b.scheduled_for ?? "") ? -1 : 1)
+        .filter((m) => m.prospect_id === selected.id && m.status === "scheduled" && m.kind === "sequence")
+        .sort((a, b) => ((a.scheduled_for ?? "") < (b.scheduled_for ?? "") ? -1 : 1))
         .map((m) => ({
-          step: (m.sequence_step as number) + 1,
-          index: m.sequence_step as number,
-          date: (m.scheduled_for ?? m.created_at).slice(0, 10),
+          id: m.id as string,
+          label: m.sequence_step != null ? `Follow-up ${(m.sequence_step as number) + 1}` : "Extra follow-up",
+          iso: m.scheduled_for ?? m.created_at,
         }));
     }
 

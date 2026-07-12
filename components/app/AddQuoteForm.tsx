@@ -50,10 +50,17 @@ async function prepareImage(file: File): Promise<Blob> {
   return blob ?? file;
 }
 
-function prettyDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+function prettyDateTime(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}, ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
 }
+
+type StartChoice = "now" | "tomorrow" | "recommended" | "custom";
+const START_OPTIONS: { key: StartChoice; label: string; hint: string }[] = [
+  { key: "recommended", label: "In 2 days", hint: "Recommended: not pushy, still fresh" },
+  { key: "tomorrow", label: "Tomorrow morning", hint: "First thing in your sending hours" },
+  { key: "now", label: "Start now", hint: "First text goes out within minutes" },
+];
 
 function fieldsFromExtraction(e: QuoteExtraction): Fields {
   const s = (v: string | number | null) => (v == null ? "" : String(v));
@@ -81,6 +88,8 @@ export default function AddQuoteForm() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<CreatedQuote | null>(null);
+  const [start, setStart] = useState<StartChoice>("recommended");
+  const [startCustom, setStartCustom] = useState("");
 
   // Escape closes the flow back to the dashboard (bail-out, no dead end).
   useEffect(() => {
@@ -154,9 +163,17 @@ export default function AddQuoteForm() {
   }
 
   async function submit() {
+    if (start === "custom" && !startCustom) return setError("Pick a date and time for the first text, or choose one of the options.");
     setPending(true);
     setError(null);
-    const res = await createQuote({ ...fields, source, storage_paths: paths, extracted: extraction });
+    const res = await createQuote({
+      ...fields,
+      source,
+      storage_paths: paths,
+      extracted: extraction,
+      start_choice: start,
+      start_custom_iso: start === "custom" && startCustom ? new Date(startCustom).toISOString() : undefined,
+    });
     setPending(false);
     if (!res.ok) return setError(res.error);
     setDone(res.data);
@@ -174,10 +191,11 @@ export default function AddQuoteForm() {
             <li key={t.step} className="flex items-center gap-3 rounded-xl border border-sky-line bg-white px-4 py-3">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sky text-sm font-bold text-blue">{t.step}</span>
               <span className="text-ink">Follow-up {t.step}</span>
-              <span className="ml-auto text-sm font-semibold text-slate">{prettyDate(t.date)}</span>
+              <span className="ml-auto text-sm font-semibold text-slate">{prettyDateTime(t.iso)}</span>
             </li>
           ))}
         </ol>
+        <p className="mt-3 text-sm text-slate">Every one of these is yours to move, rewrite, or delete from the inbox thread.</p>
         <p className="mt-4 rounded-xl bg-sky px-4 py-3 text-sm text-blue-ink">Sends begin once your ReKnock number finishes activating. Nothing goes out before then.</p>
         <div className="mt-8 flex gap-3">
           <button className={primaryBtn} onClick={() => { setFields(EMPTY); setConf({}); setPaste(""); setPaths([]); setExtraction(null); setDone(null); setView("intake"); }}>
@@ -229,6 +247,47 @@ export default function AddQuoteForm() {
             </label>
           </div>
         </div>
+        <div className="mt-7">
+          <p className="text-sm font-semibold text-slate">When should the first text go out?</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            {START_OPTIONS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                onClick={() => setStart(o.key)}
+                className={`cursor-pointer rounded-xl border p-3 text-left transition-colors ${
+                  start === o.key
+                    ? "border-blue bg-sky/50 shadow-[0_4px_16px_-6px_rgba(29,95,219,0.4)]"
+                    : "border-slate/20 hover:border-blue/50"
+                } ${o.key === "recommended" ? "sm:order-first ring-1 ring-blue/20" : ""}`}
+              >
+                <span className={`block font-semibold ${start === o.key ? "text-blue" : "text-ink"}`}>
+                  {o.label}
+                  {o.key === "recommended" ? <span className="ml-1.5 rounded-full bg-blue px-2 py-0.5 text-[10px] font-bold text-white">BEST</span> : null}
+                </span>
+                <span className="mt-0.5 block text-xs text-slate">{o.hint}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-2">
+            {start === "custom" ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="datetime-local"
+                  className={`${input} max-w-xs`}
+                  value={startCustom}
+                  onChange={(e) => setStartCustom(e.target.value)}
+                />
+                <button type="button" className="cursor-pointer text-sm text-slate underline" onClick={() => setStart("recommended")}>Never mind</button>
+              </div>
+            ) : (
+              <button type="button" className="cursor-pointer text-sm text-blue underline" onClick={() => setStart("custom")}>
+                Or pick an exact date and time
+              </button>
+            )}
+          </div>
+        </div>
+
         {error ? <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
         <div className="mt-8 flex items-center justify-between">
           <button className={ghostBtn} onClick={() => { setError(null); setView("intake"); }}>Back</button>

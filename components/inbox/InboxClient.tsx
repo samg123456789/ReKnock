@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendManualMessage, setProspectStatus, updateProspect, getScheduledDraft, setStepOverride, rescheduleStep, createReminder, cancelReminder, type DraftResult } from "@/lib/inbox-actions";
+import { sendManualMessage, setProspectStatus, updateProspect, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
 
 export type Conversation = { id: string; name: string; jobType: string; status: string; snippet: string; time: string; needsAttention: boolean };
 export type ThreadMessage = { body: string; direction: "inbound" | "outbound"; status: string; createdAt: string };
-export type ScheduledBubble = { step: number; index: number; date: string; enabled?: boolean };
+export type ScheduledBubble = { id: string; label: string; iso: string };
 export type ReminderItem = { id: string; remindAt: string; mode: "remind_me" | "auto_send"; note: string | null };
 export type ProspectDetail = {
   id: string; name: string; firstName: string; lastName: string; jobType: string | null; status: string;
@@ -65,6 +65,7 @@ export default function InboxClient({
   const [showDetails, setShowDetails] = useState(false);
   const [editStep, setEditStep] = useState<ScheduledBubble | null>(null);
   const [showReminder, setShowReminder] = useState(false);
+  const [showAddTouch, setShowAddTouch] = useState(false);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -193,17 +194,28 @@ export default function InboxClient({
                 );
               })}
               {scheduled.map((s) => (
-                <div key={`sch-${s.index}`} className="flex justify-end">
+                <div key={`sch-${s.id}`} className="flex justify-end">
                   <button
                     type="button"
                     onClick={() => setEditStep(s)}
                     className="max-w-[80%] cursor-pointer rounded-2xl rounded-br-sm border border-dashed border-slate/30 bg-white px-3.5 py-2 text-left text-[13px] italic text-mist transition-colors hover:border-blue hover:text-blue"
                   >
-                    Follow-up {s.step} scheduled for {prettyDate(s.date)}
+                    {s.label} · {dayLabel(s.iso)} at {timeLabel(s.iso)}
                     <span className="ml-1 not-italic">›</span>
                   </button>
                 </div>
               ))}
+              {(shownStatus === "sequencing" || shownStatus === "paused") && prospect ? (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTouch(true)}
+                    className="cursor-pointer rounded-full border border-dashed border-blue/40 px-3 py-1 text-xs font-semibold text-blue hover:bg-sky/40"
+                  >
+                    + Add a follow-up
+                  </button>
+                </div>
+              ) : null}
               {reminders.map((r) => (
                 <div key={`rem-${r.id}`} className="flex justify-end">
                   <div className="flex max-w-[80%] items-center gap-2 rounded-2xl rounded-br-sm border border-dashed border-amber/50 bg-white px-3.5 py-2 text-[13px] italic text-slate">
@@ -248,12 +260,19 @@ export default function InboxClient({
               <p className="mt-1.5 text-center text-[11px] text-mist">Sending here pauses the automatic follow-ups.</p>
             </div>
             {editStep ? (
-              <ScheduledEditor
-                key={`${prospect.id}-${editStep.index}`}
+              <TouchEditor
+                key={editStep.id}
                 prospect={prospect}
                 bubble={editStep}
                 onClose={() => setEditStep(null)}
                 onSaved={() => { setEditStep(null); router.refresh(); }}
+              />
+            ) : null}
+            {showAddTouch ? (
+              <AddTouchModal
+                prospect={prospect}
+                onClose={() => setShowAddTouch(false)}
+                onSaved={() => { setShowAddTouch(false); router.refresh(); }}
               />
             ) : null}
             {showReminder ? (
@@ -387,95 +406,206 @@ function ReminderModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
   );
 }
 
-// Opens the actual message an upcoming step will send, with edit / skip / reset.
-function ScheduledEditor({ prospect, bubble, onClose, onSaved }: { prospect: ProspectDetail; bubble: ScheduledBubble; onClose: () => void; onSaved: () => void }) {
+
+function toLocalInput(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
+
+// One scheduled touch, fully yours: the message opens editable (your words
+// fully override our draft), and the touch can be moved to any date/time or
+// deleted. Out-of-window times get the nearest valid slot offered back.
+function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: ProspectDetail; bubble: ScheduledBubble; onClose: () => void; onSaved: () => void }) {
+  const initial = toLocalInput(bubble.iso);
   const [draft, setDraft] = useState<DraftResult | null>(null);
   const [text, setText] = useState("");
-  const [editing, setEditing] = useState(false);
+  const [moveDate, setMoveDate] = useState(initial.date);
+  const [moveTime, setMoveTime] = useState(initial.time);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [moving, setMoving] = useState(false);
-  const [moveDate, setMoveDate] = useState(bubble.date);
-  const [moveTime, setMoveTime] = useState("10:00");
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  async function load() {
-    setDraft(null);
-    const r = await getScheduledDraft(prospect.id, bubble.index);
-    setDraft(r);
-    if (r.ok) setText(r.text);
-  }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    let alive = true;
+    draftTouchPreview(bubble.id).then((r) => {
+      if (!alive) return;
+      setDraft(r);
+      if (r.ok) setText(r.text);
+    });
+    return () => { alive = false; };
+  }, [bubble.id]);
 
-  async function act(fn: () => Promise<{ ok: boolean; error?: string }>) {
+  async function run(fn: () => Promise<TimeResult | { ok: boolean; error?: string }>) {
     setBusy(true);
     setErr(null);
+    setSuggestion(null);
     const res = await fn();
     setBusy(false);
-    if (!res.ok) return setErr(res.error ?? "Something went wrong.");
+    if (!res.ok) {
+      setErr(("error" in res && res.error) || "Something went wrong.");
+      if ("suggestionIso" in res && res.suggestionIso) setSuggestion(res.suggestionIso);
+      return;
+    }
     onSaved();
   }
 
   const kind = draft?.ok ? draft.kind : null;
+  const edited = draft?.ok && text.trim() !== draft.text.trim();
+  const moved = moveDate !== initial.date || moveTime !== initial.time;
 
   return (
     <>
       <button type="button" aria-label="Close" className="fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <div className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-ink">Follow-up {bubble.step}</h3>
-          <span className="text-xs text-mist">{prettyDate(bubble.date)}</span>
+          <h3 className="font-semibold text-ink">{bubble.label}</h3>
+          <span className="text-xs text-mist">{dayLabel(bubble.iso)} at {timeLabel(bubble.iso)}</span>
         </div>
-        {kind === "custom" ? <p className="mt-1 text-xs text-blue">Your edited message</p> : kind === "skip" ? <p className="mt-1 text-xs text-amber">This step is set to skip</p> : kind === "template" ? <p className="mt-1 text-xs text-mist">From your saved template</p> : kind === "ai" ? <p className="mt-1 text-xs text-mist">Drafted in your voice</p> : null}
+        {kind === "custom" ? (
+          <p className="mt-1 text-xs text-blue">Your message. It sends exactly as written.</p>
+        ) : kind ? (
+          <p className="mt-1 text-xs text-mist">Drafted in your voice. Edit anything; your words win.</p>
+        ) : null}
 
         <div className="mt-3">
           {!draft ? (
             <div className="flex items-center gap-2 py-6 text-sm text-mist"><span className="h-2 w-2 animate-bounce rounded-full bg-blue" /> Drafting...</div>
           ) : !draft.ok ? (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{draft.error}</p>
-          ) : draft.kind === "skip" ? (
-            <p className="rounded-lg bg-amber/10 px-3 py-3 text-sm text-slate">We will skip this follow-up and move to the next one.</p>
-          ) : editing ? (
-            <textarea className="w-full rounded-xl border border-slate/20 px-3 py-2 text-[15px] outline-none focus:border-blue" rows={4} maxLength={320} value={text} onChange={(e) => setText(e.target.value)} />
           ) : (
-            <div className="rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{text}</div>
+            <textarea
+              className="w-full rounded-xl border border-slate/20 px-3 py-2 text-[15px] outline-none focus:border-blue"
+              rows={4}
+              maxLength={320}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
           )}
         </div>
-
-        {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
-
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {draft?.ok && draft.kind !== "skip" && !editing ? (
-            <button type="button" onClick={() => setEditing(true)} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1.5 text-xs font-semibold text-slate hover:border-blue hover:text-blue">Edit</button>
-          ) : null}
-          {editing ? (
-            <button type="button" disabled={busy || !text.trim()} onClick={() => act(() => setStepOverride(prospect.id, bubble.index, "custom", text))} className="cursor-pointer rounded-lg bg-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-deep disabled:opacity-50">Save message</button>
-          ) : null}
-          {draft?.ok && draft.kind !== "skip" ? (
-            <button type="button" disabled={busy} onClick={() => act(() => setStepOverride(prospect.id, bubble.index, "skip"))} className="cursor-pointer rounded-lg border border-amber/40 px-3 py-1.5 text-xs font-semibold text-amber hover:bg-amber/10 disabled:opacity-50">Skip this step</button>
-          ) : null}
-          {draft?.ok && draft.kind !== "skip" && !editing ? (
-            <button type="button" onClick={() => setMoving((v) => !v)} className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold ${moving ? "border-blue bg-sky text-blue" : "border-slate/20 text-slate hover:border-blue hover:text-blue"}`}>Reschedule</button>
-          ) : null}
-          {kind === "custom" || kind === "skip" ? (
-            <button type="button" disabled={busy} onClick={() => act(() => setStepOverride(prospect.id, bubble.index, "clear"))} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1.5 text-xs font-semibold text-slate hover:border-slate/40 disabled:opacity-50">Reset to auto</button>
-          ) : null}
-          <button type="button" onClick={onClose} className="ml-auto cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate hover:bg-sky">Close</button>
-        </div>
-
-        {moving ? (
-          <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl border border-sky-line bg-sky/20 p-3">
-            <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">New date</span><input type="date" className={panelInput} value={moveDate} onChange={(e) => setMoveDate(e.target.value)} /></label>
-            <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Time</span><input type="time" className={panelInput} value={moveTime} onChange={(e) => setMoveTime(e.target.value)} /></label>
+        {draft?.ok ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              disabled={busy || !moveDate}
-              onClick={() => act(() => rescheduleStep(prospect.id, bubble.index, new Date(`${moveDate}T${moveTime}`).toISOString()))}
+              disabled={busy || !text.trim() || (!edited && kind === "custom")}
+              onClick={() => run(() => saveTouchMessage(bubble.id, text))}
+              className="cursor-pointer rounded-lg bg-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-deep disabled:opacity-50"
+            >
+              Save message
+            </button>
+            {kind === "custom" ? (
+              <button type="button" disabled={busy} onClick={() => run(() => saveTouchMessage(bubble.id, ""))} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1.5 text-xs font-semibold text-slate hover:border-blue hover:text-blue disabled:opacity-50">
+                Back to auto-draft
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="mt-4 rounded-xl border border-sky-line bg-sky/20 p-3">
+          <p className="text-[11px] font-semibold text-mist">Send it on</p>
+          <div className="mt-1.5 flex flex-wrap items-end gap-2">
+            <input type="date" className={panelInput + " max-w-[10.5rem]"} value={moveDate} onChange={(e) => setMoveDate(e.target.value)} />
+            <input type="time" className={panelInput + " max-w-[7rem]"} value={moveTime} onChange={(e) => setMoveTime(e.target.value)} />
+            <button
+              type="button"
+              disabled={busy || !moved || !moveDate || !moveTime}
+              onClick={() => run(() => rescheduleTouch(bubble.id, new Date(`${moveDate}T${moveTime}`).toISOString()))}
               className="cursor-pointer rounded-lg bg-blue px-3 py-2 text-xs font-semibold text-white hover:bg-blue-deep disabled:opacity-50"
             >
               Move it
             </button>
           </div>
+        </div>
+
+        {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
+        {suggestion ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => run(() => rescheduleTouch(bubble.id, suggestion))}
+            className="mt-2 cursor-pointer rounded-lg border border-blue/40 px-3 py-1.5 text-xs font-semibold text-blue hover:bg-sky/40 disabled:opacity-50"
+          >
+            Use {dayLabel(suggestion)} at {timeLabel(suggestion)} instead
+          </button>
         ) : null}
+
+        <div className="mt-4 flex items-center gap-2">
+          {confirmDelete ? (
+            <button type="button" disabled={busy} onClick={() => run(() => deleteTouch(bubble.id))} className="cursor-pointer rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+              Yes, delete it
+            </button>
+          ) : (
+            <button type="button" onClick={() => setConfirmDelete(true)} className="cursor-pointer rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
+              Delete this follow-up
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="ml-auto cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate hover:bg-sky">Close</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Add an extra touch anywhere on the timeline: any date/time, optional custom
+// text (otherwise we draft it in their voice when it sends).
+function AddTouchModal({ prospect, onClose, onSaved }: { prospect: ProspectDetail; onClose: () => void; onSaved: () => void }) {
+  const inTwoDays = toLocalInput(new Date(Date.now() + 2 * 86400_000).toISOString());
+  const [date, setDate] = useState(inTwoDays.date);
+  const [time, setTime] = useState("10:00");
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+
+  async function save(iso?: string) {
+    setBusy(true);
+    setErr(null);
+    setSuggestion(null);
+    const when = iso ?? new Date(`${date}T${time}`).toISOString();
+    const res = await addTouch(prospect.id, when, text);
+    setBusy(false);
+    if (!res.ok) {
+      setErr(res.error);
+      if (res.suggestionIso) setSuggestion(res.suggestionIso);
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <>
+      <button type="button" aria-label="Close" className="fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+        <h3 className="font-semibold text-ink">Add a follow-up for {prospect.firstName || "this lead"}</h3>
+        <p className="mt-1 text-xs text-mist">Pick any date and time inside your sending hours.</p>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Date</span><input type="date" className={panelInput} value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Time</span><input type="time" className={panelInput} value={time} onChange={(e) => setTime(e.target.value)} /></label>
+        </div>
+
+        <label className="mt-3 flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-mist">Message (optional; we draft it in your voice if you leave it blank)</span>
+          <textarea className={panelInput} rows={3} maxLength={320} value={text} onChange={(e) => setText(e.target.value)} placeholder="Or write exactly what to send" />
+        </label>
+
+        {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
+        {suggestion ? (
+          <button type="button" disabled={busy} onClick={() => save(suggestion)} className="mt-2 cursor-pointer rounded-lg border border-blue/40 px-3 py-1.5 text-xs font-semibold text-blue hover:bg-sky/40 disabled:opacity-50">
+            Use {dayLabel(suggestion)} at {timeLabel(suggestion)} instead
+          </button>
+        ) : null}
+
+        <div className="mt-4 flex items-center gap-2">
+          <button type="button" disabled={busy || !date || !time} onClick={() => save()} className="cursor-pointer rounded-lg bg-blue px-4 py-2 text-sm font-semibold text-white hover:bg-blue-deep disabled:opacity-50">
+            {busy ? "Adding..." : "Add it"}
+          </button>
+          <button type="button" onClick={onClose} className="ml-auto cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate hover:bg-sky">Cancel</button>
+        </div>
       </div>
     </>
   );
