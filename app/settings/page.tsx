@@ -13,24 +13,28 @@ export default async function Settings() {
   const sb = acting.client;
   if (!cid) redirect("/app");
 
-  const { data: company } = await sb
-    .from("companies")
-    .select("name, website, description, trades, trade, timezone, forwarding_slug, avg_quote_amount, quotes_per_month")
-    .eq("id", cid)
-    .maybeSingle();
-  const { data: voice } = await sb
-    .from("voice_profiles")
-    .select("questionnaire, master_prompt, sample_messages")
-    .eq("company_id", cid)
-    .eq("is_latest", true)
-    .maybeSingle();
-  const { data: windows } = await sb
-    .from("sending_windows")
-    .select("day_of_week, start_time, end_time, enabled")
-    .eq("company_id", cid)
-    .order("day_of_week", { ascending: true });
-  const { data: owner } = await sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle();
-  const { data: phone } = await sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle();
+  // Independent queries run in parallel (was 5 serial round-trips).
+  const [{ data: company }, { data: voice }, { data: windows }, { data: owner }, { data: phone }] =
+    await Promise.all([
+      sb
+        .from("companies")
+        .select("name, website, description, trades, trade, timezone, forwarding_slug, avg_quote_amount, quotes_per_month")
+        .eq("id", cid)
+        .maybeSingle(),
+      sb
+        .from("voice_profiles")
+        .select("questionnaire, master_prompt, sample_messages")
+        .eq("company_id", cid)
+        .eq("is_latest", true)
+        .maybeSingle(),
+      sb
+        .from("sending_windows")
+        .select("day_of_week, start_time, end_time, enabled")
+        .eq("company_id", cid)
+        .order("day_of_week", { ascending: true }),
+      sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
+      sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
+    ]);
 
   const rawQ = voice?.questionnaire as Record<string, unknown> | null;
 

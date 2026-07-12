@@ -16,18 +16,20 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
 
   if (!cid) return <InboxClient conversations={[]} selectedId={null} thread={[]} scheduled={[]} prospect={null} />;
 
-  const { data: prospects } = await sb
-    .from("prospects")
-    .select("id, first_name, last_name, job_type, status, phone_e164, email, address, quote_amount, quote_date, source, campaign_id, created_at")
-    .eq("company_id", cid)
-    .order("created_at", { ascending: false });
-
-  const { data: messages } = await sb
-    .from("messages")
-    .select("prospect_id, body, direction, status, sequence_step, created_at")
-    .eq("company_id", cid)
-    .order("created_at", { ascending: true })
-    .limit(2000);
+  // Independent queries run in parallel (was 2 serial round-trips).
+  const [{ data: prospects }, { data: messages }] = await Promise.all([
+    sb
+      .from("prospects")
+      .select("id, first_name, last_name, job_type, status, phone_e164, email, address, quote_amount, quote_date, source, campaign_id, created_at")
+      .eq("company_id", cid)
+      .order("created_at", { ascending: false }),
+    sb
+      .from("messages")
+      .select("prospect_id, body, direction, status, sequence_step, created_at")
+      .eq("company_id", cid)
+      .order("created_at", { ascending: true })
+      .limit(2000),
+  ]);
 
   // Latest message + inbound-last flag per prospect.
   const latest = new Map<string, { body: string; created_at: string; direction: string }>();

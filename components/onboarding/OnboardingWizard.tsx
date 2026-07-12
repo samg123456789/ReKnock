@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import type { InputImage } from "@/lib/ai";
 import TradePicker from "@/components/onboarding/TradePicker";
@@ -79,6 +79,7 @@ export default function OnboardingWizard({
 }) {
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [finishing, startFinish] = useTransition();
 
   const [basics, setBasics] = useState<Basics>(initialBasics);
   const [trades, setTrades] = useState<string[]>(initialTrades);
@@ -530,7 +531,9 @@ export default function OnboardingWizard({
             </p>
           </div>
           <div className="mt-8 flex justify-end">
-            <button className={primaryBtn} onClick={() => finishOnboarding()}>Add my first quote</button>
+            <button className={primaryBtn} disabled={finishing} onClick={() => startFinish(() => finishOnboarding())}>
+              {finishing ? "Setting up your dashboard..." : "Add my first quote"}
+            </button>
           </div>
         </div>
       )}

@@ -18,18 +18,19 @@ export default async function AppHome() {
   const cid = acting.companyId;
   const sb = acting.client;
 
-  const { data: company } = cid ? await sb.from("companies").select("name").eq("id", cid).maybeSingle() : { data: null };
-  const { data: prospects } = cid
-    ? await sb
-        .from("prospects")
-        .select("id, first_name, last_name, job_type, status, created_at")
-        .eq("company_id", cid)
-        .order("created_at", { ascending: false })
-        .limit(20)
-    : { data: [] };
-  const { data: phone } = cid
-    ? await sb.from("phone_numbers").select("status").eq("company_id", cid).maybeSingle()
-    : { data: null };
+  // Independent queries run in parallel (was 3 serial round-trips).
+  const [{ data: company }, { data: prospects }, { data: phone }] = cid
+    ? await Promise.all([
+        sb.from("companies").select("name").eq("id", cid).maybeSingle(),
+        sb
+          .from("prospects")
+          .select("id, first_name, last_name, job_type, status, created_at")
+          .eq("company_id", cid)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        sb.from("phone_numbers").select("status").eq("company_id", cid).maybeSingle(),
+      ])
+    : [{ data: null }, { data: [] }, { data: null }];
 
   const numberLive = phone?.status === "active";
   const hasQuotes = (prospects?.length ?? 0) > 0;

@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -19,7 +20,10 @@ export type Acting = {
   actorEmail: string | null;
 };
 
-export async function getActingCompany(): Promise<Acting | null> {
+// Wrapped in React cache() so the auth check + users lookup runs once per
+// request even though layout AND page both call it (was 2 round-trips per
+// authed navigation). Dedupes across the whole server render pass.
+export const getActingCompany = cache(async (): Promise<Acting | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -56,4 +60,4 @@ export async function getActingCompany(): Promise<Acting | null> {
     actorUserId: me?.id ?? null,
     actorEmail: me?.email ?? null,
   };
-}
+});

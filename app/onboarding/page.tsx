@@ -13,21 +13,22 @@ export default async function Onboarding() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name, website, description, trades, trade, heard_about, avg_quote_amount, quotes_per_month, timezone")
-    .single();
-
-  const { data: voice } = await supabase
-    .from("voice_profiles")
-    .select("questionnaire, master_prompt, sample_messages")
-    .eq("is_latest", true)
-    .maybeSingle();
-
-  const { data: windows } = await supabase
-    .from("sending_windows")
-    .select("day_of_week, start_time, end_time, enabled")
-    .order("day_of_week", { ascending: true });
+  // Independent queries run in parallel (was 3 serial round-trips).
+  const [{ data: company }, { data: voice }, { data: windows }] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("name, website, description, trades, trade, heard_about, avg_quote_amount, quotes_per_month, timezone")
+      .single(),
+    supabase
+      .from("voice_profiles")
+      .select("questionnaire, master_prompt, sample_messages")
+      .eq("is_latest", true)
+      .maybeSingle(),
+    supabase
+      .from("sending_windows")
+      .select("day_of_week, start_time, end_time, enabled")
+      .order("day_of_week", { ascending: true }),
+  ]);
 
   const initialProfile: VoiceProfileResult | null = voice?.master_prompt
     ? { master_prompt: voice.master_prompt, samples: (voice.sample_messages as string[]) ?? [] }

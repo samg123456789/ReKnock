@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sendManualMessage, setProspectStatus } from "@/lib/inbox-actions";
@@ -52,6 +52,13 @@ export default function InboxClient({
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusPending, startStatusTransition] = useTransition();
+  // Optimistic status so the chip + controls flip the instant you click,
+  // instead of waiting on the server action + a full inbox re-fetch.
+  const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
+  // Clear the override once the refreshed server data arrives.
+  useEffect(() => setOptimisticStatus(null), [prospect?.status]);
+  const shownStatus = optimisticStatus ?? prospect?.status;
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -75,10 +82,13 @@ export default function InboxClient({
     router.refresh();
   }
 
-  async function changeStatus(status: string) {
+  function changeStatus(status: string) {
     if (!prospect) return;
-    await setProspectStatus(prospect.id, status);
-    router.refresh();
+    setOptimisticStatus(status); // flip UI immediately
+    startStatusTransition(async () => {
+      await setProspectStatus(prospect.id, status);
+      router.refresh();
+    });
   }
 
   // Day separators over the thread.
@@ -135,15 +145,15 @@ export default function InboxClient({
                     {prospect.jobType ?? "Quote"}{prospect.quoteAmount ? ` · $${prospect.quoteAmount}` : ""}{prospect.phone ? ` · ${prospect.phone}` : ""}
                   </p>
                 </div>
-                <span className="ml-auto rounded-full bg-sky px-2.5 py-1 text-xs font-semibold text-blue">{STATUS_LABEL[prospect.status] ?? prospect.status}</span>
+                <span className="ml-auto rounded-full bg-sky px-2.5 py-1 text-xs font-semibold text-blue">{STATUS_LABEL[shownStatus ?? ""] ?? shownStatus}</span>
               </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <button type="button" onClick={() => changeStatus("won")} className="cursor-pointer rounded-lg border border-mint/40 px-3 py-1 text-xs font-semibold text-mint hover:bg-mint/10">Mark won</button>
-                <button type="button" onClick={() => changeStatus("lost")} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-slate/40">Mark lost</button>
-                {prospect.status === "paused" ? (
-                  <button type="button" onClick={() => changeStatus("sequencing")} className="cursor-pointer rounded-lg border border-blue/40 px-3 py-1 text-xs font-semibold text-blue hover:bg-sky">Resume</button>
+              <div className={`mt-2 flex flex-wrap gap-1.5 transition-opacity ${statusPending ? "opacity-50" : ""}`}>
+                <button type="button" disabled={statusPending} onClick={() => changeStatus("won")} className="cursor-pointer rounded-lg border border-mint/40 px-3 py-1 text-xs font-semibold text-mint hover:bg-mint/10 disabled:cursor-not-allowed">Mark won</button>
+                <button type="button" disabled={statusPending} onClick={() => changeStatus("lost")} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-slate/40 disabled:cursor-not-allowed">Mark lost</button>
+                {shownStatus === "paused" ? (
+                  <button type="button" disabled={statusPending} onClick={() => changeStatus("sequencing")} className="cursor-pointer rounded-lg border border-blue/40 px-3 py-1 text-xs font-semibold text-blue hover:bg-sky disabled:cursor-not-allowed">Resume</button>
                 ) : (
-                  <button type="button" onClick={() => changeStatus("paused")} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-slate/40">Pause</button>
+                  <button type="button" disabled={statusPending} onClick={() => changeStatus("paused")} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-slate/40 disabled:cursor-not-allowed">Pause</button>
                 )}
               </div>
             </div>

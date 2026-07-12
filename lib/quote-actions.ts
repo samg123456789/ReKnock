@@ -190,60 +190,64 @@ export async function createQuote(input: {
 
   if (error || !prospect) return { ok: false, error: "Could not save the quote. Please try again." };
 
-  // Persist the uploaded source file(s) as quote rows, linked to the prospect,
-  // so the inbox can show/link the original photo or PDF later.
-  if (input.storage_paths?.length) {
-    const conf = input.extracted?.confidence
-      ? Object.values(input.extracted.confidence).filter((n): n is number => typeof n === "number")
-      : [];
-    const avgConf = conf.length ? conf.reduce((a, b) => a + b, 0) / conf.length : null;
-    await supabase.from("quotes").insert(
-      input.storage_paths.slice(0, MAX_FILES).map((p) => ({
-        company_id: company.id,
-        prospect_id: prospect.id,
-        raw_source: p.endsWith(".pdf") ? "pdf" : "image",
-        storage_path: p,
-        extracted: input.extracted ?? null,
-        ocr_confidence: avgConf,
-      })),
-    );
-  }
-
-  await supabase.from("events").insert({
-    company_id: company.id,
-    type: "prospect_created",
-    payload: { prospect_id: prospect.id, source: input.source, consent_path: consentPath },
-  });
+  // Everything after the prospect insert is independent, so fan it out in
+  // parallel (was a serial chain that delayed the "done" screen).
+  const conf = input.extracted?.confidence
+    ? Object.values(input.extracted.confidence).filter((n): n is number => typeof n === "number")
+    : [];
+  const avgConf = conf.length ? conf.reduce((a, b) => a + b, 0) / conf.length : null;
 
   // Enroll into the sequence engine. Off production runs in test mode (day
   // offsets compressed to minutes). Never fail the quote if enqueue hiccups.
-  try {
-    await inngest.send({
+  const enroll = inngest
+    .send({
       name: "prospect/enrolled",
       data: {
         company_id: company.id,
         prospect_id: prospect.id,
         test_mode: process.env.VERCEL_ENV !== "production",
       },
-    });
-  } catch {
-    await supabase.from("failed_jobs").insert({
-      company_id: company.id,
-      job_type: "sequence_enroll",
-      payload: { prospect_id: prospect.id },
-      error: "inngest.send failed",
-    });
-  }
+    })
+    .catch(() =>
+      supabase.from("failed_jobs").insert({
+        company_id: company.id,
+        job_type: "sequence_enroll",
+        payload: { prospect_id: prospect.id },
+        error: "inngest.send failed",
+      }),
+    );
 
-  if (acting.impersonating) {
-    await logAudit(acting.client, {
-      actorUserId: acting.actorUserId,
-      actorEmail: acting.actorEmail,
-      action: "support_create_quote",
-      targetCompanyId: company.id,
-      metadata: { prospect_id: prospect.id },
-    });
-  }
+  await Promise.all([
+    // Persist the uploaded source file(s) as quote rows, linked to the
+    // prospect, so the inbox can show/link the original photo or PDF later.
+    input.storage_paths?.length
+      ? supabase.from("quotes").insert(
+          input.storage_paths.slice(0, MAX_FILES).map((p) => ({
+            company_id: company.id,
+            prospect_id: prospect.id,
+            raw_source: p.endsWith(".pdf") ? "pdf" : "image",
+            storage_path: p,
+            extracted: input.extracted ?? null,
+            ocr_confidence: avgConf,
+          })),
+        )
+      : Promise.resolve(),
+    supabase.from("events").insert({
+      company_id: company.id,
+      type: "prospect_created",
+      payload: { prospect_id: prospect.id, source: input.source, consent_path: consentPath },
+    }),
+    enroll,
+    acting.impersonating
+      ? logAudit(acting.client, {
+          actorUserId: acting.actorUserId,
+          actorEmail: acting.actorEmail,
+          action: "support_create_quote",
+          targetCompanyId: company.id,
+          metadata: { prospect_id: prospect.id },
+        })
+      : Promise.resolve(),
+  ]);
 
   const base = new Date(`${quoteDate}T12:00:00`);
   const steps = (campaign?.steps as { day_offset: number }[] | null) ?? [
