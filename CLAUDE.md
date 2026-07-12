@@ -17,7 +17,7 @@ All committed + pushed to `dev` (build green each push), Inngest re-synced on th
 - **Phase 3 provisioning.** Dashboard "Pick your ReKnock number" card: area-code search (verified live against Twilio), one-tap claim. Real purchase ONLY on prod with `ALLOW_NUMBER_PURCHASE=true`; simulated elsewhere. Numbers sit pending_10dlc; sends pin From= once flipped 'active' (manual flip, see OPERATIONS.md). TrustHub API submission NOT automated yet.
 - **CSV import** at /app/quotes/import (200 cap, template, dedupe by phone, consent checkbox, enrolls via enrollment lib).
 - **Onboarding polish** (6 steps: required quote-volume step 2, heard-about moved to final screen, focused chrome without app nav, phone-frame voice reveal w/ animation, per-day "Copy to..." hours control, resume-at-step derived server-side).
-- **Punch-list:** password show/hide (shared PasswordInput), pricing 3-across w/ live founding counter, Solo->Starter / Pro->Growth renames (founder's supplied Starter bullets still TODO, copy wasn't recorded), designed check-email pages (+ email in query param), `companies.is_internal` excluded from founding counter (founder's test cos marked internal).
+- **Punch-list:** password show/hide (shared PasswordInput), pricing 3-across w/ live founding counter, Solo->Starter / Pro->Growth renames w/ founder-supplied Starter bullets, designed check-email pages (+ email in query param), `companies.is_internal` excluded from founding counter (founder's test cos marked internal).
 - **Test account:** test@getreknock.com / reknock123 (platform admin, fully onboarded, active/founding, is_internal, relay cell = allowlisted founder phone, Stripe test customer linked).
 - **docs/AI_AGENT_STRATEGY.md**: autonomy ladder for AI agents messaging on behalf of customers (level 2 "agent proposes, human taps" is the next build; level 3 autopilot gated on re-registration + opt-in).
 - **Live-verified on the preview:** dispatcher sent a due touch end-to-end (Haiku draft -> Twilio SID), reminder fired owner ping + opened relay session. Caught + fixed a real compliance bug (owner_ping suppressed the first-touch STOP line). Freeze test CONFIRMED: replied prospect's remaining touch stayed 'canceled' past its due time while the dispatcher was demonstrably live (it sent another prospect's touch in the same window); no send. Second live send verified the compliance fix (business name + exact "Reply STOP to opt out." on the true first touch).
@@ -25,7 +25,6 @@ All committed + pushed to `dev` (build green each push), Inngest re-synced on th
 **Migrations applied to dev + recorded:** `20260712100000_company_is_internal`, `20260712110000_scheduled_sends` (messages.kind/send_meta/'canceled' status, reminders, relay_sessions, unique e164).
 
 **Still OPEN:**
-- Founder's real Starter pricing bullets (swap at the two TODO(founder) comments).
 - TrustHub/10DLC API submission per tenant + relay-cell 6-digit verification at onboarding.
 - Level 2 AI agent (suggested replies in relay ping, "text 1 to send") per docs/AI_AGENT_STRATEGY.md.
 - Full human acceptance run (signup->pay->onboard->quote->reply->relay on a real phone) before founder merges dev->main; $1-charge timing on the Stripe trial still unverified.
