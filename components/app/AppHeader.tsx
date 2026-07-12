@@ -56,6 +56,7 @@ export default function AppHeader() {
           <div className="flex items-center gap-5 text-sm font-medium">
             <Link href="/app" className="text-slate hover:text-ink">Dashboard</Link>
             <Link href="/inbox" className="text-slate hover:text-ink">Inbox</Link>
+            <Link href="/campaign" className="text-slate hover:text-ink">Campaign</Link>
           </div>
         ) : null}
 
