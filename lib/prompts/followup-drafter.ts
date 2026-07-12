@@ -59,6 +59,9 @@ export function enforceCompliance(text: string, isFirstTouch: boolean, businessN
   t = t.replace(/—/g, " "); // strip em-dashes
   if (isFirstTouch) {
     if (!/reply stop/i.test(t)) t = `${t} Reply STOP to opt out.`;
+    // Carrier-registered phrase is exact-cased; normalize whatever casing the
+    // model produced (a lowercase voice writes "reply stop to opt out").
+    t = t.replace(/reply stop to opt out\.?/i, "Reply STOP to opt out.");
     if (businessName && !t.toLowerCase().includes(businessName.toLowerCase().slice(0, 12))) {
       t = `${businessName}: ${t}`;
     }
