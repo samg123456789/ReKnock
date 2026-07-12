@@ -59,7 +59,7 @@ export const scheduledSendDispatcher = inngest.createFunction(
 
 // Send one due scheduled message (sequence touch or auto-send reminder).
 export const sendScheduledMessage = inngest.createFunction(
-  { id: "send-scheduled-message", concurrency: { limit: 10 }, triggers: [{ event: "message/send.requested" }] },
+  { id: "send-scheduled-message", concurrency: { limit: 5 }, triggers: [{ event: "message/send.requested" }] },
   async ({ event, step }) => {
     const messageId = event.data.message_id as string;
     const admin = createAdminClient();
