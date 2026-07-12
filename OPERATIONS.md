@@ -91,3 +91,22 @@ Never edit tables by hand in the Supabase dashboard; always go through a migrati
   'sent' by hand.
 - Reminders: `reminders` table. remind_me -> owner ping + relay session at
   `remind_at`; auto_send -> linked scheduled messages row, same safety path.
+
+## Number-purchase guardrails (2026-07-12)
+
+- Real Twilio purchases require BOTH `VERCEL_ENV === "production"` and
+  `ALLOW_NUMBER_PURCHASE=true`; anything else simulates. A typo in either
+  var fails safe (simulated).
+- Postgres enforces one live number per company
+  (`phone_numbers_company_uq`) and platform-unique e164; claiming also
+  requires a trialing/active, non-suspended subscription.
+- Every real purchase/release writes `events` + emails platform admins
+  (lib/notify-admin.ts; falls back to the events row if Resend fails).
+- Cancel path: `customer.subscription.deleted` -> Inngest
+  `company/numbers.release` -> Twilio DELETE + rows marked `released`.
+- Reconciliation: `number-reconciliation` runs Mondays 13:00 UTC and on the
+  `admin/reconcile.requested` event. Diffs Twilio's number list vs live
+  rows/companies; flags orphans, unreleased-on-canceled, dangling rows.
+  Shared pool numbers listed in `TWILIO_SHARED_NUMBERS` are exempt.
+  Results land in `admin.number_reconciliation` events; issues also email
+  the admins.
