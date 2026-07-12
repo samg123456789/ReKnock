@@ -1,16 +1,10 @@
 import { inngest } from "./client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { generateText } from "@/lib/ai";
-import { buildFollowupDrafterPrompt, enforceCompliance } from "@/lib/prompts/followup-drafter";
+import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
 import { sendSms, canSendNow } from "@/lib/twilio";
+import { DEFAULT_CAMPAIGN_STEPS as DEFAULT_STEPS, type CampaignStep as Step } from "@/lib/campaign";
 
-type Step = { day_offset: number; intent?: string };
-const DEFAULT_STEPS: Step[] = [
-  { day_offset: 2, intent: "gentle check-in" },
-  { day_offset: 5, intent: "value nudge" },
-  { day_offset: 10, intent: "still interested" },
-  { day_offset: 20, intent: "final courteous close" },
-];
 const STOP_STATUSES = new Set(["replied", "opted_out", "won", "lost", "paused"]);
 const TRIAL_CAP = 50;
 
@@ -34,7 +28,7 @@ export const prospectSequence = inngest.createFunction(
       const [{ data: company }, { data: voice }, { data: prospect }, { data: windows }] = await Promise.all([
         admin.from("companies").select("name, timezone").eq("id", company_id).single(),
         admin.from("voice_profiles").select("master_prompt").eq("company_id", company_id).eq("is_latest", true).maybeSingle(),
-        admin.from("prospects").select("quote_date, campaign_id").eq("id", prospect_id).single(),
+        admin.from("prospects").select("quote_date, campaign_id, notes").eq("id", prospect_id).single(),
         admin.from("sending_windows").select("day_of_week, start_time, end_time, enabled").eq("company_id", company_id),
       ]);
       let steps = DEFAULT_STEPS;
@@ -43,7 +37,7 @@ export const prospectSequence = inngest.createFunction(
         const cs = c?.steps as Step[] | null;
         if (Array.isArray(cs) && cs.length) steps = cs;
       }
-      return { company, masterPrompt: voice?.master_prompt ?? "", quote_date: prospect?.quote_date ?? null, windows: windows ?? [], steps };
+      return { company, masterPrompt: voice?.master_prompt ?? "", quote_date: prospect?.quote_date ?? null, notes: prospect?.notes ?? null, windows: windows ?? [], steps };
     });
 
     if (!ctx.company) return { stopped: "missing company" };
@@ -52,6 +46,7 @@ export const prospectSequence = inngest.createFunction(
 
     for (let i = 0; i < ctx.steps.length; i++) {
       const s = ctx.steps[i];
+      if (s.enabled === false) continue; // step toggled off in the campaign editor
       const sendAt = new Date(base);
       if (test_mode) sendAt.setMinutes(sendAt.getMinutes() + (s.day_offset ?? 0));
       else sendAt.setDate(sendAt.getDate() + (s.day_offset ?? 0));
@@ -87,26 +82,47 @@ export const prospectSequence = inngest.createFunction(
         }
 
         const isFirst = i === 0;
-        const daysSince = Math.max(0, Math.round((Date.now() - base.getTime()) / 86400000));
-        const { system, prompt, temperature, maxTokens } = buildFollowupDrafterPrompt(
-          ctx.masterPrompt,
-          {
-            businessName: co?.name ?? "your contractor",
-            firstName: p.first_name ?? "there",
-            jobType: p.job_type,
-            quoteAmount: p.quote_amount,
-            daysSinceQuote: daysSince,
-          },
-          s.intent ?? "friendly follow-up",
-          isFirst,
-        );
+        const businessName = co?.name ?? "your contractor";
+
+        // Per-prospect override set from the thread (skip this step, or send
+        // the contractor's own edited text). Checked at send time so a STOP or
+        // status change between edit and send still wins.
+        const { data: override } = await admin
+          .from("sequence_overrides")
+          .select("action, custom_text")
+          .eq("prospect_id", prospect_id)
+          .eq("step_index", i)
+          .maybeSingle();
+        if (override?.action === "skip") return { skipped: "user_skip" };
+
+        const fillCtx = { firstName: p.first_name ?? "there", jobType: p.job_type, quoteAmount: p.quote_amount, businessName };
 
         let body: string;
-        try {
-          const { text } = await generateText({ system, prompt, temperature, maxTokens });
-          body = enforceCompliance(text, isFirst, co?.name ?? "");
-        } catch {
-          return { skipped: "draft_failed" };
+        if (override?.action === "custom" && override.custom_text?.trim()) {
+          body = enforceCompliance(override.custom_text, isFirst, businessName);
+        } else if (s.template?.trim()) {
+          body = enforceCompliance(fillTemplate(s.template, fillCtx), isFirst, businessName);
+        } else {
+          const daysSince = Math.max(0, Math.round((Date.now() - base.getTime()) / 86400000));
+          const { system, prompt, temperature, maxTokens } = buildFollowupDrafterPrompt(
+            ctx.masterPrompt,
+            {
+              businessName,
+              firstName: p.first_name ?? "there",
+              jobType: p.job_type,
+              quoteAmount: p.quote_amount,
+              daysSinceQuote: daysSince,
+              notes: ctx.notes,
+            },
+            s.intent ?? "friendly follow-up",
+            isFirst,
+          );
+          try {
+            const { text } = await generateText({ system, prompt, temperature, maxTokens });
+            body = enforceCompliance(text, isFirst, businessName);
+          } catch {
+            return { skipped: "draft_failed" };
+          }
         }
 
         const res = await sendSms({

@@ -8,7 +8,21 @@ export type FollowupContext = {
   jobType: string | null;
   quoteAmount: number | null;
   daysSinceQuote: number;
+  notes?: string | null;
 };
+
+// Fill {first_name}/{job}/{amount}/{business} placeholders in a fixed template
+// (used when a campaign step or a per-prospect override supplies exact copy).
+export function fillTemplate(
+  t: string,
+  v: { firstName: string; jobType: string | null; quoteAmount: number | null; businessName: string },
+): string {
+  return t
+    .replace(/\{first_?name\}/gi, v.firstName)
+    .replace(/\{job(_?type)?\}/gi, v.jobType ?? "your project")
+    .replace(/\{amount\}/gi, v.quoteAmount != null ? `$${v.quoteAmount}` : "")
+    .replace(/\{business(_?name)?\}/gi, v.businessName);
+}
 
 export function buildFollowupDrafterPrompt(
   voiceMasterPrompt: string,
@@ -30,6 +44,7 @@ Return ONLY the message text, nothing else.`;
 Job: ${ctx.jobType ?? "their project"}
 ${ctx.quoteAmount ? `Quote amount: $${ctx.quoteAmount}` : ""}
 Days since the quote: ${ctx.daysSinceQuote}
+${ctx.notes?.trim() ? `What the contractor knows about this customer (use it naturally if relevant, never quote it back verbatim): ${ctx.notes.trim()}` : ""}
 This message's intent: ${stepIntent}
 
 Write the single text now.`;

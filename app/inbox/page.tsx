@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ProspectDetail } from "@/components/inbox/InboxClient";
+import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 
 export const metadata: Metadata = { title: "Inbox - ReKnock" };
-
-const DEFAULT_STEPS = [{ day_offset: 2 }, { day_offset: 5 }, { day_offset: 10 }, { day_offset: 20 }];
 
 export default async function Inbox({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const acting = await getActingCompany();
@@ -20,7 +19,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
   const [{ data: prospects }, { data: messages }] = await Promise.all([
     sb
       .from("prospects")
-      .select("id, first_name, last_name, job_type, status, phone_e164, email, address, quote_amount, quote_date, source, campaign_id, created_at")
+      .select("id, first_name, last_name, job_type, status, phone_e164, email, address, quote_amount, quote_date, source, campaign_id, notes, created_at")
       .eq("company_id", cid)
       .order("created_at", { ascending: false }),
     sb
@@ -67,6 +66,8 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
     prospect = {
       id: selected.id,
       name: `${selected.first_name ?? ""} ${selected.last_name ?? ""}`.trim() || "Unknown",
+      firstName: selected.first_name ?? "",
+      lastName: selected.last_name ?? "",
       jobType: selected.job_type,
       status: selected.status,
       phone: selected.phone_e164,
@@ -75,6 +76,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       quoteAmount: selected.quote_amount,
       quoteDate: selected.quote_date,
       source: selected.source,
+      notes: selected.notes ?? null,
     };
 
     if (selected.status === "sequencing") {
@@ -83,10 +85,10 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
           .filter((m) => m.prospect_id === selected.id && m.direction === "outbound" && m.sequence_step != null)
           .map((m) => m.sequence_step as number),
       );
-      let steps = DEFAULT_STEPS as { day_offset: number }[];
+      let steps: CampaignStep[] = DEFAULT_CAMPAIGN_STEPS;
       if (selected.campaign_id) {
         const { data: c } = await sb.from("campaigns").select("steps").eq("id", selected.campaign_id).maybeSingle();
-        const cs = c?.steps as { day_offset: number }[] | null;
+        const cs = c?.steps as CampaignStep[] | null;
         if (Array.isArray(cs) && cs.length) steps = cs;
       }
       const base = selected.quote_date ? new Date(`${selected.quote_date}T12:00:00Z`) : new Date(selected.created_at);
@@ -94,9 +96,9 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
         .map((s, i) => {
           const d = new Date(base);
           d.setDate(d.getDate() + (s.day_offset ?? 0));
-          return { step: i + 1, date: d.toISOString().slice(0, 10) };
+          return { step: i + 1, index: i, date: d.toISOString().slice(0, 10), enabled: s.enabled !== false };
         })
-        .filter((_, i) => !sentSteps.has(i));
+        .filter((b) => !sentSteps.has(b.index) && b.enabled);
     }
   }
 
