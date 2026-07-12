@@ -9,16 +9,49 @@
 //            ... recheck prospect status ... send or cancel
 //   webhook: prospect -> 'replied', then cancel scheduled rows
 //
-// Usage: node scripts/freeze-race-test.mjs   (needs SUPABASE_ACCESS_TOKEN in .env.local)
+// Runs in CI (.github/workflows/freeze-race.yml) on every push to dev and
+// locally via: node scripts/freeze-race-test.mjs
+// SUPABASE_ACCESS_TOKEN comes from the environment (CI secret) or .env.local.
+//
+// Because this file replicates the engine's SQL rather than importing it, a
+// refactor of the send path would not automatically fail the race below. The
+// static check first is the tripwire for that: it fails if the
+// frozen_after_claim recheck in send-scheduled-message stops sitting between
+// drafting (generateText) and the Twilio call (sendClaimedMessage).
 
 import { readFileSync } from "node:fs";
 
 const PROJECT_REF = "hgmjkugxrsxxarjdgevc"; // reknock-dev
 const ITERATIONS = 12;
 
-const envFile = readFileSync(new URL("../.env.local", import.meta.url), "utf-8");
-const token = envFile.match(/^SUPABASE_ACCESS_TOKEN=(.+)$/m)?.[1]?.trim();
-if (!token) throw new Error("SUPABASE_ACCESS_TOKEN not found in .env.local");
+// --- Static tripwire on the real engine code -------------------------------
+{
+  const src = readFileSync(new URL("../lib/inngest/functions.ts", import.meta.url), "utf-8");
+  const claim = src.indexOf('.update({ status: "queued" })');
+  const draft = src.indexOf("generateText(");
+  const recheck = src.indexOf('"frozen_after_claim"');
+  const send = src.indexOf("sendClaimedMessage(");
+  const ordered = claim > -1 && draft > claim && recheck > draft && send > recheck;
+  if (!ordered) {
+    console.error(
+      "STATIC CHECK FAILED: send-scheduled-message must claim (scheduled->queued), draft, THEN recheck prospect status (frozen_after_claim) immediately before sendClaimedMessage.",
+      { claim, draft, recheck, send },
+    );
+    process.exit(1);
+  }
+  console.log("static check OK: claim -> draft -> frozen_after_claim recheck -> send order intact\n");
+}
+
+let token = process.env.SUPABASE_ACCESS_TOKEN?.trim();
+if (!token) {
+  try {
+    const envFile = readFileSync(new URL("../.env.local", import.meta.url), "utf-8");
+    token = envFile.match(/^SUPABASE_ACCESS_TOKEN=(.+)$/m)?.[1]?.trim();
+  } catch {
+    /* no .env.local (CI) */
+  }
+}
+if (!token) throw new Error("SUPABASE_ACCESS_TOKEN not set (env var or .env.local)");
 
 async function sql(query) {
   const resp = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
