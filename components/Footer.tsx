@@ -28,6 +28,7 @@ export default function Footer() {
           <p className="eyebrow mb-3 !text-white/60">Resources</p>
           <div className="flex flex-col gap-2">
             <Link className="text-white/85 hover:text-white" href="/blog">Blog</Link>
+            <Link className="text-white/85 hover:text-white" href="/roi-calculator">ROI calculator</Link>
             <Link className="text-white/85 hover:text-white" href="/blog/follow-up-text-templates-for-contractors">Free follow-up scripts</Link>
             <Link className="text-white/85 hover:text-white" href="/privacy">Privacy &amp; texting policy</Link>
             <Link className="text-white/85 hover:text-white" href="/terms">Terms &amp; conditions</Link>
