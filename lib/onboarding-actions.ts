@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { inngest } from "@/lib/inngest/client";
 import { getActingCompany } from "@/lib/acting-company";
 import { generateText, generateFromImages, parseJson, AI_MODEL, type InputImage } from "@/lib/ai";
 import {
@@ -304,6 +305,12 @@ export async function finishOnboarding(heardAbout?: string): Promise<void> {
     });
   }
 
+  // First completion only: kick off the founder's onboarding email series
+  // (the Inngest fn double-checks via an events marker, this is the fast gate).
+  const { data: co } = await supabase.from("companies").select("onboarded_at").eq("id", company.id).maybeSingle();
   await supabase.from("companies").update({ onboarded_at: new Date().toISOString() }).eq("id", company.id);
+  if (!co?.onboarded_at) {
+    await inngest.send({ name: "company/onboarding.completed", data: { company_id: company.id } });
+  }
   redirect("/app");
 }

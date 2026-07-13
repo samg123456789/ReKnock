@@ -7,6 +7,7 @@ import { sendSms, sendClaimedMessage, retrySmsTo, canSendNow, nextSendTime, type
 import { notifyAdmin } from "@/lib/notify-admin";
 import { env } from "@/lib/env";
 import { bareEmail, INTAKE_EMAIL } from "@/lib/intake-email";
+import { ONBOARDING_DRIP, DRIP_FROM } from "@/lib/emails/onboarding-drip";
 import { normalizePhone as normalizeIntakePhone } from "@/lib/phone";
 import { computeStartAt, scheduleSequence } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
@@ -775,4 +776,56 @@ export const processInboundEmail = inngest.createFunction(
   },
 );
 
-export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail];
+// Founder-voiced onboarding series: five emails over ~12 days after a
+// contractor completes onboarding. Every send re-checks the company at send
+// time (canceled/suspended/internal companies stop getting mail mid-series).
+export const onboardingDrip = inngest.createFunction(
+  { id: "onboarding-drip", retries: 2, triggers: [{ event: "company/onboarding.completed" }] },
+  async ({ event, step }) => {
+    const companyId = event.data.company_id as string;
+    const admin = createAdminClient();
+
+    const eligible = await step.run("start", async () => {
+      // One series per company, ever (finishOnboarding can be re-entered).
+      const { data: already } = await admin.from("events").select("id").eq("company_id", companyId).eq("type", "onboarding_drip_started").limit(1).maybeSingle();
+      if (already) return false;
+      await admin.from("events").insert({ company_id: companyId, type: "onboarding_drip_started", payload: {} });
+      return true;
+    });
+    if (!eligible) return { skipped: "already_started" };
+
+    const startedAt = Date.now();
+    let sent = 0;
+    for (let i = 0; i < ONBOARDING_DRIP.length; i++) {
+      const email = ONBOARDING_DRIP[i];
+      await step.sleepUntil(`wait-${i + 1}`, new Date(startedAt + email.delayHours * 3600_000));
+      const ok = await step.run(`send-${i + 1}`, async () => {
+        const [{ data: co }, { data: user }] = await Promise.all([
+          admin.from("companies").select("subscription_status, suspended_at, is_internal, forwarding_slug").eq("id", companyId).maybeSingle(),
+          admin.from("users").select("email, full_name").eq("company_id", companyId).not("email", "is", null).limit(1).maybeSingle(),
+        ]);
+        if (!co || co.is_internal || co.suspended_at || co.subscription_status === "canceled" || !user?.email) return false;
+        if (!process.env.RESEND_API_KEY) return false;
+        const firstName = (user.full_name ?? "").trim().split(/\s+/)[0] ?? "";
+        const resp = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            from: DRIP_FROM,
+            to: [user.email],
+            subject: email.subject,
+            text: email.body({ firstName, intakeEmail: INTAKE_EMAIL }),
+          }),
+        });
+        if (!resp.ok) throw new Error(`drip send failed: ${resp.status}`); // Inngest retries
+        await admin.from("events").insert({ company_id: companyId, type: "onboarding_drip_sent", payload: { position: i + 1, subject: email.subject } });
+        return true;
+      });
+      if (!ok) return { sent, stopped: `email_${i + 1}_ineligible` };
+      sent++;
+    }
+    return { sent };
+  },
+);
+
+export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail, onboardingDrip];
