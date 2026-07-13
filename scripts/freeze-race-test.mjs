@@ -39,7 +39,23 @@ const ITERATIONS = 12;
     );
     process.exit(1);
   }
-  console.log("static check OK: claim -> draft -> frozen_after_claim recheck -> send order intact\n");
+  console.log("static check OK: claim -> draft -> frozen_after_claim recheck -> send order intact");
+
+  // Second tripwire: the email-forwarding loop guards (a live loop on
+  // 2026-07-13 burned the day's send quota). All four layers must exist in
+  // the inbound-email processor or this fails the push.
+  const guards = [
+    'sender === `forward@${ourDomain}`', // 1: never process our own forwarder's mail
+    'headers["x-reknock-forwarded"]', // 2: marker header checked on ingest
+    "email_forward_circuit_open", // 3: rate circuit breaker
+    ".endsWith(`@${ourDomain}`)", // 4: destinations off our receiving domain only
+  ];
+  const missing = guards.filter((g) => !src.includes(g));
+  if (missing.length) {
+    console.error("STATIC CHECK FAILED: email-forwarding loop guards missing from lib/inngest/functions.ts:", missing);
+    process.exit(1);
+  }
+  console.log("static check OK: all four forwarding loop guards present\n");
 }
 
 let token = process.env.SUPABASE_ACCESS_TOKEN?.trim();
