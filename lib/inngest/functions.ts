@@ -582,15 +582,14 @@ export const processInboundEmail = inngest.createFunction(
       const fetchBody = async (): Promise<string> => {
         let text = raw.data?.text || (raw.data?.html ?? "").replace(/<[^>]+>/g, " ");
         if (!text.trim() && raw.data?.email_id && process.env.RESEND_API_KEY) {
-          for (const url of [
-            `https://api.resend.com/emails/received/${raw.data.email_id}`,
-            `https://api.resend.com/emails/${raw.data.email_id}`,
-          ]) {
-            const resp = await fetch(url, { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } });
-            if (!resp.ok) continue;
+          // Verified live 2026-07-13: received-email content lives at
+          // /emails/receiving/{id} (returns text, html, attachments).
+          const resp = await fetch(`https://api.resend.com/emails/receiving/${raw.data.email_id}`, {
+            headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+          });
+          if (resp.ok) {
             const full = (await resp.json()) as { text?: string; html?: string };
             text = full.text || (full.html ?? "").replace(/<[^>]+>/g, " ");
-            break;
           }
         }
         return text;
