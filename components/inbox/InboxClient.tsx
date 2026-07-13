@@ -399,7 +399,7 @@ function ReminderModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
   return (
     <>
       <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
         <h3 className="font-semibold text-ink">Circle back with {prospect.firstName || "this lead"}</h3>
         <p className="mt-1 text-xs text-mist">Pick when. You can go months out ("not until spring" works).</p>
 
@@ -492,7 +492,7 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
   return (
     <>
       <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-sky-line bg-white p-6 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-ink">{bubble.label}</h3>
           <span className="text-xs text-mist">{dayLabel(bubble.iso)} at {timeLabel(bubble.iso)}</span>
@@ -610,7 +610,7 @@ function AddTouchModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
   return (
     <>
       <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
         <h3 className="font-semibold text-ink">Add a follow-up for {prospect.firstName || "this lead"}</h3>
         <p className="mt-1 text-xs text-mist">Pick any date and time inside your sending hours.</p>
 

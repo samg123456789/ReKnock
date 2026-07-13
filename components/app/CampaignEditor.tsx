@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { saveCampaignSteps, previewStepMessage } from "@/lib/campaign-actions";
 import { STEP_INTENT_PRESETS, type CampaignStep } from "@/lib/campaign";
+import Switch from "@/components/ui/Switch";
 
-const input = "w-full rounded-lg border border-slate/20 px-3 py-2 text-sm outline-none focus:border-blue";
+const input = "w-full rounded-xl border border-slate/20 px-4 py-2.5 text-sm outline-none focus:border-blue";
 
 export default function CampaignEditor({ initialSteps }: { initialSteps: CampaignStep[] }) {
   const [steps, setSteps] = useState<CampaignStep[]>(initialSteps.map((s) => ({ ...s, enabled: s.enabled !== false })));
@@ -40,16 +41,13 @@ export default function CampaignEditor({ initialSteps }: { initialSteps: Campaig
         const pv = previews[i];
         const on = s.enabled !== false;
         return (
-          <div key={i} className={`rounded-2xl border p-4 transition-opacity ${on ? "border-sky-line bg-white" : "border-slate/15 bg-slate/5 opacity-70"}`}>
+          <div key={i} className={`rounded-2xl border p-6 transition-opacity ${on ? "border-sky-line bg-white" : "border-slate/15 bg-slate/5 opacity-70"}`}>
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-ink">Follow-up {i + 1}</h3>
-              <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate">
-                {on ? "On" : "Off"}
-                <input type="checkbox" checked={on} onChange={(e) => update(i, { enabled: e.target.checked })} />
-              </label>
+              <Switch checked={on} onChange={(v) => update(i, { enabled: v })} label={on ? "On" : "Off"} />
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="flex flex-col gap-1">
                 <span className="text-[11px] font-semibold text-mist">Send this many days after the quote</span>
                 <input className={input} type="number" min={0} max={365} value={s.day_offset} onChange={(e) => update(i, { day_offset: Math.max(0, Math.round(Number(e.target.value) || 0)) })} disabled={!on} />
@@ -61,13 +59,13 @@ export default function CampaignEditor({ initialSteps }: { initialSteps: Campaig
               </label>
             </div>
 
-            <label className="mt-3 flex flex-col gap-1">
+            <label className="mt-4 flex flex-col gap-1">
               <span className="text-[11px] font-semibold text-mist">Your exact words (optional)</span>
               <textarea className={input} rows={2} value={s.template ?? ""} onChange={(e) => update(i, { template: e.target.value })} disabled={!on} maxLength={320} placeholder="Leave blank and we write it in your voice. Use {first_name}, {job}, {amount}." />
             </label>
 
             {on ? (
-              <div className="mt-3">
+              <div className="mt-4">
                 <button type="button" onClick={() => preview(i)} disabled={pv?.loading} className="cursor-pointer text-xs font-semibold text-blue hover:underline disabled:opacity-50">
                   {pv?.loading ? "Drafting a sample..." : "Preview this message"}
                 </button>

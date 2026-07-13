@@ -27,7 +27,7 @@ const input = "w-full rounded-xl border border-slate/20 px-4 py-2.5 text-base ou
 
 function Card({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section id={id} className="card mt-4 scroll-mt-24 p-5">
+    <section id={id} className="card mt-4 scroll-mt-24 p-6">
       <h2 className="display text-lg">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
@@ -307,7 +307,7 @@ export default function SettingsClient(props: {
       <Card title="Coming soon">
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {COMING_SOON.map(([f, desc]) => (
-            <div key={f} className="flex flex-col rounded-xl border border-slate/15 p-4 opacity-90">
+            <div key={f} className="flex flex-col rounded-xl border border-slate/15 p-5 opacity-90">
               <span className="font-semibold text-ink">{f}</span>
               <span className="mt-0.5 flex-1 text-sm text-slate">{desc}</span>
               {notified.includes(f) ? (
