@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import { logAudit } from "@/lib/admin";
@@ -212,5 +213,7 @@ export async function bulkCreateProspects(
       : Promise.resolve(),
   ]);
 
+  revalidatePath("/app");
+  revalidatePath("/inbox");
   return { ok: true, imported: created.length, skippedDuplicates, errors };
 }

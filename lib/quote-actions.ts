@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -305,5 +306,10 @@ export async function createQuote(input: {
 
   // The preview shows the actual scheduled rows (real dates AND times), so
   // what the contractor sees is exactly what will fire.
+  // The dashboard and inbox are server-rendered; without this, "Back to
+  // dashboard" can serve the pre-creation page from the client router cache
+  // and the new quote seems to have vanished.
+  revalidatePath("/app");
+  revalidatePath("/inbox");
   return { ok: true, data: { prospectId: prospect.id, firstName, touches } };
 }
