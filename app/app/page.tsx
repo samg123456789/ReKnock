@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getActingCompany } from "@/lib/acting-company";
@@ -6,6 +7,8 @@ import EducationCards from "@/components/app/EducationCards";
 import FeatureTour from "@/components/app/FeatureTour";
 import NumberPicker from "@/components/app/NumberPicker";
 import { INTAKE_EMAIL } from "@/lib/intake-email";
+
+export const metadata: Metadata = { title: "Dashboard - ReKnock" };
 
 export default async function AppHome() {
   const acting = await getActingCompany();
@@ -81,19 +84,25 @@ export default async function AppHome() {
       <p className="eyebrow mb-2">Dashboard</p>
       <h1 className="display text-3xl md:text-4xl">{company?.name ? `Welcome, ${company.name}.` : "Welcome."}</h1>
 
-      <div className="mt-5 flex flex-wrap gap-2 text-sm">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-sky px-3 py-1 text-blue-ink">
-          <span className="text-mint">✓</span> Your voice is ready
-        </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-line px-3 py-1 text-slate">
-          {numberLive ? <><span className="text-mint">✓</span> Number live</> : phone ? <>Texting number activating</> : <>Pick your number below</>}
-        </span>
-      </div>
+      {/* Setup chrome earns its place only while setup is incomplete; a
+          day-30 dashboard leads with the work. */}
+      {!numberLive ? (
+        <div className="mt-5 flex flex-wrap gap-2 text-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky px-3 py-1 text-blue-ink">
+            <span className="text-mint">✓</span> Your voice is ready
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-line px-3 py-1 text-slate">
+            {phone ? <>Texting number activating</> : <>Pick your number below</>}
+          </span>
+        </div>
+      ) : null}
 
-      <NumberPicker
-        phone={phone ? { e164: phone.e164, status: phone.status ?? "" } : null}
-        defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
-      />
+      {!hasQuotes ? (
+        <NumberPicker
+          phone={phone ? { e164: phone.e164, status: phone.status ?? "" } : null}
+          defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
+        />
+      ) : null}
 
       {!hasQuotes ? (
         <div className="card mt-8 border-blue p-7 text-center shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)]">
@@ -116,6 +125,13 @@ export default async function AppHome() {
           <DashboardTable rows={rows} />
         </div>
       )}
+
+      {hasQuotes ? (
+        <NumberPicker
+          phone={phone ? { e164: phone.e164, status: phone.status ?? "" } : null}
+          defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
+        />
+      ) : null}
 
       <EducationCards
         relayCell={owner?.cell_phone ?? null}

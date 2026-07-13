@@ -113,8 +113,8 @@ export default function FeatureTour({
   const current = steps[step];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-modal="true" aria-label="Quick tour">
-      <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+    <div className="overlay-scrim fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-modal="true" aria-label="Quick tour">
+      <div className="overlay-panel relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
         <button
           type="button"
           aria-label="Close tour"

@@ -56,7 +56,7 @@ export default function AppHeader() {
           <div className="flex items-center gap-5 text-sm font-medium">
             <Link href="/app" className="text-slate hover:text-ink">Dashboard</Link>
             <Link href="/inbox" className="text-slate hover:text-ink">Inbox</Link>
-            <Link href="/campaign" className="text-slate hover:text-ink">Campaign</Link>
+            <Link href="/campaign" className="text-slate hover:text-ink">Follow-ups</Link>
           </div>
         ) : null}
 
@@ -83,7 +83,7 @@ export default function AppHeader() {
               />
               <div
                 role="menu"
-                className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-sky-line bg-white p-1.5 shadow-[0_16px_48px_-16px_rgba(16,24,40,0.25)]"
+                className="overlay-panel absolute right-0 z-50 mt-2 w-56 rounded-xl border border-sky-line bg-white p-1.5 shadow-[0_16px_48px_-16px_rgba(16,24,40,0.25)]"
               >
                 <p className="truncate px-3 py-2 text-xs text-mist">{email}</p>
                 {me?.isAdmin ? (

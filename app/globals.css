@@ -191,3 +191,22 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 }
 .btn-icon:hover { border-color: var(--color-blue); color: var(--color-blue); }
 .btn-icon:active { transform: scale(0.94); }
+
+/* ---------- overlay choreography (one arrival for every modal/menu) ----------
+   Overlays enter with weight (fade + slight rise); scrims fade. Exit stays
+   instant by design: fast dismissal reads as responsiveness, sudden arrival
+   reads as broken. Respects reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .overlay-scrim { animation: overlay-fade 150ms ease-out; }
+  .overlay-panel { animation: overlay-rise 160ms ease-out; }
+  .toast-pop { animation: toast-rise 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+}
+@keyframes overlay-fade {
+  from { opacity: 0; }
+}
+@keyframes overlay-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+}
+@keyframes toast-rise {
+  from { opacity: 0; transform: translateY(12px); }
+}

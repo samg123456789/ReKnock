@@ -49,8 +49,8 @@ export default function CompanyActions({
       </button>
 
       {modal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+        <div className="overlay-scrim fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+          <div className="overlay-panel w-full max-w-sm rounded-2xl bg-white p-6">
             <h3 className="display text-xl">
               {modal === "delete" ? "Delete this customer?" : suspended ? "Unsuspend this customer?" : "Suspend this customer?"}
             </h3>

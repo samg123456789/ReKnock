@@ -10,6 +10,7 @@ import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/l
 import { cancelScheduledForProspect, rearmSequence } from "@/lib/enrollment";
 
 export type InboxResult = { ok: true } | { ok: false; error: string };
+export type ManualSendResult = { ok: true; paused: boolean } | { ok: false; error: string };
 
 const STATUS_VALUES = new Set(["sequencing", "replied", "won", "lost", "paused"]);
 
@@ -31,7 +32,7 @@ async function acting() {
 // Manual reply from the contractor. Sends from the ReKnock number and pauses the
 // remaining automated sequence (the send step skips 'paused'). Human action, so
 // no model output rule applies.
-export async function sendManualMessage(prospectId: string, body: string): Promise<InboxResult> {
+export async function sendManualMessage(prospectId: string, body: string): Promise<ManualSendResult> {
   const text = body.trim();
   if (!text) return { ok: false, error: "Nothing to send." };
   const a = await acting();
@@ -56,13 +57,18 @@ export async function sendManualMessage(prospectId: string, body: string): Promi
     return { ok: false, error: res.skipped === "dev_allowlist" ? "Dev mode only texts your allowlisted number." : "Could not send. Try again." };
   }
 
-  // Pause the sequence so we do not talk over the contractor.
-  await a.client.from("prospects").update({ status: "paused" }).eq("id", prospectId).eq("company_id", a.companyId!);
+  // Pause the sequence so we do not talk over the contractor - but only an
+  // actively chasing one (pausing a won/lost/replied prospect is meaningless),
+  // and TELL the caller: it is a state change the user caused and must see.
+  const paused = p.status === "sequencing";
+  if (paused) {
+    await a.client.from("prospects").update({ status: "paused" }).eq("id", prospectId).eq("company_id", a.companyId!).eq("status", "sequencing");
+  }
 
   if (a.impersonating) {
     await logAudit(a.client, { actorUserId: a.actorUserId, actorEmail: a.actorEmail, action: "support_manual_message", targetCompanyId: a.companyId, metadata: { prospect_id: prospectId } });
   }
-  return { ok: true };
+  return { ok: true, paused };
 }
 
 export async function setProspectStatus(prospectId: string, status: string): Promise<InboxResult> {

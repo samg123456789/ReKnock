@@ -76,7 +76,7 @@ function fieldsFromExtraction(e: QuoteExtraction): Fields {
   };
 }
 
-export default function AddQuoteForm() {
+export default function AddQuoteForm({ numberLive = false }: { numberLive?: boolean }) {
   const router = useRouter();
   const [view, setView] = useState<"intake" | "confirm" | "done">("intake");
   const [fields, setFields] = useState<Fields>(EMPTY);
@@ -264,7 +264,9 @@ export default function AddQuoteForm() {
           </p>
         ) : null}
         <p className="mt-3 text-sm text-slate">Every one of these is yours to move, rewrite, or delete from the inbox thread.</p>
-        <p className="mt-4 rounded-xl bg-sky px-4 py-3 text-sm text-blue-ink">Sends begin once your ReKnock number finishes activating. Nothing goes out before then.</p>
+        {!numberLive ? (
+          <p className="mt-4 rounded-xl bg-sky px-4 py-3 text-sm text-blue-ink">Sends begin once your ReKnock number finishes activating. Nothing goes out before then.</p>
+        ) : null}
         <div className="mt-8 flex gap-3">
           <button className={primaryBtn} onClick={() => { setFields(EMPTY); setConf({}); setPaste(""); setPaths([]); setExtraction(null); setDone(null); setView("intake"); }}>
             Add another quote

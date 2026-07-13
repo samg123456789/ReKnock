@@ -87,7 +87,26 @@ export default function InboxClient({
     setPending(false);
     if (!res.ok) return setError(res.error);
     setBody("");
+    // Pausing the chase is a state change the user caused without asking for
+    // it by name - it must be visible, with the undo in reach.
+    if (res.paused) showToast(`Follow-ups paused for ${prospect.firstName || prospect.name} so we don't talk over you.`, prospect.id);
     router.refresh();
+  }
+
+  const [toast, setToast] = useState<{ text: string; prospectId: string } | null>(null);
+  function showToast(text: string, prospectId: string) {
+    setToast({ text, prospectId });
+    window.clearTimeout((showToast as { t?: number }).t);
+    (showToast as { t?: number }).t = window.setTimeout(() => setToast(null), 7000);
+  }
+  function resumeFromToast() {
+    const id = toast?.prospectId;
+    setToast(null);
+    if (!id) return;
+    startStatusTransition(async () => {
+      await setProspectStatus(id, "sequencing");
+      router.refresh();
+    });
   }
 
   function changeStatus(status: string) {
@@ -104,6 +123,17 @@ export default function InboxClient({
 
   return (
     <div className="grid h-[calc(100dvh-4rem)] md:grid-cols-[340px_1fr]">
+      {toast ? (
+        <div className="toast-pop fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-ink px-4 py-3 text-sm text-white shadow-xl">
+          <span>{toast.text}</span>
+          <button type="button" onClick={resumeFromToast} className="shrink-0 cursor-pointer font-semibold text-sky underline underline-offset-2">
+            Resume
+          </button>
+          <button type="button" aria-label="Dismiss" onClick={() => setToast(null)} className="shrink-0 cursor-pointer text-white/60 hover:text-white">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+      ) : null}
       {/* Conversation list */}
       <aside className={`flex flex-col border-r border-sky-line ${selectedId ? "hidden md:flex" : "flex"}`}>
         <div className="border-b border-sky-line p-3">
@@ -368,8 +398,8 @@ function ReminderModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
 
   return (
     <>
-      <button type="button" aria-label="Close" className="fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
         <h3 className="font-semibold text-ink">Circle back with {prospect.firstName || "this lead"}</h3>
         <p className="mt-1 text-xs text-mist">Pick when. You can go months out ("not until spring" works).</p>
 
@@ -461,8 +491,8 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
 
   return (
     <>
-      <button type="button" aria-label="Close" className="fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-ink">{bubble.label}</h3>
           <span className="text-xs text-mist">{dayLabel(bubble.iso)} at {timeLabel(bubble.iso)}</span>
@@ -579,8 +609,8 @@ function AddTouchModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
 
   return (
     <>
-      <button type="button" aria-label="Close" className="fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-5 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
         <h3 className="font-semibold text-ink">Add a follow-up for {prospect.firstName || "this lead"}</h3>
         <p className="mt-1 text-xs text-mist">Pick any date and time inside your sending hours.</p>
 
