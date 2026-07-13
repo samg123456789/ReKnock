@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import TradePicker from "@/components/onboarding/TradePicker";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import { saveCompanyBasics, saveSchedule, generateVoiceProfile, saveVoiceProfile } from "@/lib/onboarding-actions";
-import { setRelayCell, logFeatureInterest } from "@/lib/settings-actions";
+import { requestRelayCellCode, verifyRelayCellCode, logFeatureInterest } from "@/lib/settings-actions";
 import { createBillingPortalSession } from "@/lib/billing-actions";
 
 type Basics = { name: string; website: string; description: string; heard_about: string; avg_quote_amount: string; quotes_per_month: string };
@@ -73,6 +73,8 @@ export default function SettingsClient(props: {
 
   const [cell, setCell] = useState(props.relayCell);
   const [cellState, setCellState] = useState("");
+  const [cellStage, setCellStage] = useState<"idle" | "code_sent" | "verified">("idle");
+  const [cellCode, setCellCode] = useState("");
   // Deep link from the dashboard's "Add your cell number": land on the field,
   // not just the page.
   const cellInputRef = useRef<HTMLInputElement>(null);
@@ -156,9 +158,65 @@ export default function SettingsClient(props: {
       </Card>
 
       <Card id="relay-cell" title="Reply relay number">
-        <p className="text-sm text-slate">When a homeowner replies, we text you here so you can take over.</p>
-        <input ref={cellInputRef} className={`${input} mt-2`} type="tel" value={cell} onChange={(e) => setCell(e.target.value)} placeholder="(555) 123-4567" />
-        <SaveBtn state={cellState} onClick={() => run(setCellState, () => setRelayCell(cell))} />
+        <p className="text-sm text-slate">When a homeowner replies, we text you here so you can take over. We verify it with a quick code so replies never go to the wrong phone.</p>
+        <input
+          ref={cellInputRef}
+          className={`${input} mt-2`}
+          type="tel"
+          value={cell}
+          onChange={(e) => { setCell(e.target.value); setCellStage("idle"); setCellState(""); }}
+          placeholder="(555) 123-4567"
+        />
+        {cellStage === "code_sent" ? (
+          <div className="mt-3">
+            <p className="text-sm font-semibold text-slate">Enter the 6-digit code we just texted to {cell}.</p>
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                className={`${input} max-w-[10rem] text-center tracking-[0.3em]`}
+                inputMode="numeric"
+                maxLength={6}
+                value={cellCode}
+                onChange={(e) => setCellCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="••••••"
+              />
+              <button
+                type="button"
+                disabled={cellState === "saving" || cellCode.length !== 6}
+                onClick={() => run(setCellState, async () => {
+                  const res = await verifyRelayCellCode(cellCode);
+                  if (res.ok) { setCellStage("verified"); setCellCode(""); }
+                  return res;
+                })}
+                className="cursor-pointer rounded-xl bg-blue px-6 py-2.5 font-semibold text-white hover:bg-blue-deep disabled:opacity-60"
+              >
+                {cellState === "saving" ? "Checking..." : "Verify"}
+              </button>
+              <button type="button" className="cursor-pointer text-sm text-slate underline" onClick={() => run(setCellState, () => requestRelayCellCode(cell))}>
+                Resend code
+              </button>
+            </div>
+            {cellState && cellState !== "saving" && cellState !== "saved" ? <p className="mt-2 text-sm text-red-600">{cellState}</p> : null}
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              disabled={cellState === "saving" || !cell.trim() || (cellStage === "verified" ? false : cell === props.relayCell && !!props.relayCell)}
+              onClick={() => run(setCellState, async () => {
+                const res = await requestRelayCellCode(cell);
+                if (res.ok) setCellStage("code_sent");
+                return res;
+              })}
+              className="cursor-pointer rounded-xl bg-blue px-6 py-2.5 font-semibold text-white hover:bg-blue-deep disabled:opacity-60"
+            >
+              {cellState === "saving" ? "Texting you a code..." : "Text me a code"}
+            </button>
+            {cellStage === "verified" || (props.relayCell && cell === props.relayCell) ? (
+              <span className="rounded-full bg-mint/15 px-2.5 py-1 text-xs font-semibold text-mint">Verified</span>
+            ) : null}
+            {cellState && cellState !== "saving" && cellState !== "saved" ? <p className="text-sm text-red-600">{cellState}</p> : null}
+          </div>
+        )}
       </Card>
 
       <Card title="Your ReKnock line">

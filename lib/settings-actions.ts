@@ -1,8 +1,10 @@
 "use server";
 
+import { createHash, randomInt } from "node:crypto";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import { logAudit } from "@/lib/admin";
+import { sendSms } from "@/lib/twilio";
 
 export type SettingsResult = { ok: true } | { ok: false; error: string };
 
@@ -21,7 +23,79 @@ async function acting() {
   return a;
 }
 
+const hashCode = (code: string) => createHash("sha256").update(code).digest("hex");
+
+// Step 1 of changing the relay cell: text a 6-digit code to the new number.
+// The relay cell receives homeowners' reply threads, so it never goes live
+// unverified - a typo'd number would hand a stranger someone else's leads.
+export async function requestRelayCellCode(cell: string): Promise<SettingsResult> {
+  const phone = normalizePhone(cell);
+  if (!phone) return { ok: false, error: "Enter a valid US mobile number." };
+  const a = await acting();
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const { error } = await a.client
+    .from("users")
+    .update({
+      pending_cell_phone: phone,
+      pending_cell_code_hash: hashCode(code),
+      pending_cell_expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+      pending_cell_attempts: 0,
+    })
+    .eq("company_id", a.companyId!);
+  if (error) return { ok: false, error: "Could not start verification. Try again." };
+  const res = await sendSms({
+    companyId: a.companyId!,
+    prospectId: null,
+    to: phone,
+    body: `ReKnock: your verification code is ${code}. It expires in 10 minutes.`,
+    idempotencyKey: `cell_verify:${a.companyId}:${Date.now()}`,
+    kind: "system",
+  });
+  if (!res.sent) return { ok: false, error: "We could not text that number. Double-check it and try again." };
+  return { ok: true };
+}
+
+// Step 2: the code proves the phone is theirs; only then does it become the
+// live relay target.
+export async function verifyRelayCellCode(code: string): Promise<SettingsResult> {
+  const a = await acting();
+  const { data: u } = await a.client
+    .from("users")
+    .select("id, pending_cell_phone, pending_cell_code_hash, pending_cell_expires_at, pending_cell_attempts")
+    .eq("company_id", a.companyId!)
+    .not("pending_cell_phone", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if (!u?.pending_cell_phone || !u.pending_cell_code_hash) return { ok: false, error: "Request a new code first." };
+  if (u.pending_cell_expires_at && new Date(u.pending_cell_expires_at) < new Date()) {
+    return { ok: false, error: "That code expired. Request a new one." };
+  }
+  if ((u.pending_cell_attempts ?? 0) >= 5) return { ok: false, error: "Too many tries. Request a new code." };
+  if (hashCode(code.trim()) !== u.pending_cell_code_hash) {
+    await a.client.from("users").update({ pending_cell_attempts: (u.pending_cell_attempts ?? 0) + 1 }).eq("id", u.id);
+    return { ok: false, error: "That code does not match. Check the text and try again." };
+  }
+  const { error } = await a.client
+    .from("users")
+    .update({
+      cell_phone: u.pending_cell_phone,
+      cell_phone_verified_at: new Date().toISOString(),
+      pending_cell_phone: null,
+      pending_cell_code_hash: null,
+      pending_cell_expires_at: null,
+      pending_cell_attempts: 0,
+    })
+    .eq("id", u.id);
+  if (error) return { ok: false, error: "Could not save. Try again." };
+  if (a.impersonating) {
+    await logAudit(a.client, { actorUserId: a.actorUserId, actorEmail: a.actorEmail, action: "support_set_relay_cell", targetCompanyId: a.companyId, metadata: { verified: true } });
+  }
+  return { ok: true };
+}
+
 // The cell we text when a homeowner replies (reply relay).
+// Unverified direct saves are no longer reachable from the UI (OTP flow
+// above); kept for admin support tooling.
 export async function setRelayCell(cell: string): Promise<SettingsResult> {
   const phone = normalizePhone(cell);
   if (!phone) return { ok: false, error: "Enter a valid US mobile number." };
