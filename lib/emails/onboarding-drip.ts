@@ -48,6 +48,8 @@ Quick one. The follow-ups we send are drafted in your voice, from the samples yo
 
 Most guys never touch either and that is fine. But if a text ever does not sound like you, that is where you fix it, once, forever.
 
+If you want to see what good follow-up texts look like, we wrote up the exact templates that work: https://getreknock.com/blog/follow-up-text-templates-for-contractors
+
 Sam`,
   },
   {
@@ -79,6 +81,10 @@ Four things the contractors getting the most replies all do:
 4. Do not mark a quote lost too early. "No answer" is not "no". The day-20 message wins jobs precisely because everyone else gave up by then.
 
 That is it. No dashboards to study.
+
+Two short reads if you want the why behind it:
+Why homeowners ghost quotes (it is almost never the price): https://getreknock.com/blog/why-homeowners-ghost-contractor-quotes
+How many follow-ups is too many: https://getreknock.com/blog/how-many-times-follow-up-estimate
 
 Sam`,
   },

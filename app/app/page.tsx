@@ -113,6 +113,12 @@ export default async function AppHome() {
           <Link href="/app/quotes/new" className="mt-6 inline-block btn btn-primary btn-lg">
             Add your first quote
           </Link>
+          <p className="mt-4 text-sm text-slate">
+            Wondering what we&apos;ll actually say?{" "}
+            <a href="https://getreknock.com/blog/follow-up-text-templates-for-contractors" className="text-blue underline" target="_blank" rel="noreferrer">
+              See the follow-up playbook
+            </a>
+          </p>
         </div>
       ) : (
         <div className="mt-8">

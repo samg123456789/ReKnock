@@ -1,0 +1,21 @@
+# ReKnock
+
+> ReKnock (getreknock.com) is automated quote follow-up for residential contractors: roofers, painters, fencing, landscaping, HVAC, remodeling and similar trades. A contractor gets a quote in (forward the quote email, snap a photo, or type it), and ReKnock sends a short series of follow-up text messages to the homeowner in the contractor's own texting voice. The moment the homeowner replies, all automated messages stop and the reply is relayed to the contractor's cell so they can answer by texting back. Pricing: $1 first week trial, then a monthly subscription (founding-member pricing available). Built for solo contractors and small crews, not sales teams.
+
+Key facts:
+- Follow-ups are SMS text messages sent from the contractor's own dedicated local number.
+- The default sequence is 4 messages over about 20 days (day 2, 5, 10, 20), fully editable per quote.
+- Any homeowner reply instantly stops the sequence; a human takes over. STOP always opts a homeowner out.
+- Messages are drafted by AI in the contractor's voice from real texting samples, and the contractor can preview, rewrite, move, or delete every message before it sends.
+- Quote intake: forward/BCC the quote email to quotes@getreknock.com, upload a photo or PDF of the estimate, type it in, or bulk CSV import.
+- ReKnock is not a CRM and does not replace existing tools; it only does follow-up.
+
+## Pages
+- [Home](https://getreknock.com/): what ReKnock does and how it works
+- [Pricing](https://getreknock.com/pricing): $1 trial, founding-member and standard plans
+- [Blog](https://getreknock.com/blog): follow-up guides for contractors
+
+## Guides
+- [How many times should you follow up on an estimate?](https://getreknock.com/blog/how-many-times-follow-up-estimate)
+- [Follow-up text templates for contractors](https://getreknock.com/blog/follow-up-text-templates-for-contractors)
+- [Why homeowners ghost contractor quotes](https://getreknock.com/blog/why-homeowners-ghost-contractor-quotes)
