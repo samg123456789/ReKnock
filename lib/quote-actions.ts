@@ -20,8 +20,8 @@ export type ActionResult<T = undefined> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-export type ScheduledTouch = { step: number; iso: string };
-export type CreatedQuote = { prospectId: string; firstName: string; touches: ScheduledTouch[] };
+export type ScheduledTouch = { step: number; iso: string; messageId: string };
+export type CreatedQuote = { prospectId: string; firstName: string; touches: ScheduledTouch[]; devCompressed: boolean };
 // An existing prospect with the same phone: surfaced to the contractor before
 // a second parallel sequence gets created (they can still start it on purpose).
 export type DuplicateProspect = { id: string; name: string; jobType: string | null; status: string };
@@ -263,7 +263,7 @@ export async function createQuote(input: {
       startAt,
       testMode,
     });
-    touches = scheduled.map((s) => ({ step: s.step, iso: s.scheduledFor }));
+    touches = scheduled.map((s) => ({ step: s.step, iso: s.scheduledFor, messageId: s.messageId }));
   } catch {
     await supabase.from("failed_jobs").insert({
       company_id: company.id,
@@ -311,5 +311,5 @@ export async function createQuote(input: {
   // and the new quote seems to have vanished.
   revalidatePath("/app");
   revalidatePath("/inbox");
-  return { ok: true, data: { prospectId: prospect.id, firstName, touches } };
+  return { ok: true, data: { prospectId: prospect.id, firstName, touches, devCompressed: testMode } };
 }

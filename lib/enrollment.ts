@@ -11,7 +11,7 @@ import { canSendNow, nextSendTime, type Window } from "@/lib/twilio";
 // move it, rewrite it, delete it, add to it. The campaign in /campaign is
 // only the template new prospects inherit.
 
-export type ScheduledStep = { step: number; scheduledFor: string };
+export type ScheduledStep = { step: number; scheduledFor: string; messageId: string };
 
 export function touchKey(prospectId: string, stepIndex: number): string {
   return `touch:${prospectId}:${stepIndex}`;
@@ -153,7 +153,19 @@ export async function scheduleSequence(opts: {
       if (e && e.code !== "23505") throw new Error(e.message);
     }
   }
-  return rows.map((r) => ({ step: (r.sequence_step ?? 0) + 1, scheduledFor: r.scheduled_for }));
+  // Read the rows back with ids (covers both insert paths) so callers can
+  // reference individual touches (e.g. the confirmation screen's previews).
+  const inserted = new Set(rows.map((r) => r.sequence_step));
+  const { data: created } = await admin
+    .from("messages")
+    .select("id, sequence_step, scheduled_for")
+    .eq("prospect_id", opts.prospectId)
+    .eq("kind", "sequence")
+    .eq("status", "scheduled")
+    .order("sequence_step", { ascending: true });
+  return (created ?? [])
+    .filter((r) => inserted.has(r.sequence_step))
+    .map((r) => ({ step: (r.sequence_step ?? 0) + 1, scheduledFor: r.scheduled_for, messageId: r.id }));
 }
 
 // Freeze: cancel this prospect's pending scheduled sends. Terminal statuses

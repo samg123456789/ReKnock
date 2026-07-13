@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { extractQuote, createQuote, createQuoteUploadUrl, type CreatedQuote, type DuplicateProspect } from "@/lib/quote-actions";
+import { draftTouchPreview } from "@/lib/inbox-actions";
 import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES, IMAGE_MAX_EDGE } from "@/lib/quote-limits";
 import type { QuoteExtraction, QuoteFields } from "@/lib/prompts/quote-extractor";
 
@@ -91,6 +92,21 @@ export default function AddQuoteForm() {
   const [startCustom, setStartCustom] = useState("");
   const [dup, setDup] = useState<DuplicateProspect | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Confirmation-screen previews: draft each touch on first expand, cache after.
+  const [openStep, setOpenStep] = useState<number | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, { text?: string; error?: string }>>({});
+
+  function toggleDraft(t: { step: number; messageId: string }) {
+    setOpenStep((cur) => (cur === t.step ? null : t.step));
+    if (drafts[t.messageId]) return;
+    setDrafts((d) => ({ ...d, [t.messageId]: {} }));
+    void draftTouchPreview(t.messageId).then((res) => {
+      setDrafts((d) => ({
+        ...d,
+        [t.messageId]: res.ok ? { text: res.text } : { error: res.error ?? "Could not draft the preview. It will still send on schedule." },
+      }));
+    });
+  }
   // Bumping this generation abandons any in-flight upload/extraction: the
   // stale async chain sees the mismatch and discards its result.
   const genRef = useRef(0);
@@ -211,14 +227,42 @@ export default function AddQuoteForm() {
         <h1 className="display text-3xl md:text-4xl">We&apos;ll follow up with {done.firstName} for you.</h1>
         <p className="mt-3 text-slate">Here&apos;s the plan, in your voice. It stops the second they reply.</p>
         <ol className="mt-6 flex flex-col gap-2">
-          {done.touches.map((t) => (
-            <li key={t.step} className="flex items-center gap-3 rounded-xl border border-sky-line bg-white px-4 py-3">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sky text-sm font-bold text-blue">{t.step}</span>
-              <span className="text-ink">Follow-up {t.step}</span>
-              <span className="ml-auto text-sm font-semibold text-slate">{prettyDateTime(t.iso)}</span>
-            </li>
-          ))}
+          {done.touches.map((t) => {
+            const d = drafts[t.messageId];
+            const isOpen = openStep === t.step;
+            return (
+              <li key={t.step} className="rounded-xl border border-sky-line bg-white">
+                <button
+                  type="button"
+                  className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left"
+                  onClick={() => toggleDraft(t)}
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky text-sm font-bold text-blue">{t.step}</span>
+                  <span className="text-ink">Follow-up {t.step}</span>
+                  <span className="ml-auto text-sm font-semibold text-slate">{prettyDateTime(t.iso)}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={`shrink-0 text-mist transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></svg>
+                </button>
+                {isOpen ? (
+                  <div className="border-t border-sky-line px-4 py-3">
+                    {d?.text ? (
+                      <p className="whitespace-pre-line rounded-lg bg-sky/50 px-3 py-2 text-sm leading-relaxed text-blue-ink">{d.text}</p>
+                    ) : d?.error ? (
+                      <p className="text-sm text-red-600">{d.error}</p>
+                    ) : (
+                      <p className="text-sm text-mist">Drafting it in your voice...</p>
+                    )}
+                    {d?.text ? <p className="mt-1.5 text-xs text-mist">You can rewrite or move this any time from the inbox thread.</p> : null}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ol>
+        {done.devCompressed ? (
+          <p className="mt-3 rounded-lg bg-amber/10 px-4 py-2 text-xs text-amber">
+            Test mode: day gaps run as minutes here so you can watch the whole sequence. On the live site these land on the real days.
+          </p>
+        ) : null}
         <p className="mt-3 text-sm text-slate">Every one of these is yours to move, rewrite, or delete from the inbox thread.</p>
         <p className="mt-4 rounded-xl bg-sky px-4 py-3 text-sm text-blue-ink">Sends begin once your ReKnock number finishes activating. Nothing goes out before then.</p>
         <div className="mt-8 flex gap-3">
@@ -378,6 +422,13 @@ export default function AddQuoteForm() {
       <button className="mt-6 cursor-pointer text-sm text-blue underline" onClick={() => { setFields(EMPTY); setConf({}); setPaths([]); setExtraction(null); setSource("manual"); setError(null); setView("confirm"); }}>
         Or just type it in
       </button>
+
+      <p className="mt-10 border-t border-sky-line pt-5 text-sm text-slate">
+        Importing a bunch?{" "}
+        <Link href="/app/quotes/import" className="text-blue underline">
+          Upload a CSV
+        </Link>
+      </p>
     </div>
   );
 }
