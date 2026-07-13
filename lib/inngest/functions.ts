@@ -6,7 +6,7 @@ import { buildQuoteExtractorPrompt, type QuoteExtraction } from "@/lib/prompts/q
 import { sendSms, sendClaimedMessage, retrySmsTo, canSendNow, nextSendTime, type Window } from "@/lib/twilio";
 import { notifyAdmin } from "@/lib/notify-admin";
 import { env } from "@/lib/env";
-import { bareEmail } from "@/lib/intake-email";
+import { bareEmail, INTAKE_EMAIL } from "@/lib/intake-email";
 import { normalizePhone as normalizeIntakePhone } from "@/lib/phone";
 import { computeStartAt, scheduleSequence } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
@@ -540,8 +540,57 @@ export const processInboundEmail = inngest.createFunction(
     const inboundId = event.data.inboundEmailId as string;
 
     const matched = await step.run("match-sender", async () => {
-      const { data: mail } = await admin.from("inbound_emails").select("id, from_addr, subject, raw").eq("id", inboundId).maybeSingle();
+      const { data: mail } = await admin.from("inbound_emails").select("id, from_addr, to_addr, subject, raw").eq("id", inboundId).maybeSingle();
       if (!mail) return { done: true as const };
+
+      const raw = (mail.raw ?? {}) as { data?: { email_id?: string; text?: string; html?: string } };
+      // Resend's email.received webhook carries metadata only; the body is
+      // fetched from the received-emails API.
+      const fetchBody = async (): Promise<string> => {
+        let text = raw.data?.text || (raw.data?.html ?? "").replace(/<[^>]+>/g, " ");
+        if (!text.trim() && raw.data?.email_id && process.env.RESEND_API_KEY) {
+          for (const url of [
+            `https://api.resend.com/emails/received/${raw.data.email_id}`,
+            `https://api.resend.com/emails/${raw.data.email_id}`,
+          ]) {
+            const resp = await fetch(url, { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } });
+            if (!resp.ok) continue;
+            const full = (await resp.json()) as { text?: string; html?: string };
+            text = full.text || (full.html ?? "").replace(/<[^>]+>/g, " ");
+            break;
+          }
+        }
+        return text;
+      };
+
+      // Catch-all forward: the root MX moved from ImprovMX to Resend
+      // (2026-07-13), so any mail NOT addressed to the intake address gets
+      // re-sent to the platform admin's inbox. Covers every old alias without
+      // needing an alias list; nothing addressed to the domain goes dark.
+      const to = bareEmail(mail.to_addr);
+      if (to && to !== INTAKE_EMAIL.toLowerCase()) {
+        const { data: admins } = await admin.from("users").select("email").eq("platform_admin", true).not("email", "is", null);
+        const dest = (admins ?? []).map((a) => a.email as string);
+        if (dest.length && process.env.RESEND_API_KEY) {
+          const body = await fetchBody();
+          const resp = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
+            body: JSON.stringify({
+              from: "ReKnock Forwarder <forward@getreknock.com>",
+              to: dest,
+              reply_to: mail.from_addr,
+              subject: `[${to}] ${mail.subject ?? "(no subject)"}`,
+              text: `Forwarded from ${to} (originally sent by ${mail.from_addr}):\n\n${body}`,
+            }),
+          });
+          if (!resp.ok) throw new Error(`forward failed: ${resp.status}`); // Inngest retries
+        }
+        await admin.from("inbound_emails").update({ resolution: "ignored" }).eq("id", inboundId);
+        await admin.from("events").insert({ company_id: null, type: "inbound_email_forwarded", payload: { inbound_email_id: inboundId, to, forwarded_to: dest } });
+        return { done: true as const };
+      }
+
       const sender = bareEmail(mail.from_addr);
       const { data: match } = sender
         ? await admin.from("company_sender_emails").select("company_id").eq("email", sender).not("verified_at", "is", null).maybeSingle()
@@ -552,22 +601,7 @@ export const processInboundEmail = inngest.createFunction(
         return { done: true as const };
       }
       await admin.from("inbound_emails").update({ company_id: match.company_id }).eq("id", inboundId);
-      const raw = (mail.raw ?? {}) as { data?: { email_id?: string; text?: string; html?: string } };
-      let text = raw.data?.text || (raw.data?.html ?? "").replace(/<[^>]+>/g, " ");
-      // Resend's email.received webhook carries metadata only; the body is
-      // fetched from the received-emails API.
-      if (!text.trim() && raw.data?.email_id && process.env.RESEND_API_KEY) {
-        for (const url of [
-          `https://api.resend.com/emails/received/${raw.data.email_id}`,
-          `https://api.resend.com/emails/${raw.data.email_id}`,
-        ]) {
-          const resp = await fetch(url, { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } });
-          if (!resp.ok) continue;
-          const full = (await resp.json()) as { text?: string; html?: string };
-          text = full.text || (full.html ?? "").replace(/<[^>]+>/g, " ");
-          break;
-        }
-      }
+      const text = await fetchBody();
       return { done: false as const, companyId: match.company_id as string, text: `${mail.subject ?? ""}\n\n${text}`.trim().slice(0, 20_000) };
     });
     if (matched.done) return { skipped: true };
