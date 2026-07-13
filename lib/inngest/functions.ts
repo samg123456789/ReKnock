@@ -1,10 +1,15 @@
 import { inngest } from "./client";
 import { createAdminClient } from "@/lib/supabase/server";
-import { generateText } from "@/lib/ai";
+import { generateText, parseJson } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
-import { sendSms, sendClaimedMessage, retrySmsTo, canSendNow, nextSendTime } from "@/lib/twilio";
+import { buildQuoteExtractorPrompt, type QuoteExtraction } from "@/lib/prompts/quote-extractor";
+import { sendSms, sendClaimedMessage, retrySmsTo, canSendNow, nextSendTime, type Window } from "@/lib/twilio";
 import { notifyAdmin } from "@/lib/notify-admin";
 import { env } from "@/lib/env";
+import { bareEmail } from "@/lib/intake-email";
+import { normalizePhone as normalizeIntakePhone } from "@/lib/phone";
+import { computeStartAt, scheduleSequence } from "@/lib/enrollment";
+import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 
 // Scheduled-send engine. Every future send is a `messages` row with
 // status='scheduled'; the dispatcher cron finds due rows and fans out one
@@ -525,4 +530,122 @@ export const numberReconciliation = inngest.createFunction(
   },
 );
 
-export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation];
+// Inbound email to quotes@getreknock.com: match the sender to a company,
+// extract the quote, and enroll - or record exactly why not. Every path ends
+// in a resolution on inbound_emails; nothing is silently dropped.
+export const processInboundEmail = inngest.createFunction(
+  { id: "process-inbound-email", retries: 3, triggers: [{ event: "email/inbound.received" }] },
+  async ({ event, step }) => {
+    const admin = createAdminClient();
+    const inboundId = event.data.inboundEmailId as string;
+
+    const matched = await step.run("match-sender", async () => {
+      const { data: mail } = await admin.from("inbound_emails").select("id, from_addr, subject, raw").eq("id", inboundId).maybeSingle();
+      if (!mail) return { done: true as const };
+      const sender = bareEmail(mail.from_addr);
+      const { data: match } = sender
+        ? await admin.from("company_sender_emails").select("company_id").eq("email", sender).not("verified_at", "is", null).maybeSingle()
+        : { data: null };
+      if (!match) {
+        await admin.from("inbound_emails").update({ resolution: "unmatched" }).eq("id", inboundId);
+        await admin.from("events").insert({ company_id: null, type: "inbound_email_unmatched", payload: { inbound_email_id: inboundId, from: mail.from_addr } });
+        return { done: true as const };
+      }
+      await admin.from("inbound_emails").update({ company_id: match.company_id }).eq("id", inboundId);
+      const raw = (mail.raw ?? {}) as { data?: { text?: string; html?: string } };
+      const text = raw.data?.text || (raw.data?.html ?? "").replace(/<[^>]+>/g, " ");
+      return { done: false as const, companyId: match.company_id as string, text: `${mail.subject ?? ""}\n\n${text}`.trim().slice(0, 20_000) };
+    });
+    if (matched.done) return { skipped: true };
+
+    const extraction = await step.run("extract", async () => {
+      const { system, prompt, temperature, maxTokens } = buildQuoteExtractorPrompt(matched.text);
+      const { text } = await generateText({ system, prompt, temperature, maxTokens });
+      const parsed = parseJson<QuoteExtraction>(text);
+      await admin.from("inbound_emails").update({ parse_result: parsed as unknown as Record<string, unknown> }).eq("id", inboundId);
+      return parsed;
+    });
+
+    return await step.run("resolve", async () => {
+      const companyId = matched.companyId;
+      const notifyOwner = async (body: string) => {
+        const { data: owner } = await admin.from("users").select("cell_phone").eq("company_id", companyId).not("cell_phone", "is", null).limit(1).maybeSingle();
+        if (owner?.cell_phone) {
+          await sendSms({ companyId, prospectId: null, to: owner.cell_phone, body, idempotencyKey: `email_intake:${inboundId}`, kind: "system" });
+        }
+      };
+
+      const firstName = extraction?.first_name?.trim();
+      const phone = extraction?.phone ? normalizeIntakePhone(extraction.phone) : null;
+      const phoneConf = (extraction?.confidence?.phone as number | undefined) ?? 0;
+      if (!firstName || !phone || phoneConf < 0.6) {
+        // Never guess a phone number (extractor rule); ask instead of texting a stranger.
+        await admin.from("inbound_emails").update({ resolution: "needs_review" }).eq("id", inboundId);
+        await notifyOwner(
+          `ReKnock: got your forwarded quote email${firstName ? ` for ${firstName}` : ""}, but we could not find a phone number we trust. Open ReKnock and add the quote there so we can start chasing it.`,
+        );
+        return { resolution: "needs_review" };
+      }
+
+      const { data: existing } = await admin
+        .from("prospects")
+        .select("id, first_name, status")
+        .eq("company_id", companyId)
+        .eq("phone_e164", phone)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        // Same homeowner already in the book: never silently start a second
+        // parallel sequence from an email.
+        await admin.from("inbound_emails").update({ resolution: "updated_prospect", prospect_id: existing.id }).eq("id", inboundId);
+        await admin.from("events").insert({ company_id: companyId, type: "inbound_email_existing_prospect", payload: { inbound_email_id: inboundId, prospect_id: existing.id } });
+        await notifyOwner(`ReKnock: got your quote email for ${firstName}. They are already in your pipeline (${existing.status.replace(/_/g, " ")}), so we did not start a second chase. Open their thread to make changes.`);
+        return { resolution: "updated_prospect" };
+      }
+
+      const amountRaw = String(extraction?.quote_amount ?? "").replace(/[^0-9.]/g, "");
+      const { data: prospect, error } = await admin
+        .from("prospects")
+        .insert({
+          company_id: companyId,
+          first_name: firstName,
+          last_name: extraction?.last_name?.trim() || null,
+          phone_e164: phone,
+          email: extraction?.email?.trim()?.toLowerCase() || null,
+          address: extraction?.address?.trim() || null,
+          job_type: extraction?.job_type?.trim() || null,
+          quote_amount: amountRaw ? Number(amountRaw) : null,
+          quote_date: /^\d{4}-\d{2}-\d{2}$/.test(extraction?.quote_date ?? "") ? extraction!.quote_date : new Date().toISOString().slice(0, 10),
+          status: "sequencing",
+          source: "email_forward",
+          consent_path: "verbal_at_quote",
+          consent_captured_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (error || !prospect) throw new Error(`prospect insert failed: ${error?.message}`);
+
+      const [{ data: campaign }, { data: co }, { data: windows }] = await Promise.all([
+        admin.from("campaigns").select("id, steps").eq("company_id", companyId).eq("is_default", true).maybeSingle(),
+        admin.from("companies").select("timezone").eq("id", companyId).maybeSingle(),
+        admin.from("sending_windows").select("day_of_week, start_time, end_time, enabled").eq("company_id", companyId),
+      ]);
+      if (campaign?.id) await admin.from("prospects").update({ campaign_id: campaign.id }).eq("id", prospect.id);
+      const steps = ((campaign?.steps as CampaignStep[] | null) ?? []).length ? (campaign!.steps as CampaignStep[]) : DEFAULT_CAMPAIGN_STEPS;
+      const testMode = !isProd();
+      const startAt = computeStartAt({ choice: "recommended", customIso: null, tz: co?.timezone ?? "America/New_York", windows: (windows ?? []) as Window[], testMode });
+      const scheduled = await scheduleSequence({ companyId, prospectId: prospect.id, steps, startAt, testMode });
+
+      await admin.from("inbound_emails").update({ resolution: "new_prospect", prospect_id: prospect.id }).eq("id", inboundId);
+      await admin.from("events").insert({ company_id: companyId, type: "inbound_email_enrolled", payload: { inbound_email_id: inboundId, prospect_id: prospect.id, touches: scheduled.length } });
+      const firstTouch = scheduled[0]?.scheduledFor;
+      await notifyOwner(
+        `ReKnock: got it. We will start following up with ${firstName}${extraction?.job_type ? ` about the ${extraction.job_type} quote` : ""}${firstTouch ? ` on ${new Date(firstTouch).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}. Open ReKnock to change anything.`,
+      );
+      return { resolution: "new_prospect", prospectId: prospect.id };
+    });
+  },
+);
+
+export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail];

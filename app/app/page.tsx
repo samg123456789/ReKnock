@@ -5,6 +5,7 @@ import DashboardTable, { type ProspectRow } from "@/components/app/DashboardTabl
 import EducationCards from "@/components/app/EducationCards";
 import FeatureTour from "@/components/app/FeatureTour";
 import NumberPicker from "@/components/app/NumberPicker";
+import { INTAKE_EMAIL } from "@/lib/intake-email";
 
 export default async function AppHome() {
   const acting = await getActingCompany();
@@ -68,7 +69,7 @@ export default async function AppHome() {
     };
   });
 
-  const forwardingEmail = company?.forwarding_slug ? `${company.forwarding_slug}@in.getreknock.com` : "";
+  const forwardingEmail = INTAKE_EMAIL;
   // Forwarding is "in use" once any prospect arrived by email (forward or BCC).
   const hasEmailProspect = (prospects ?? []).some((p) => p.source === "email_forward" || p.source === "bcc");
   // One-time feature tour: dashboard implies onboarded; show until the

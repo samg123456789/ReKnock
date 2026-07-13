@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import SettingsClient from "@/components/settings/SettingsClient";
 import type { VoiceQuestionnaire } from "@/lib/prompts/voice-profile";
+import { INTAKE_EMAIL } from "@/lib/intake-email";
 
 export const metadata: Metadata = { title: "Settings - ReKnock" };
 
@@ -14,7 +15,7 @@ export default async function Settings() {
   if (!cid) redirect("/app");
 
   // Independent queries run in parallel (was 5 serial round-trips).
-  const [{ data: company }, { data: voice }, { data: windows }, { data: owner }, { data: phone }] =
+  const [{ data: company }, { data: voice }, { data: windows }, { data: owner }, { data: phone }, { data: senders }] =
     await Promise.all([
       sb
         .from("companies")
@@ -34,6 +35,7 @@ export default async function Settings() {
         .order("day_of_week", { ascending: true }),
       sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
       sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
+      sb.from("company_sender_emails").select("id, email, verified_at").eq("company_id", cid).order("created_at", { ascending: true }),
     ]);
 
   const rawQ = voice?.questionnaire as Record<string, unknown> | null;
@@ -62,7 +64,8 @@ export default async function Settings() {
         masterPrompt={voice?.master_prompt ?? ""}
         samples={(voice?.sample_messages as string[]) ?? []}
         relayCell={owner?.cell_phone ?? ""}
-        forwardingAddress={company?.forwarding_slug ? `${company.forwarding_slug}@in.getreknock.com` : ""}
+        forwardingAddress={INTAKE_EMAIL}
+        senderEmails={(senders ?? []).map((s) => ({ id: s.id as string, email: s.email as string, verified: s.verified_at != null }))}
         numberStatus={phone?.status ?? null}
         numberE164={phone?.e164 ?? null}
       />

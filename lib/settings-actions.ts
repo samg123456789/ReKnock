@@ -108,6 +108,50 @@ export async function setRelayCell(cell: string): Promise<SettingsResult> {
   return { ok: true };
 }
 
+// Sender emails for the shared quotes@ intake address. The login email is
+// seeded verified; extra senders (personal + business) confirm via an emailed
+// link before their mail can create prospects (From: headers are spoofable).
+export async function addSenderEmail(email: string): Promise<SettingsResult> {
+  const clean = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return { ok: false, error: "Enter a valid email address." };
+  const a = await acting();
+  const token = createHash("sha256").update(`${clean}:${randomInt(0, 2 ** 48)}:${Date.now()}`).digest("hex");
+  const { error } = await a.client
+    .from("company_sender_emails")
+    .insert({ company_id: a.companyId, email: clean, verify_token: token });
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "That email is already registered." };
+    return { ok: false, error: "Could not add that email. Try again." };
+  }
+  const appUrl = process.env.APP_URL ?? "";
+  try {
+    const key = process.env.RESEND_API_KEY;
+    if (!key || !appUrl) throw new Error("email not configured");
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        from: "ReKnock <ops@getreknock.com>",
+        to: [clean],
+        subject: "Confirm this email for ReKnock quote forwarding",
+        text: `Confirm that you'll forward quote emails from this address, and we'll chase every quote you send us.\n\nConfirm: ${appUrl}/api/verify-sender?token=${token}\n\nIf you didn't request this, ignore this email.`,
+      }),
+    });
+    if (!resp.ok) throw new Error(`Resend ${resp.status}`);
+  } catch {
+    // Leave the row (they can resend by removing + re-adding); tell the truth.
+    return { ok: false, error: "Added, but the confirmation email failed to send. Remove and re-add to retry." };
+  }
+  return { ok: true };
+}
+
+export async function removeSenderEmail(id: string): Promise<SettingsResult> {
+  const a = await acting();
+  const { error } = await a.client.from("company_sender_emails").delete().eq("id", id).eq("company_id", a.companyId!);
+  if (error) return { ok: false, error: "Could not remove it." };
+  return { ok: true };
+}
+
 // "Notify me" on a coming-soon feature; the demand signal (CLAUDE.md Phase 7).
 export async function logFeatureInterest(feature: string): Promise<SettingsResult> {
   const a = await acting();

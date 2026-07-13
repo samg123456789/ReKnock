@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import TradePicker from "@/components/onboarding/TradePicker";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import { saveCompanyBasics, saveSchedule, generateVoiceProfile, saveVoiceProfile } from "@/lib/onboarding-actions";
-import { requestRelayCellCode, verifyRelayCellCode, logFeatureInterest } from "@/lib/settings-actions";
+import { requestRelayCellCode, verifyRelayCellCode, addSenderEmail, removeSenderEmail, logFeatureInterest } from "@/lib/settings-actions";
 import { createBillingPortalSession } from "@/lib/billing-actions";
 
 type Basics = { name: string; website: string; description: string; heard_about: string; avg_quote_amount: string; quotes_per_month: string };
@@ -50,6 +50,7 @@ export default function SettingsClient(props: {
   samples: string[];
   relayCell: string;
   forwardingAddress: string;
+  senderEmails: { id: string; email: string; verified: boolean }[];
   numberStatus: string | null;
   numberE164: string | null;
 }) {
@@ -75,6 +76,9 @@ export default function SettingsClient(props: {
   const [cellState, setCellState] = useState("");
   const [cellStage, setCellStage] = useState<"idle" | "code_sent" | "verified">("idle");
   const [cellCode, setCellCode] = useState("");
+  const [senders, setSenders] = useState(props.senderEmails);
+  const [newSender, setNewSender] = useState("");
+  const [senderState, setSenderState] = useState("");
   // Deep link from the dashboard's "Add your cell number": land on the field,
   // not just the page.
   const cellInputRef = useRef<HTMLInputElement>(null);
@@ -223,17 +227,67 @@ export default function SettingsClient(props: {
         <p className="text-sm text-slate">
           Texting number: <span className="font-semibold text-ink">{props.numberE164 ?? (props.numberStatus ? props.numberStatus : "activating")}</span>
         </p>
-        {props.forwardingAddress ? (
-          <div className="mt-2">
-            <p className="text-sm text-slate">Forward or BCC any quote email here:</p>
-            <div className="mt-1 flex items-center gap-2">
-              <code className="rounded-lg bg-sky px-3 py-1.5 text-sm text-blue-ink">{props.forwardingAddress}</code>
-              <button type="button" className="cursor-pointer text-sm text-blue underline" onClick={() => { navigator.clipboard.writeText(props.forwardingAddress); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
-          </div>
-        ) : null}
+      </Card>
+
+      <Card id="forwarding" title="Quote forwarding">
+        <p className="text-sm text-slate">Forward or BCC any quote email here and we start chasing it:</p>
+        <div className="mt-1 flex items-center gap-2">
+          <code className="rounded-lg bg-sky px-3 py-1.5 text-sm text-blue-ink">{props.forwardingAddress}</code>
+          <button type="button" className="cursor-pointer text-sm text-blue underline" onClick={() => { navigator.clipboard.writeText(props.forwardingAddress); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+        <p className="mt-4 text-sm font-semibold text-slate">We only accept mail from your verified emails:</p>
+        <ul className="mt-2 flex flex-col gap-1.5">
+          {senders.map((s) => (
+            <li key={s.id} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 truncate text-ink">{s.email}</span>
+              {s.verified ? (
+                <span className="shrink-0 rounded-full bg-mint/15 px-2 py-0.5 text-[11px] font-semibold text-mint">Verified</span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-amber/15 px-2 py-0.5 text-[11px] font-semibold text-amber">Check your inbox</span>
+              )}
+              {senders.length > 1 ? (
+                <button
+                  type="button"
+                  className="ml-auto shrink-0 cursor-pointer text-xs text-slate underline hover:text-ink"
+                  onClick={() => run(setSenderState, async () => {
+                    const res = await removeSenderEmail(s.id);
+                    if (res.ok) setSenders((cur) => cur.filter((x) => x.id !== s.id));
+                    return res;
+                  })}
+                >
+                  Remove
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            className={`${input} max-w-xs`}
+            type="email"
+            value={newSender}
+            onChange={(e) => setNewSender(e.target.value)}
+            placeholder="Add another email you send from"
+          />
+          <button
+            type="button"
+            disabled={senderState === "saving" || !newSender.trim()}
+            onClick={() => run(setSenderState, async () => {
+              const res = await addSenderEmail(newSender);
+              if (res.ok) {
+                setSenders((cur) => [...cur, { id: `tmp-${Date.now()}`, email: newSender.trim().toLowerCase(), verified: false }]);
+                setNewSender("");
+              }
+              return res;
+            })}
+            className="cursor-pointer rounded-xl border border-slate/20 px-4 py-2.5 text-sm font-semibold text-slate hover:border-blue hover:text-blue disabled:opacity-60"
+          >
+            {senderState === "saving" ? "Adding..." : "Add"}
+          </button>
+        </div>
+        {senderState && senderState !== "saving" && senderState !== "saved" ? <p className="mt-2 text-sm text-red-600">{senderState}</p> : null}
       </Card>
 
       <Card title="Billing">

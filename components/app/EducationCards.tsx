@@ -108,7 +108,7 @@ export default function EducationCards({
         <div className={`mt-4 grid gap-3 ${gridCols}`}>
           {!emailDone && (
             <Card badge="Crown jewel" title="Forward any quote, we chase it">
-              <p>Forward or BCC a quote email to your private address and we pull out the customer and start following up. No typing.</p>
+              <p>Forward or BCC a quote email from your registered email address and we pull out the customer and start following up. No typing.</p>
               <div className="mt-3 flex items-center gap-2 rounded-lg bg-sky/50 px-3 py-2">
                 <code className="min-w-0 flex-1 truncate text-[13px] font-semibold text-blue-ink">{forwardingEmail}</code>
                 <CopyButton value={forwardingEmail} />
