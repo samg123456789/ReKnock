@@ -2,9 +2,10 @@
 // matched to a company by the sender's verified email (company_sender_emails),
 // Ramp receipts@ style. Safe to import from client and server.
 
-// Subdomain, not root: the root domain's MX belongs to ImprovMX forwarding
-// (founder decision 2026-07-13, option B).
-export const INTAKE_EMAIL = "quotes@in.getreknock.com";
+// Root domain (founder decision 2026-07-13, revised): Resend's 1-domain free
+// plan meant enabling receiving on getreknock.com itself; the root MX moves
+// from ImprovMX to Resend, and any forwarding aliases get recreated in Resend.
+export const INTAKE_EMAIL = "quotes@getreknock.com";
 
 // "Jim's Roofing <jim@apexroofs.com>" -> "jim@apexroofs.com" (lowercased).
 export function bareEmail(raw: string | null | undefined): string | null {

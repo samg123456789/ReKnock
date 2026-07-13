@@ -552,8 +552,22 @@ export const processInboundEmail = inngest.createFunction(
         return { done: true as const };
       }
       await admin.from("inbound_emails").update({ company_id: match.company_id }).eq("id", inboundId);
-      const raw = (mail.raw ?? {}) as { data?: { text?: string; html?: string } };
-      const text = raw.data?.text || (raw.data?.html ?? "").replace(/<[^>]+>/g, " ");
+      const raw = (mail.raw ?? {}) as { data?: { email_id?: string; text?: string; html?: string } };
+      let text = raw.data?.text || (raw.data?.html ?? "").replace(/<[^>]+>/g, " ");
+      // Resend's email.received webhook carries metadata only; the body is
+      // fetched from the received-emails API.
+      if (!text.trim() && raw.data?.email_id && process.env.RESEND_API_KEY) {
+        for (const url of [
+          `https://api.resend.com/emails/received/${raw.data.email_id}`,
+          `https://api.resend.com/emails/${raw.data.email_id}`,
+        ]) {
+          const resp = await fetch(url, { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } });
+          if (!resp.ok) continue;
+          const full = (await resp.json()) as { text?: string; html?: string };
+          text = full.text || (full.html ?? "").replace(/<[^>]+>/g, " ");
+          break;
+        }
+      }
       return { done: false as const, companyId: match.company_id as string, text: `${mail.subject ?? ""}\n\n${text}`.trim().slice(0, 20_000) };
     });
     if (matched.done) return { skipped: true };
