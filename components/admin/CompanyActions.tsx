@@ -29,20 +29,20 @@ export default function CompanyActions({
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       <form action={enterViewAs.bind(null, companyId)}>
-        <button type="submit" className="cursor-pointer rounded-lg bg-blue px-4 py-2 text-sm font-semibold text-white hover:bg-blue-deep">
+        <button type="submit" className="btn btn-primary btn-sm">
           View as customer
         </button>
       </form>
       <button
         type="button"
-        className="cursor-pointer rounded-lg border border-slate/20 px-4 py-2 text-sm font-semibold text-slate hover:border-blue"
+        className="btn btn-ghost btn-sm"
         onClick={() => { setModal("suspend"); setConfirm(""); setError(null); }}
       >
         {suspended ? "Unsuspend" : "Suspend"}
       </button>
       <button
         type="button"
-        className="cursor-pointer rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+        className="btn btn-sm border border-red-300 text-red-700 hover:bg-red-50"
         onClick={() => { setModal("delete"); setConfirm(""); setError(null); }}
       >
         Delete

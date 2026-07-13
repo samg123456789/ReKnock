@@ -77,7 +77,7 @@ export default function NumberPicker({
           type="button"
           disabled={busy || areaCode.length !== 3}
           onClick={search}
-          className="cursor-pointer rounded-xl bg-blue px-5 py-2 font-semibold text-white hover:bg-blue-deep disabled:opacity-50"
+          className="btn btn-primary"
         >
           {busy ? "Searching..." : "Find numbers"}
         </button>

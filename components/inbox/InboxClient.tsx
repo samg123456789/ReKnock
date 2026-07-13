@@ -528,7 +528,7 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
             type="button"
             disabled={busy}
             onClick={() => run(() => rescheduleTouch(bubble.id, suggestion))}
-            className="mt-2 cursor-pointer rounded-lg border border-blue/40 px-3 py-1.5 text-xs font-semibold text-blue hover:bg-sky/40 disabled:opacity-50"
+            className="mt-2 btn btn-sm border border-blue/40 text-blue hover:bg-sky/40"
           >
             Use {dayLabel(suggestion)} at {timeLabel(suggestion)} instead
           </button>
@@ -540,7 +540,7 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
               Yes, delete it
             </button>
           ) : (
-            <button type="button" onClick={() => setConfirmDelete(true)} className="cursor-pointer rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
+            <button type="button" onClick={() => setConfirmDelete(true)} className="btn btn-sm border border-red-200 text-red-600 hover:bg-red-50">
               Delete this follow-up
             </button>
           )}
@@ -596,7 +596,7 @@ function AddTouchModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
 
         {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
         {suggestion ? (
-          <button type="button" disabled={busy} onClick={() => save(suggestion)} className="mt-2 cursor-pointer rounded-lg border border-blue/40 px-3 py-1.5 text-xs font-semibold text-blue hover:bg-sky/40 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => save(suggestion)} className="mt-2 btn btn-sm border border-blue/40 text-blue hover:bg-sky/40">
             Use {dayLabel(suggestion)} at {timeLabel(suggestion)} instead
           </button>
         ) : null}

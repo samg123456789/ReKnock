@@ -81,7 +81,7 @@ export default function CampaignEditor({ initialSteps }: { initialSteps: Campaig
 
       {error ? <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
       <div className="flex items-center gap-3">
-        <button type="button" disabled={saving} onClick={save} className="cursor-pointer rounded-xl bg-blue px-6 py-2.5 font-semibold text-white hover:bg-blue-deep disabled:opacity-50">
+        <button type="button" disabled={saving} onClick={save} className="btn btn-primary">
           {saving ? "Saving..." : "Save campaign"}
         </button>
         {saved ? <span className="text-sm text-mint">Saved. New quotes use this schedule.</span> : null}

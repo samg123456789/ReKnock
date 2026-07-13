@@ -79,7 +79,7 @@ export default function SignupForm() {
           <button
             type="button"
             onClick={continueToDetails}
-            className="rounded-xl bg-blue px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-blue-deep"
+            className="btn btn-primary btn-lg"
           >
             Continue with email
           </button>
@@ -182,7 +182,7 @@ export default function SignupForm() {
       <button
         type="submit"
         disabled={pending || !passwordOk}
-        className="mt-2 rounded-xl bg-blue px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-blue-deep disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn btn-primary btn-lg mt-2 w-full"
       >
         {pending ? "Creating your account..." : "Create account"}
       </button>

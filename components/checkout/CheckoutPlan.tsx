@@ -42,7 +42,7 @@ function ComingSoon({ name, blurb, price, features }: { name: string; blurb: str
       </ul>
       <a
         href={`mailto:hello@getreknock.com?subject=Waitlist: ${name} plan`}
-        className="mt-5 cursor-pointer rounded-xl border border-[#e4e7ec] bg-white px-6 py-3 text-center font-semibold text-slate transition-colors hover:border-mist"
+        className="mt-5 btn btn-ghost"
       >
         Join the waitlist
       </a>
@@ -116,7 +116,7 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
         <form action={createCheckoutSession.bind(null, interval)} className="mt-8">
           <button
             type="submit"
-            className="w-full cursor-pointer rounded-xl bg-blue px-6 py-3.5 text-center font-semibold text-white transition-colors hover:bg-blue-deep"
+            className="w-full btn btn-primary btn-lg"
           >
             Start your $1 week →
           </button>

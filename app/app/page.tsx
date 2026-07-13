@@ -101,7 +101,7 @@ export default async function AppHome() {
           <p className="mx-auto mt-2 max-w-sm text-slate">
             Drop in a job you just quoted. We&apos;ll show you exactly how and when we&apos;ll chase it, in your voice.
           </p>
-          <Link href="/app/quotes/new" className="mt-6 inline-block cursor-pointer rounded-xl bg-blue px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-blue-deep">
+          <Link href="/app/quotes/new" className="mt-6 inline-block btn btn-primary btn-lg">
             Add your first quote
           </Link>
         </div>
@@ -109,7 +109,7 @@ export default async function AppHome() {
         <div className="mt-8">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="display text-xl">Your quotes</h2>
-            <Link href="/app/quotes/new" className="cursor-pointer rounded-lg bg-blue px-4 py-2 text-sm font-semibold text-white hover:bg-blue-deep">
+            <Link href="/app/quotes/new" className="btn btn-primary btn-sm">
               Add a quote
             </Link>
           </div>

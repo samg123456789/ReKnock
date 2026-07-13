@@ -7,8 +7,8 @@ import { parseCsv, mapHeader, CSV_ROW_CAP, CSV_TEMPLATE, type CsvColumn } from "
 import { bulkCreateProspects, type CsvProspectRow, type CsvImportResult } from "@/lib/csv-actions";
 
 const primaryBtn =
-  "cursor-pointer rounded-xl bg-blue px-8 py-3.5 text-lg font-semibold text-white transition-colors hover:bg-blue-deep disabled:cursor-not-allowed disabled:opacity-60";
-const ghostBtn = "cursor-pointer rounded-xl border border-slate/20 px-6 py-3.5 font-semibold text-slate hover:border-blue hover:text-blue";
+  "btn btn-primary btn-lg";
+const ghostBtn = "btn btn-ghost btn-lg";
 
 type ParsedRow = {
   line: number; // 1-based data-row number in the file (header not counted)

@@ -56,9 +56,9 @@ function defaultWindows(): Window[] {
 const TOTAL_STEPS = 6;
 const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
 const primaryBtn =
-  "cursor-pointer rounded-xl bg-blue px-8 py-3.5 text-lg font-semibold text-white transition-colors hover:bg-blue-deep disabled:cursor-not-allowed disabled:opacity-60";
+  "btn btn-primary btn-lg";
 const ghostBtn =
-  "cursor-pointer rounded-xl border border-slate/20 px-6 py-3 font-semibold text-slate transition-colors hover:border-blue hover:text-blue";
+  "btn btn-ghost";
 
 function fileToImage(file: File): Promise<InputImage> {
   return new Promise((resolve, reject) => {
