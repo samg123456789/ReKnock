@@ -21,6 +21,7 @@ import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 
 const STOP_STATUSES = new Set(["replied", "opted_out", "won", "lost", "paused"]);
 const TRIAL_CAP = 50;
+const TRIAL_WARN = 40;
 const BATCH = 50;
 // Hard floor between automated sends to the same homeowner, regardless of how
 // the contractor arranges their timeline (equal day offsets, stacked manual
@@ -275,12 +276,44 @@ export const sendScheduledMessage = inngest.createFunction(
 
       const res = await sendClaimedMessage({ messageId: msg.id, companyId: msg.company_id, to: p.phone_e164, body });
       if (res.sent) {
-        await admin
-          .from("companies")
-          .update({ trial_messages_used: (co.trial_messages_used ?? 0) + 1 })
-          .eq("id", msg.company_id);
+        const used = (co.trial_messages_used ?? 0) + 1;
+        await admin.from("companies").update({ trial_messages_used: used }).eq("id", msg.company_id);
         if (msg.kind === "reminder") {
           await admin.from("reminders").update({ status: "fired" }).eq("message_id", msg.id).eq("status", "pending");
+        }
+        // Approaching-cap warning (once): the 50-cap freeze must never be the
+        // first a trial customer hears about it.
+        if (co.subscription_status === "trialing" && used >= TRIAL_WARN && used < TRIAL_CAP) {
+          const { data: warned } = await admin
+            .from("events")
+            .select("id")
+            .eq("company_id", msg.company_id)
+            .eq("type", "trial_warning_sent")
+            .limit(1)
+            .maybeSingle();
+          if (!warned) {
+            await admin.from("events").insert({ company_id: msg.company_id, type: "trial_warning_sent", payload: { used } });
+            const [{ data: owner }, { data: ownerEmail }] = await Promise.all([
+              admin.from("users").select("cell_phone").eq("company_id", msg.company_id).not("cell_phone", "is", null).limit(1).maybeSingle(),
+              admin.from("users").select("email").eq("company_id", msg.company_id).not("email", "is", null).limit(1).maybeSingle(),
+            ]);
+            const warnBody = `ReKnock: your trial has used ${used} of ${TRIAL_CAP} texts. When you hit ${TRIAL_CAP}, follow-ups pause until you upgrade in Settings > Billing. Nothing gets lost.`;
+            if (owner?.cell_phone) {
+              await sendSms({ companyId: msg.company_id, prospectId: null, to: owner.cell_phone, body: warnBody, idempotencyKey: `trial-warn:${msg.company_id}`, kind: "system" });
+            }
+            if (ownerEmail?.email && process.env.RESEND_API_KEY) {
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
+                body: JSON.stringify({
+                  from: "ReKnock <ops@getreknock.com>",
+                  to: [ownerEmail.email],
+                  subject: `Your ReKnock trial has ${TRIAL_CAP - used} texts left`,
+                  text: `You have used ${used} of the ${TRIAL_CAP} texts included in your trial.\n\nWhen the cap is reached, active follow-ups pause (nothing is lost) until you upgrade. Upgrade any time from Settings > Billing in ReKnock.`,
+                }),
+              }).catch(() => {});
+            }
+          }
         }
       }
       return { sent: res.sent, skipped: res.skipped };
