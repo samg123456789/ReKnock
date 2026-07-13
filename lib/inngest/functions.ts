@@ -601,8 +601,20 @@ export const processInboundEmail = inngest.createFunction(
       // needing an alias list; nothing addressed to the domain goes dark.
       const to = bareEmail(mail.to_addr);
       if (to && to !== INTAKE_EMAIL.toLowerCase()) {
+        const ourDomain = INTAKE_EMAIL.split("@")[1];
+        // Loop guards (learned live 2026-07-13: a forward to an admin address
+        // AT our own receiving domain arrived right back at this webhook and
+        // re-forwarded forever): never re-forward our own forwarder's mail,
+        // and only forward to destinations OFF our receiving domain.
+        const sender = bareEmail(mail.from_addr);
+        if (sender === `forward@${ourDomain}`) {
+          await admin.from("inbound_emails").update({ resolution: "ignored" }).eq("id", inboundId);
+          return { done: true as const };
+        }
         const { data: admins } = await admin.from("users").select("email").eq("platform_admin", true).not("email", "is", null);
-        const dest = (admins ?? []).map((a) => a.email as string);
+        const dest = (admins ?? [])
+          .map((a) => (a.email as string).toLowerCase())
+          .filter((e) => !e.endsWith(`@${ourDomain}`));
         if (dest.length && process.env.RESEND_API_KEY) {
           const body = await fetchBody();
           const resp = await fetch("https://api.resend.com/emails", {
