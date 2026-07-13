@@ -53,14 +53,53 @@ if (!token) {
 }
 if (!token) throw new Error("SUPABASE_ACCESS_TOKEN not set (env var or .env.local)");
 
+// Management API calls retry on 429/5xx: CI runners reach api.supabase.com
+// much faster than a laptop, so a run can outpace the per-token rate limit
+// that a local run never hits.
 async function sql(query) {
-  const resp = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-    body: JSON.stringify({ query }),
-  });
-  if (!resp.ok) throw new Error(`SQL ${resp.status}: ${await resp.text()}`);
-  return resp.json();
+  let lastErr;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt) await sleep(1000 * 2 ** (attempt - 1));
+    const resp = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    if (resp.ok) return resp.json();
+    const text = await resp.text();
+    if (resp.status === 401 || resp.status === 403) {
+      throw new Error(
+        `SQL ${resp.status}: the SUPABASE_ACCESS_TOKEN this run used is invalid or unauthorized. ` +
+          `In CI that means the GitHub Actions secret needs to be re-added with the current token value. (${text})`,
+      );
+    }
+    lastErr = new Error(`SQL ${resp.status}: ${text}`);
+    if (resp.status !== 429 && resp.status < 500) throw lastErr;
+  }
+  throw lastErr;
+}
+
+// CI logs are not readable by every operator, so the run reports its own
+// outcome into the dev DB (best-effort): a pass writes an events row, a
+// failure writes the exact error to failed_jobs. A CI failure with NEITHER
+// row present means the run could not authenticate at all (bad secret).
+const runMeta = () => ({
+  run_id: process.env.GITHUB_RUN_ID ?? null,
+  sha: process.env.GITHUB_SHA ?? null,
+  source: process.env.GITHUB_ACTIONS ? "ci" : "local",
+});
+async function reportOutcome(ok, detail) {
+  const payload = JSON.stringify({ ...runMeta(), ...detail }).replace(/'/g, "''");
+  try {
+    if (ok) {
+      await sql(`insert into events (company_id, type, payload) values (null, 'ci_freeze_race_pass', '${payload}'::jsonb);`);
+    } else {
+      const err = String(detail.error ?? "unknown").replace(/'/g, "''").slice(0, 2000);
+      await sql(`insert into failed_jobs (job_type, payload, error) values ('ci_freeze_race', '${payload}'::jsonb, '${err}');`);
+    }
+  } catch {
+    /* reporting is best-effort; never mask the real outcome */
+  }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -110,7 +149,19 @@ async function webhookFreeze(prospectId, delayMs) {
 }
 
 let failures = 0;
-for (let i = 0; i < ITERATIONS; i++) {
+let completed = 0;
+try {
+  for (let i = 0; i < ITERATIONS; i++) {
+    await raceOnce(i);
+    completed++;
+  }
+} catch (e) {
+  console.error(`\nABORTED at iteration ${completed + 1}/${ITERATIONS}:`, e.message ?? e);
+  await reportOutcome(false, { error: e.message ?? String(e), completed_iterations: completed });
+  process.exit(1);
+}
+
+async function raceOnce(i) {
   const { prospectId, messageId } = await setup();
   // Sweep the reply across the sender's whole flight, including mid-"drafting".
   const draftMs = 400;
@@ -139,4 +190,5 @@ for (let i = 0; i < ITERATIONS; i++) {
 }
 
 console.log(failures === 0 ? `\nPASS: ${ITERATIONS}/${ITERATIONS} races resolved to a single outcome, no send after freeze.` : `\nFAIL: ${failures} bad interleavings`);
+await reportOutcome(failures === 0, failures === 0 ? { iterations: ITERATIONS } : { error: `${failures} bad interleavings`, iterations: ITERATIONS });
 process.exit(failures === 0 ? 0 : 1);
