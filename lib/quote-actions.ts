@@ -21,6 +21,12 @@ export type ActionResult<T = undefined> =
 
 export type ScheduledTouch = { step: number; iso: string };
 export type CreatedQuote = { prospectId: string; firstName: string; touches: ScheduledTouch[] };
+// An existing prospect with the same phone: surfaced to the contractor before
+// a second parallel sequence gets created (they can still start it on purpose).
+export type DuplicateProspect = { id: string; name: string; jobType: string | null; status: string };
+export type CreateQuoteResult =
+  | { ok: true; data: CreatedQuote }
+  | { ok: false; error: string; duplicate?: DuplicateProspect };
 
 function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
@@ -144,7 +150,8 @@ export async function createQuote(input: {
   extracted?: QuoteExtraction | null;
   start_choice?: StartChoice;
   start_custom_iso?: string;
-}): Promise<ActionResult<CreatedQuote>> {
+  allow_duplicate?: boolean;
+}): Promise<CreateQuoteResult> {
   const firstName = input.first_name.trim();
   if (!firstName) return { ok: false, error: "Please enter the customer's first name." };
 
@@ -162,6 +169,32 @@ export async function createQuote(input: {
     : new Date().toISOString().slice(0, 10);
 
   const { supabase, company, acting } = await requireCompany();
+
+  // Same-phone dedupe (mirrors the CSV import's check): a second quote for a
+  // number already in the book means a second parallel sequence to the same
+  // homeowner, so it needs an explicit go-ahead, never a silent double-add.
+  if (!input.allow_duplicate) {
+    const { data: dup } = await supabase
+      .from("prospects")
+      .select("id, first_name, last_name, job_type, status")
+      .eq("company_id", company.id)
+      .eq("phone_e164", phone)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (dup) {
+      return {
+        ok: false,
+        error: "You already have a quote for this phone number.",
+        duplicate: {
+          id: dup.id,
+          name: `${dup.first_name ?? ""} ${dup.last_name ?? ""}`.trim() || "Unknown",
+          jobType: dup.job_type,
+          status: dup.status,
+        },
+      };
+    }
+  }
 
   const [{ data: campaign }, { data: co }, { data: windows }] = await Promise.all([
     supabase

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { extractQuote, createQuote, createQuoteUploadUrl, type CreatedQuote } from "@/lib/quote-actions";
+import { extractQuote, createQuote, createQuoteUploadUrl, type CreatedQuote, type DuplicateProspect } from "@/lib/quote-actions";
 import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES, IMAGE_MAX_EDGE } from "@/lib/quote-limits";
 import type { QuoteExtraction, QuoteFields } from "@/lib/prompts/quote-extractor";
 
@@ -90,11 +90,24 @@ export default function AddQuoteForm() {
   const [done, setDone] = useState<CreatedQuote | null>(null);
   const [start, setStart] = useState<StartChoice>("recommended");
   const [startCustom, setStartCustom] = useState("");
+  const [dup, setDup] = useState<DuplicateProspect | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  // Bumping this generation abandons any in-flight upload/extraction: the
+  // stale async chain sees the mismatch and discards its result.
+  const genRef = useRef(0);
 
-  // Escape closes the flow back to the dashboard (bail-out, no dead end).
+  function cancelWork() {
+    genRef.current++;
+    setPending(false);
+  }
+
+  // Escape: cancels in-flight extraction first; otherwise closes the flow
+  // back to the dashboard (bail-out, no dead end).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !pending) router.push("/app");
+      if (e.key !== "Escape") return;
+      if (pending) cancelWork();
+      else router.push("/app");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -102,13 +115,16 @@ export default function AddQuoteForm() {
 
   function set<K extends keyof Fields>(k: K, v: string) {
     setFields((f) => ({ ...f, [k]: v }));
+    if (k === "phone") setDup(null); // a different number is a different dedupe question
   }
   const isLow = (k: keyof QuoteFields) => conf[k] != null && (conf[k] as number) < 0.6;
 
   async function runExtract(args: { paths?: string[]; text?: string }, src: "manual" | "ocr_upload") {
+    const gen = genRef.current;
     setPending(true);
     setError(null);
     const res = await extractQuote(args);
+    if (gen !== genRef.current) return; // canceled while reading
     setPending(false);
     if (!res.ok) return setError(res.error);
     setFields(fieldsFromExtraction(res.data));
@@ -120,12 +136,14 @@ export default function AddQuoteForm() {
 
   async function onUpload(files: FileList | null) {
     if (!files?.length) return;
+    const gen = genRef.current;
     setPending(true);
     setError(null);
     try {
       const supabase = createClient();
       const uploaded: string[] = [];
       for (const file of Array.from(files).slice(0, MAX_FILES)) {
+        if (gen !== genRef.current) return; // canceled mid-upload
         const isPdf = file.type === "application/pdf";
         if (!isPdf && !file.type.startsWith("image/")) {
           setPending(false);
@@ -154,18 +172,21 @@ export default function AddQuoteForm() {
         }
         uploaded.push(urlRes.data.path);
       }
+      if (gen !== genRef.current) return; // canceled before extraction
       setPaths(uploaded);
       await runExtract({ paths: uploaded }, "ocr_upload");
     } catch {
+      if (gen !== genRef.current) return;
       setPending(false);
       setError("We could not read that file. Paste the details or type them in instead.");
     }
   }
 
-  async function submit() {
+  async function submit(allowDuplicate = false) {
     if (start === "custom" && !startCustom) return setError("Pick a date and time for the first text, or choose one of the options.");
     setPending(true);
     setError(null);
+    setDup(null);
     const res = await createQuote({
       ...fields,
       source,
@@ -173,9 +194,13 @@ export default function AddQuoteForm() {
       extracted: extraction,
       start_choice: start,
       start_custom_iso: start === "custom" && startCustom ? new Date(startCustom).toISOString() : undefined,
+      allow_duplicate: allowDuplicate,
     });
     setPending(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      if (res.duplicate) return setDup(res.duplicate);
+      return setError(res.error);
+    }
     setDone(res.data);
     setView("done");
   }
@@ -289,9 +314,24 @@ export default function AddQuoteForm() {
         </div>
 
         {error ? <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+        {dup ? (
+          <div className="mt-4 rounded-xl border border-amber/50 bg-amber/10 px-4 py-3 text-sm">
+            <p className="font-semibold text-ink">You&apos;re already chasing this number.</p>
+            <p className="mt-1 text-slate">
+              {dup.name}
+              {dup.jobType ? ` · ${dup.jobType}` : ""} · currently {dup.status.replace(/_/g, " ")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-4">
+              <Link href={`/inbox?p=${dup.id}`} className="font-semibold text-blue underline">Open that conversation</Link>
+              <button type="button" className="cursor-pointer font-semibold text-slate underline" onClick={() => submit(true)}>
+                This is a new quote, start another chase
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="mt-8 flex items-center justify-between">
-          <button className={ghostBtn} onClick={() => { setError(null); setView("intake"); }}>Back</button>
-          <button className={primaryBtn} disabled={pending} onClick={submit}>{pending ? "Setting up the chase..." : "Start chasing this quote"}</button>
+          <button className={ghostBtn} onClick={() => { setError(null); setDup(null); setView("intake"); }}>Back</button>
+          <button className={primaryBtn} disabled={pending} onClick={() => submit()}>{pending ? "Setting up the chase..." : "Start chasing this quote"}</button>
         </div>
       </div>
     );
@@ -307,11 +347,24 @@ export default function AddQuoteForm() {
       <h1 className="display text-3xl md:text-4xl">Add a quote to chase.</h1>
       <p className="mt-3 text-slate">Snap it, paste it, or type it. We pull out the details.</p>
 
-      <label className="card mt-6 flex cursor-pointer flex-col items-center gap-2 border-blue p-7 text-center hover:bg-sky/40">
-        <span className="text-lg font-semibold text-ink">{pending ? "Reading it..." : "Upload a photo or PDF"}</span>
-        <span className="text-sm text-slate">A photo of the estimate, a screenshot of a text, or the quote PDF.</span>
+      <label
+        className={`card mt-6 flex cursor-pointer flex-col items-center gap-2 border-blue p-7 text-center transition-colors ${dragOver ? "bg-sky/60 ring-2 ring-blue" : "hover:bg-sky/40"}`}
+        onDragOver={(e) => { e.preventDefault(); if (!pending) setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); if (!pending) void onUpload(e.dataTransfer.files); }}
+      >
+        <span className="text-lg font-semibold text-ink">{pending ? "Reading it..." : dragOver ? "Drop it here" : "Upload a photo or PDF"}</span>
+        <span className="text-sm text-slate">Drag it here, or tap to browse. A photo of the estimate, a screenshot of a text, or the quote PDF.</span>
+        <span className="text-xs text-mist">
+          Photos (JPG, PNG) up to {Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB · PDFs up to {Math.round(MAX_PDF_BYTES / 1024 / 1024)}MB · up to {MAX_FILES} files
+        </span>
         <input type="file" accept="image/*,application/pdf" multiple className="hidden" disabled={pending} onChange={(e) => onUpload(e.target.files)} />
       </label>
+      {pending ? (
+        <button type="button" className="mt-3 cursor-pointer text-sm text-slate underline" onClick={cancelWork}>
+          Cancel (Esc)
+        </button>
+      ) : null}
 
       <div className="mt-4">
         <p className="text-sm font-semibold text-slate">Or paste the details</p>
