@@ -8,9 +8,40 @@ import { inngest } from "@/lib/inngest/client";
 import { cancelScheduledForProspect, cancelPendingReminders } from "@/lib/enrollment";
 import {
   buildReplyClassifierPrompt,
+  buildSuggestedReplyPrompt,
   REPLY_CLASSIFIER_PROMPT_VERSION,
+  SUGGESTED_REPLY_PROMPT_VERSION,
   type ReplyClassification,
 } from "@/lib/prompts/reply-classifier";
+import { formatMoney } from "@/lib/format";
+
+// "not until spring" / "call me in March" -> a concrete circle-back instant.
+// Coarse on purpose: the proposal shows the date and the owner confirms it.
+// Sends at that date go through the scheduled sender, which re-checks windows.
+function hintToDate(hint: string): Date {
+  const h = hint.toLowerCase();
+  const now = new Date();
+  const at = (month: number, day: number) => {
+    const t = new Date(Date.UTC(now.getUTCFullYear(), month, day, 15));
+    if (t.getTime() < now.getTime() + 86400_000) t.setUTCFullYear(t.getUTCFullYear() + 1);
+    return t;
+  };
+  if (/spring/.test(h)) return at(2, 1);
+  if (/summer/.test(h)) return at(5, 1);
+  if (/fall|autumn/.test(h)) return at(8, 1);
+  if (/winter/.test(h)) return at(11, 1);
+  const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  for (let i = 0; i < 12; i++) {
+    if (h.includes(months[i]) || new RegExp(`\\b${months[i].slice(0, 3)}\\b`).test(h)) return at(i, 1);
+  }
+  if (/next week|few days/.test(h)) return new Date(now.getTime() + 7 * 86400_000);
+  if (/couple (of )?months|2 months/.test(h)) return new Date(now.getTime() + 60 * 86400_000);
+  const parsed = new Date(hint);
+  if (!Number.isNaN(parsed.getTime()) && parsed.getTime() > now.getTime() && parsed.getTime() < now.getTime() + 366 * 86400_000) return parsed;
+  return new Date(now.getTime() + 30 * 86400_000); // "later", unspecified
+}
+
+const prettyDay = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 const OPT_OUT_STATUSES = new Set(["opted_out"]);
 const TWIML_OK = new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
@@ -88,7 +119,7 @@ export async function POST(request: NextRequest) {
   const nowIso = new Date().toISOString();
   let sessionQuery = admin
     .from("relay_sessions")
-    .select("id, company_id, prospect_id")
+    .select("id, company_id, prospect_id, suggested_kind, suggested_body, suggested_meta")
     .eq("owner_phone", from)
     .gt("expires_at", nowIso)
     .order("created_at", { ascending: false })
@@ -139,19 +170,88 @@ export async function POST(request: NextRequest) {
         return TWIML_OK;
       }
 
+      // Level 2 acceptance: a bare "1" takes the pending proposal on this
+      // session. That text IS the human action the compliance invariant needs.
+      const accepts = text.trim() === "1" && !!session.suggested_kind;
+      const clearSuggestion = () =>
+        admin.from("relay_sessions").update({ suggested_kind: null, suggested_body: null, suggested_meta: null }).eq("id", session.id);
+
+      if (accepts && session.suggested_kind === "reminder") {
+        const remindAt = new Date(String((session.suggested_meta as { remind_at?: string } | null)?.remind_at ?? ""));
+        if (!Number.isNaN(remindAt.getTime()) && remindAt.getTime() > Date.now()) {
+          const { data: rem } = await admin
+            .from("reminders")
+            .insert({
+              company_id: session.company_id,
+              prospect_id: target.id,
+              remind_at: remindAt.toISOString(),
+              mode: "auto_send",
+              note: "Homeowner asked to circle back later (accepted from the relay ping)",
+            })
+            .select("id")
+            .single();
+          if (rem) {
+            const { data: msg } = await admin
+              .from("messages")
+              .insert({
+                company_id: session.company_id,
+                prospect_id: target.id,
+                direction: "outbound",
+                channel: "sms",
+                kind: "reminder",
+                status: "scheduled",
+                scheduled_for: remindAt.toISOString(),
+                idempotency_key: `reminder:${rem.id}`,
+              })
+              .select("id")
+              .single();
+            if (msg) await admin.from("reminders").update({ message_id: msg.id }).eq("id", rem.id);
+            await clearSuggestion();
+            await admin.from("events").insert({
+              company_id: session.company_id,
+              type: "agent.reminder_accepted",
+              payload: { prospect_id: target.id, remind_at: remindAt.toISOString() },
+            });
+            await sendSms({
+              companyId: session.company_id,
+              prospectId: null,
+              to: from,
+              body: `Done. We will circle back with ${target.first_name ?? "them"} on ${prettyDay(remindAt)} in your voice. It is on their timeline in ReKnock if you want to change anything.`,
+              idempotencyKey: `reminder-ack:${messageSid || rem.id}`,
+              kind: "owner_ping",
+              isRelay: true,
+            });
+            return TWIML_OK;
+          }
+        }
+        // Anything failed: fall through and forward the literal text.
+      }
+
+      const sendingSuggestion = accepts && session.suggested_kind === "reply" && !!session.suggested_body;
+      const outText = sendingSuggestion ? (session.suggested_body as string) : text;
+
       // Owner-initiated, so quiet hours do not apply (it is their lead).
       const relayOutKey = `relay-out:${messageSid || crypto.randomUUID()}`;
       const relayOutRes = await sendSms({
         companyId: session.company_id,
         prospectId: target.id,
         to: target.phone_e164,
-        body: text,
+        body: outText,
         idempotencyKey: relayOutKey,
         kind: "relay",
         isRelay: true,
       });
       await retryIfFailed(relayOutRes, { idempotency_key: relayOutKey, company_id: session.company_id, to: target.phone_e164, context: "relay_to_homeowner" });
       await admin.from("relay_sessions").update({ expires_at: new Date(Date.now() + 24 * 3600_000).toISOString() }).eq("id", session.id);
+      if (session.suggested_kind) {
+        // Accept/replace telemetry: the flywheel that measures draft quality.
+        await clearSuggestion();
+        await admin.from("events").insert({
+          company_id: session.company_id,
+          type: sendingSuggestion ? "agent.suggestion_sent" : "agent.suggestion_replaced",
+          payload: { prospect_id: target.id, kind: session.suggested_kind },
+        });
+      }
       await admin.from("events").insert({
         company_id: session.company_id,
         type: "relay_forwarded",
@@ -242,23 +342,67 @@ export async function POST(request: NextRequest) {
     await admin.from("events").insert({ company_id: companyId, type: "reply_received", payload: { prospect_id: prospect.id } });
 
     // Classify (stored for the eval set + to suggest a contractor action). Never auto-replies the homeowner.
+    let classification: ReplyClassification | null = null;
     try {
       const { system, prompt, temperature, maxTokens } = buildReplyClassifierPrompt(body, prospect.first_name ?? undefined);
       const { text, usage } = await generateText({ system, prompt, temperature, maxTokens });
-      const parsed = parseJson<ReplyClassification>(text);
-      if (parsed) {
+      classification = parseJson<ReplyClassification>(text);
+      if (classification) {
         await admin
           .from("messages")
-          .update({ ai_classification: { ...parsed, prompt_version: REPLY_CLASSIFIER_PROMPT_VERSION } })
+          .update({ ai_classification: { ...classification, prompt_version: REPLY_CLASSIFIER_PROMPT_VERSION } })
           .eq("twilio_sid", messageSid);
         await admin.from("events").insert({
           company_id: companyId,
           type: "ai.reply_classified",
-          payload: { model: AI_MODEL, prompt_version: REPLY_CLASSIFIER_PROMPT_VERSION, intent: parsed.intent, confidence: parsed.confidence, input_tokens: usage.inputTokens, output_tokens: usage.outputTokens },
+          payload: { model: AI_MODEL, prompt_version: REPLY_CLASSIFIER_PROMPT_VERSION, intent: classification.intent, confidence: classification.confidence, input_tokens: usage.inputTokens, output_tokens: usage.outputTokens },
         });
       }
     } catch {
       /* classification is best-effort; the freeze already happened */
+    }
+
+    // Level 2 agent: turn the ping into a proposal the owner accepts with "1".
+    // Drafts never reach the homeowner without that human action.
+    let proposal: { kind: "reply" | "reminder"; body: string | null; meta: Record<string, unknown> | null; pingLine: string } | null = null;
+    try {
+      if (classification && (classification.intent === "question" || classification.intent === "interested") && classification.confidence >= 0.5) {
+        const [{ data: voice }, { data: pd }] = await Promise.all([
+          admin.from("voice_profiles").select("master_prompt").eq("company_id", companyId).eq("is_latest", true).maybeSingle(),
+          admin.from("prospects").select("job_type, quote_amount").eq("id", prospect.id).maybeSingle(),
+        ]);
+        if (voice?.master_prompt) {
+          const { system, prompt, temperature, maxTokens } = buildSuggestedReplyPrompt(voice.master_prompt, {
+            firstName: prospect.first_name ?? "there",
+            jobType: pd?.job_type ?? null,
+            quoteAmount: formatMoney(pd?.quote_amount),
+            homeownerMessage: body,
+          });
+          const { text } = await generateText({ system, prompt, temperature, maxTokens });
+          let draft = text.trim().replace(/^["']|["']$/g, "").replace(/—/g, " ").replace(/https?:\/\/\S+/gi, "").trim();
+          if (draft.length > 300) draft = draft.slice(0, 297).trimEnd() + "...";
+          if (draft) {
+            proposal = { kind: "reply", body: draft, meta: null, pingLine: ` Suggested reply: "${draft}" Text 1 to send it, or reply with your own words.` };
+          }
+        }
+      } else if (classification?.intent === "reschedule") {
+        const when = hintToDate(classification.reschedule_hint ?? "");
+        proposal = {
+          kind: "reminder",
+          body: null,
+          meta: { remind_at: when.toISOString() },
+          pingLine: ` Sounds like later. Text 1 and we will circle back ${prettyDay(when)} with a check-in in your voice, or reply with your own words to send now.`,
+        };
+      }
+      if (proposal) {
+        await admin.from("events").insert({
+          company_id: companyId,
+          type: "agent.suggestion_offered",
+          payload: { prospect_id: prospect.id, kind: proposal.kind, intent: classification?.intent, prompt_version: SUGGESTED_REPLY_PROMPT_VERSION },
+        });
+      }
+    } catch {
+      /* the proposal is a bonus; the plain relay ping still goes out */
     }
 
     // Relay to the contractor's cell (quiet-hours exempt) and open a relay
@@ -274,11 +418,12 @@ export async function POST(request: NextRequest) {
       const name = prospect.first_name ?? "Your lead";
       const multi = (openCount ?? 0) > 0 ? ` You have ${(openCount ?? 0) + 1} open chats. Start your reply with "1)" for this one.` : "";
       const pingKey = `relay:${messageSid || prospect.id}`;
+      const tail = proposal ? proposal.pingLine : ` Reply here and we will pass it on, or call them at ${from}.`;
       const res = await sendSms({
         companyId,
         prospectId: prospect.id,
         to: owner.cell_phone,
-        body: `${name} replied to your follow-up: "${body}". Reply here and we will pass it on, or call them at ${from}.${multi}`,
+        body: `${name} replied to your follow-up: "${body}".${tail}${multi}`,
         idempotencyKey: pingKey,
         kind: "owner_ping",
         isRelay: true,
@@ -292,6 +437,9 @@ export async function POST(request: NextRequest) {
           company_id: companyId,
           prospect_id: prospect.id,
           owner_phone: owner.cell_phone,
+          suggested_kind: proposal?.kind ?? null,
+          suggested_body: proposal?.body ?? null,
+          suggested_meta: proposal?.meta ?? null,
         });
       }
     }
