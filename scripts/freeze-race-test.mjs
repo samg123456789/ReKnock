@@ -63,11 +63,19 @@ async function sql(query) {
   let lastErr;
   for (let attempt = 0; attempt < 6; attempt++) {
     if (attempt) await sleep(2000 * 2 ** (attempt - 1));
-    const resp = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ query }),
-    });
+    let resp;
+    try {
+      resp = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+    } catch (e) {
+      // Transient network error (undici "fetch failed": reset/DNS blip) is as
+      // retriable as a 429 - run 29271018666 died at iteration 12/12 on one.
+      lastErr = e;
+      continue;
+    }
     if (resp.ok) return resp.json();
     const text = await resp.text();
     if (resp.status === 401 || resp.status === 403) {
