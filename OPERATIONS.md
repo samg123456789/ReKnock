@@ -160,3 +160,22 @@ Never edit tables by hand in the Supabase dashboard; always go through a migrati
 - `sequence_overrides` is retired (table kept for audit; nothing reads it).
 - The /campaign editor only shapes NEW enrollments; editing it does not
   rewrite already-scheduled rows.
+
+## Production cutover runbook (updated 2026-07-13, after the hardening + intake + growth passes)
+
+Founder merges dev -> main in GitHub Desktop; everything else in order:
+
+1. **Supabase (prod project)**: apply ALL unapplied migrations in `supabase/migrations/` (through `20260713233000_growth_basics`). Today's five: feature_tour_column, relay_cell_verification, shared_email_intake, level2_agent, growth_basics.
+2. **Vercel Production env**: `APP_URL=https://getreknock.com` (already set, type sensitive - build hard-fails if wrong), `RESEND_API_KEY` (founder mints a PROD key, name it `reknock-app-prod`), `RESEND_WEBHOOK_SECRET` (from step 4), `TWILIO_SHARED_NUMBERS`, leave `ALLOW_NUMBER_PURCHASE` unset.
+3. **Inngest**: `curl -X PUT https://getreknock.com/api/inngest` after first prod deploy (11 functions).
+4. **Resend**: create a SECOND webhook (email.received -> https://getreknock.com/api/webhooks/resend) with the prod key; keep the preview webhook separate. The receiving MX is domain-wide and already live.
+5. **Twilio (PROD account)**: confirm the A2P campaign is APPROVED (dev campaign status does not transfer); point the prod number's inbound webhook + status callback at getreknock.com routes; verify Advanced Opt-Out config.
+6. **Stripe**: live-mode webhook at prod URL (already configured per earlier setup; verify secret matches env).
+7. **Smoke**: signup -> onboard -> add quote (touch schedules day-spaced, NOT minutes: testMode is off) -> the 2h min-gap and quiet hours are ACTIVE on prod. First real onboarding fires drip email 1/5 an hour in.
+8. **Watch**: `failed_jobs`, `events` (delivery_filtered, relay_delivery_failed), CI stays green on PRs to main (freeze-race + loop-guard tripwires).
+
+## Email intake ops
+- Inbound webhook on/off: PATCH https://api.resend.com/webhooks/{id} {"status":"enabled"|"disabled"} with the Resend key. Disabling is the loop kill switch; mail continues to be stored by Resend while off.
+- Loop protection: four layers in processInboundEmail (forwarder-identity, X-ReKnock-Forwarded marker, 15-per-10min circuit breaker w/ admin email, off-domain destinations only) + CI static tripwire.
+- Unmatched senders: inbound_emails.resolution='unmatched' (never dropped). Sender allowlist per company: company_sender_emails (login email seeded; extras verify by emailed link).
+- Founder-voiced automated email: onboarding drip (5, hours 1/48/120/192/288), testimonial ask (first Won, once ever), monthly ROI report (1st, 14:00 UTC), setup reminder (daily 15:00 UTC, once ever). All skip is_internal + suspended; all reply to sam@ which catch-all-forwards to the founder.
