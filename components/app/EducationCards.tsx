@@ -92,7 +92,7 @@ export default function EducationCards({
           {relayDone && (
             <DoneRow title="Reply relay on">
               <span className="min-w-0 truncate text-[13px] font-semibold text-blue-ink">Pinging {relayCell}</span>
-              <Link href="/settings" className="shrink-0 text-xs font-semibold text-blue hover:underline">Change</Link>
+              <Link href="/settings#relay-cell" className="shrink-0 text-xs font-semibold text-blue hover:underline">Change</Link>
             </DoneRow>
           )}
           {lineDone && reknockNumber && (
@@ -118,7 +118,7 @@ export default function EducationCards({
           {!relayDone && (
             <Card badge="Reply relay" title="Replies come straight to your phone">
               <p>The moment a homeowner texts back, we stop the follow-ups and ping your cell. Just text back and we pass it on.</p>
-              <Link href="/settings" className="mt-3 inline-block text-sm font-semibold text-blue hover:underline">Add your cell number →</Link>
+              <Link href="/settings#relay-cell" className="mt-3 inline-block text-sm font-semibold text-blue hover:underline">Add your cell number →</Link>
             </Card>
           )}
           {!lineDone && (

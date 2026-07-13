@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TradePicker from "@/components/onboarding/TradePicker";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import { saveCompanyBasics, saveSchedule, generateVoiceProfile, saveVoiceProfile } from "@/lib/onboarding-actions";
@@ -19,9 +19,9 @@ const COMING_SOON = ["Analytics", "Integrations", "WhatsApp channel", "Email cha
 
 const input = "w-full rounded-xl border border-slate/20 px-4 py-2.5 text-base outline-none focus:border-blue";
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section className="card mt-4 p-5">
+    <section id={id} className="card mt-4 scroll-mt-24 p-5">
       <h2 className="display text-lg">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
@@ -73,6 +73,15 @@ export default function SettingsClient(props: {
 
   const [cell, setCell] = useState(props.relayCell);
   const [cellState, setCellState] = useState("");
+  // Deep link from the dashboard's "Add your cell number": land on the field,
+  // not just the page.
+  const cellInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (window.location.hash === "#relay-cell") {
+      document.getElementById("relay-cell")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      cellInputRef.current?.focus();
+    }
+  }, []);
   const [copied, setCopied] = useState(false);
   const [notified, setNotified] = useState<string[]>([]);
 
@@ -146,9 +155,9 @@ export default function SettingsClient(props: {
         </div>
       </Card>
 
-      <Card title="Reply relay number">
+      <Card id="relay-cell" title="Reply relay number">
         <p className="text-sm text-slate">When a homeowner replies, we text you here so you can take over.</p>
-        <input className={`${input} mt-2`} type="tel" value={cell} onChange={(e) => setCell(e.target.value)} placeholder="(555) 123-4567" />
+        <input ref={cellInputRef} className={`${input} mt-2`} type="tel" value={cell} onChange={(e) => setCell(e.target.value)} placeholder="(555) 123-4567" />
         <SaveBtn state={cellState} onClick={() => run(setCellState, () => setRelayCell(cell))} />
       </Card>
 

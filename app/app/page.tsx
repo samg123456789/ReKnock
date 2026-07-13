@@ -13,10 +13,10 @@ export default async function AppHome() {
   const sb = acting.client;
 
   // Independent queries run in parallel.
-  const [{ data: company }, { data: prospects }, { data: messages }, { data: phone }, { data: owner }, { data: tourDone }] =
+  const [{ data: company }, { data: prospects }, { data: messages }, { data: phone }, { data: owner }] =
     cid
       ? await Promise.all([
-          sb.from("companies").select("name, forwarding_slug").eq("id", cid).maybeSingle(),
+          sb.from("companies").select("name, forwarding_slug, feature_tour_done_at").eq("id", cid).maybeSingle(),
           sb
             .from("prospects")
             .select("id, first_name, last_name, job_type, quote_amount, quote_date, status, campaign_id, source, created_at")
@@ -29,9 +29,8 @@ export default async function AppHome() {
             .limit(5000),
           sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
           sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
-          sb.from("events").select("id").eq("company_id", cid).eq("type", "feature_tour_done").limit(1).maybeSingle(),
         ])
-      : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: null }, { data: null }];
+      : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: null }];
 
   const numberLive = phone?.status === "active";
   const hasQuotes = (prospects?.length ?? 0) > 0;
@@ -72,8 +71,9 @@ export default async function AppHome() {
   const forwardingEmail = company?.forwarding_slug ? `${company.forwarding_slug}@in.getreknock.com` : "";
   // Forwarding is "in use" once any prospect arrived by email (forward or BCC).
   const hasEmailProspect = (prospects ?? []).some((p) => p.source === "email_forward" || p.source === "bcc");
-  // One-time feature tour: dashboard implies onboarded; show until recorded.
-  const showTour = cid != null && !tourDone;
+  // One-time feature tour: dashboard implies onboarded; show until the
+  // durable company flag is set (written when the tour is closed any way).
+  const showTour = cid != null && company != null && !company.feature_tour_done_at;
 
   return (
     <main className="mx-auto max-w-4xl px-5 py-10">

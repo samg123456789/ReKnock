@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { markFeatureTourDone } from "@/lib/tour-actions";
 
 function CopyButton({ value }: { value: string }) {
@@ -40,11 +40,25 @@ export default function FeatureTour({
   const [step, setStep] = useState(0);
   const [open, setOpen] = useState(true);
 
+  // Escape closes and records, same as Skip / Got it / X.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") finish();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   if (!open) return null;
 
   function finish() {
     setOpen(false);
-    void markFeatureTourDone();
+    // One retry if the flag write fails; otherwise the tour reappears next login.
+    void markFeatureTourDone().then((ok) => {
+      if (!ok) void markFeatureTourDone();
+    });
   }
 
   const numberLive = reknockNumber?.status === "active";
@@ -100,7 +114,15 @@ export default function FeatureTour({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" role="dialog" aria-modal="true" aria-label="Quick tour">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+      <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+        <button
+          type="button"
+          aria-label="Close tour"
+          onClick={finish}
+          className="absolute right-3 top-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate transition-colors hover:bg-sky/60 hover:text-ink"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
         <p className="text-xs font-semibold uppercase tracking-wide text-blue">{current.badge}</p>
         <h3 className="display mt-1 text-xl">{current.title}</h3>
         <div className="mt-2 text-sm leading-relaxed text-slate">{current.body}</div>
