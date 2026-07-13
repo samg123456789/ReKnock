@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { normalizePhone } from "@/lib/phone";
+import { formatMoney } from "@/lib/format";
 import { parseCsv, mapHeader, CSV_ROW_CAP, CSV_TEMPLATE, type CsvColumn } from "@/lib/csv";
 import { bulkCreateProspects, type CsvProspectRow, type CsvImportResult } from "@/lib/csv-actions";
 
@@ -234,7 +235,7 @@ export default function CsvImport() {
                   <td className="px-4 py-2.5 text-ink">{`${r.fields.first_name} ${r.fields.last_name}`.trim() || "-"}</td>
                   <td className="px-4 py-2.5">{r.fields.phone || "-"}</td>
                   <td className="px-4 py-2.5">{r.fields.job_type || "-"}</td>
-                  <td className="px-4 py-2.5">{r.fields.quote_amount || "-"}</td>
+                  <td className="px-4 py-2.5">{formatMoney(Number((r.fields.quote_amount ?? "").replace(/[^0-9.]/g, "")) || null) || "-"}</td>
                   <td className="px-4 py-2.5">{r.fields.quote_date || "today"}</td>
                   <td className="px-4 py-2.5">
                     {r.problems.length ? (
