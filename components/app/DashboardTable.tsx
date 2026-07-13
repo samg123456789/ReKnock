@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatMoney } from "@/lib/format";
 
 export type ProspectRow = {
   id: string;
@@ -35,10 +36,7 @@ const FILTERS = [
 
 type SortKey = "name" | "amount" | "status" | "nextTouch" | "lastActivity";
 
-function money(n: number | null): string {
-  if (n == null) return "";
-  return "$" + n.toLocaleString("en-US");
-}
+const money = formatMoney;
 function touchLabel(iso: string | null): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-").map(Number);

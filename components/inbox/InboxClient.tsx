@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sendManualMessage, setProspectStatus, updateProspect, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
+import { formatMoney } from "@/lib/format";
 
 export type Conversation = { id: string; name: string; jobType: string; status: string; snippet: string; time: string; needsAttention: boolean };
 export type ThreadMessage = { body: string; direction: "inbound" | "outbound"; status: string; createdAt: string };
@@ -149,7 +150,7 @@ export default function InboxClient({
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-ink">{prospect.name}</p>
                   <p className="truncate text-xs text-mist">
-                    {prospect.jobType ?? "Quote"}{prospect.quoteAmount ? ` · $${prospect.quoteAmount}` : ""}{prospect.phone ? ` · ${prospect.phone}` : ""}
+                    {prospect.jobType ?? "Quote"}{prospect.quoteAmount ? ` · ${formatMoney(prospect.quoteAmount)}` : ""}{prospect.phone ? ` · ${prospect.phone}` : ""}
                   </p>
                 </div>
                 <span className="ml-auto rounded-full bg-sky px-2.5 py-1 text-xs font-semibold text-blue">{STATUS_LABEL[shownStatus ?? ""] ?? shownStatus}</span>
@@ -182,7 +183,7 @@ export default function InboxClient({
                   <div key={i}>
                     {sep ? <div className="my-2 text-center text-xs text-mist">{sep}</div> : null}
                     <div className={`flex ${out ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-[15px] leading-snug ${out ? "rounded-br-sm bg-blue text-white" : "rounded-bl-sm bg-sky text-ink"}`}>
+                      <div className={`max-w-[80%] whitespace-pre-line rounded-2xl px-3.5 py-2 text-[15px] leading-snug ${out ? "rounded-br-sm bg-blue text-white" : "rounded-bl-sm bg-sky text-ink"}`}>
                         {m.body}
                         <span className={`ml-2 align-baseline text-[10px] ${out ? "text-white/70" : "text-mist"}`}>
                           {timeLabel(m.createdAt)}
