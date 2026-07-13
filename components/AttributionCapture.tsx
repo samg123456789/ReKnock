@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 
-// First-touch attribution: on the first visit that carries a ref code or UTM
-// params, stash them in a 30-day cookie. The onboarding wizard persists the
+// First-touch attribution: on the first visit that carries UTM params, stash them in a 30-day cookie. The onboarding wizard persists the
 // cookie onto the company record after signup. No third-party analytics.
 export default function AttributionCapture() {
   useEffect(() => {
@@ -11,7 +10,7 @@ export default function AttributionCapture() {
       if (document.cookie.includes("reknock_attrib=")) return;
       const q = new URLSearchParams(window.location.search);
       const data: Record<string, string> = {};
-      for (const k of ["ref", "utm_source", "utm_medium", "utm_campaign", "utm_content"]) {
+      for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content"]) {
         const v = q.get(k);
         if (v) data[k] = v.slice(0, 120);
       }

@@ -19,7 +19,7 @@ export default async function Settings() {
     await Promise.all([
       sb
         .from("companies")
-        .select("name, website, description, trades, trade, timezone, forwarding_slug, avg_quote_amount, quotes_per_month, referral_code")
+        .select("name, website, description, trades, trade, timezone, forwarding_slug, avg_quote_amount, quotes_per_month")
         .eq("id", cid)
         .maybeSingle(),
       sb
@@ -66,7 +66,6 @@ export default async function Settings() {
         relayCell={owner?.cell_phone ?? ""}
         forwardingAddress={INTAKE_EMAIL}
         senderEmails={(senders ?? []).map((s) => ({ id: s.id as string, email: s.email as string, verified: s.verified_at != null }))}
-        referralCode={company?.referral_code ?? ""}
         numberStatus={phone?.status ?? null}
         numberE164={phone?.e164 ?? null}
       />

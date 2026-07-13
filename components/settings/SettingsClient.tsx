@@ -56,7 +56,6 @@ export default function SettingsClient(props: {
   samples: string[];
   relayCell: string;
   forwardingAddress: string;
-  referralCode: string;
   senderEmails: { id: string; email: string; verified: boolean }[];
   numberStatus: string | null;
   numberE164: string | null;
@@ -96,7 +95,6 @@ export default function SettingsClient(props: {
     }
   }, []);
   const [copied, setCopied] = useState(false);
-  const [refCopied, setRefCopied] = useState(false);
   const [notified, setNotified] = useState<string[]>([]);
 
   async function run(setState: (s: string) => void, fn: () => Promise<{ ok: boolean; error?: string }>) {
@@ -297,24 +295,6 @@ export default function SettingsClient(props: {
         </div>
         {senderState && senderState !== "saving" && senderState !== "saved" ? <p className="mt-2 text-sm text-red-600">{senderState}</p> : null}
       </Card>
-
-      {props.referralCode ? (
-        <Card title="Give a month, get a month">
-          <p className="text-sm text-slate">
-            Know another contractor drowning in quotes that go quiet? When they sign up with your link and subscribe, you both get a free month.
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <code className="min-w-0 truncate rounded-lg bg-sky px-3 py-1.5 text-sm text-blue-ink">https://getreknock.com/?ref={props.referralCode}</code>
-            <button
-              type="button"
-              className="shrink-0 cursor-pointer text-sm text-blue underline"
-              onClick={() => { navigator.clipboard.writeText(`https://getreknock.com/?ref=${props.referralCode}`); setRefCopied(true); setTimeout(() => setRefCopied(false), 1500); }}
-            >
-              {refCopied ? "Copied" : "Copy"}
-            </button>
-          </div>
-        </Card>
-      ) : null}
 
       <Card title="Billing">
         <form action={createBillingPortalSession}>

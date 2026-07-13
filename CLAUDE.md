@@ -65,7 +65,7 @@ Everything below is on `dev` (HEAD `c9dd2dc`), build green, tree clean, Inngest 
 - SEO/AEO: llms.txt live (FAQPage/Article/Product schema ALREADY existed - earlier audit undercounted, regex read only first JSON-LD block per page). Guides in marketing nav; blog linked from drip emails 2/4 + first-quote empty state.
 - /roi-calculator: free lead-magnet (avg quote x per month x honest recoverable-% slider), WebApplication schema, sitemap + footer.
 - Testimonial ask: first Won per company -> prospect/won event -> testimonial-ask Inngest fn (2h delay, from Sam, reply routes to founder gmail via catch-all, once ever, skips internal).
-- Referral: companies.referral_code (unique, defaulted+backfilled, migration 20260713233000) + referred_by_code + signup_source jsonb; Settings "Give a month, get a month" card w/ ?ref= link; AttributionCapture cookie (root layout) -> captureAttribution persists first-touch UTM/ref at onboarding (write-once, self-referral blocked). JUDGMENT: referral credit NOT automated in Stripe - recorded only, founder applies credit manually (query companies.referred_by_code).
+- ~~Referral~~ PULLED same day (founder will use a third-party tool if ever): Settings card removed, ?ref= capture removed. UTM/first-touch attribution KEPT (companies.signup_source via AttributionCapture cookie + captureAttribution at onboarding). Schema left in place unused (referral_code w/ default, referred_by_code) - dropping columns is destructive for zero gain; migration 20260713233000 stays recorded so dev/prod schemas match at cutover.
 - Inngest synced: 9 functions. Onboarding drip + testimonial emails NOT test-sent (no-real-sends rule); first live exercise = next real signup/win after quota reset.
 
 ### Next steps, in order
