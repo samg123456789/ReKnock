@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AttributionCapture from "@/components/AttributionCapture";
 import "./globals.css";
 import DevBanner from "@/components/DevBanner";
 import SiteChrome from "@/components/SiteChrome";
@@ -56,6 +57,7 @@ export default function RootLayout({
       </head>
       <body>
         <DevBanner />
+        <AttributionCapture />
         <SiteChrome>{children}</SiteChrome>
       </body>
     </html>

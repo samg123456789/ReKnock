@@ -828,4 +828,58 @@ export const onboardingDrip = inngest.createFunction(
   },
 );
 
-export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail, onboardingDrip];
+// Testimonial capture at the moment it matters: the first time a company
+// marks a quote Won, Sam asks (by email, 2h later) for a sentence for the
+// site. Once per company, ever; replies route to the founder via the
+// inbound catch-all. Solves the zero-social-proof gap with real usage.
+export const testimonialAsk = inngest.createFunction(
+  { id: "testimonial-ask", retries: 2, triggers: [{ event: "prospect/won" }] },
+  async ({ event, step }) => {
+    const companyId = event.data.company_id as string;
+    const admin = createAdminClient();
+
+    const eligible = await step.run("check", async () => {
+      const { data: already } = await admin.from("events").select("id").eq("company_id", companyId).eq("type", "testimonial_ask_sent").limit(1).maybeSingle();
+      if (already) return false;
+      const { data: co } = await admin.from("companies").select("is_internal, suspended_at").eq("id", companyId).maybeSingle();
+      return !!co && !co.is_internal && !co.suspended_at;
+    });
+    if (!eligible) return { skipped: true };
+
+    // Let the win settle; an instant robotic ask undercuts the moment.
+    await step.sleep("wait", "2h");
+
+    return await step.run("send", async () => {
+      const [{ data: user }, { data: prospect }] = await Promise.all([
+        admin.from("users").select("email, full_name").eq("company_id", companyId).not("email", "is", null).limit(1).maybeSingle(),
+        admin.from("prospects").select("job_type").eq("id", event.data.prospect_id as string).maybeSingle(),
+      ]);
+      if (!user?.email || !process.env.RESEND_API_KEY) return { sent: false };
+      const firstName = (user.full_name ?? "").trim().split(/\s+/)[0] ?? "";
+      const job = prospect?.job_type ? ` on that ${prospect.job_type} job` : "";
+      const resp = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          from: DRIP_FROM,
+          to: [user.email],
+          subject: "You just won one. Got 60 seconds?",
+          text: `Hey${firstName ? ` ${firstName}` : ""},
+
+Saw you marked a win${job}. That is the whole point of this thing, so first: nice.
+
+Small ask. I am putting real contractor words on the ReKnock site instead of marketing fluff, and one or two honest sentences from you would carry more weight than anything I could write. What was the deal, and did the follow-ups help land it?
+
+Just reply to this email. If you are okay with me putting your words and first name plus trade on the site, say so in the reply; if not, I still want to hear how it went.
+
+Sam`,
+        }),
+      });
+      if (!resp.ok) throw new Error(`testimonial ask failed: ${resp.status}`);
+      await admin.from("events").insert({ company_id: companyId, type: "testimonial_ask_sent", payload: { prospect_id: event.data.prospect_id } });
+      return { sent: true };
+    });
+  },
+);
+
+export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail, onboardingDrip, testimonialAsk];

@@ -8,6 +8,7 @@ import { sendSms, canSendNow, nextSendTime } from "@/lib/twilio";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
 import { cancelScheduledForProspect, rearmSequence } from "@/lib/enrollment";
+import { inngest } from "@/lib/inngest/client";
 
 export type InboxResult = { ok: true } | { ok: false; error: string };
 export type ManualSendResult = { ok: true; paused: boolean } | { ok: false; error: string };
@@ -82,6 +83,11 @@ export async function setProspectStatus(prospectId: string, status: string): Pro
   // re-timed from now). Paused just defers at send time.
   if (status === "won" || status === "lost" || status === "replied") {
     await cancelScheduledForProspect(prospectId, status);
+    if (status === "won") {
+      // A won quote is the one moment a testimonial ask lands well. The
+      // Inngest fn asks once per company, ever, and skips internal accounts.
+      await inngest.send({ name: "prospect/won", data: { company_id: a.companyId, prospect_id: prospectId } });
+    }
   } else if (status === "sequencing") {
     const rearmed = await rearmSequence({
       companyId: a.companyId!,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { captureAttribution } from "@/lib/attribution-actions";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import type { InputImage } from "@/lib/ai";
 import TradePicker from "@/components/onboarding/TradePicker";
@@ -90,6 +91,13 @@ export default function OnboardingWizard({
   initialStep?: number;
 }) {
   const [step, setStep] = useState(Math.min(Math.max(initialStep, 0), TOTAL_STEPS - 1));
+
+  // Persist first-touch attribution (ref/UTM cookie) onto this company, once.
+  useEffect(() => {
+    const m = document.cookie.match(/reknock_attrib=([^;]+)/);
+    if (m) void captureAttribution(decodeURIComponent(m[1]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [finishing, startFinish] = useTransition();
 
