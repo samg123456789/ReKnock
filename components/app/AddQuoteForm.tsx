@@ -10,9 +10,8 @@ import type { QuoteExtraction, QuoteFields } from "@/lib/prompts/quote-extractor
 
 const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
 const lowConf = "w-full rounded-xl border-2 border-amber/70 bg-amber/5 px-4 py-3 text-base outline-none focus:border-blue";
-const primaryBtn =
-  "cursor-pointer rounded-xl bg-blue px-8 py-3.5 text-lg font-semibold text-white transition-colors hover:bg-blue-deep disabled:cursor-not-allowed disabled:opacity-60";
-const ghostBtn = "cursor-pointer rounded-xl border border-slate/20 px-6 py-3.5 font-semibold text-slate hover:border-blue hover:text-blue";
+const primaryBtn = "btn btn-primary btn-lg";
+const ghostBtn = "btn btn-ghost btn-lg";
 
 type Fields = {
   first_name: string;

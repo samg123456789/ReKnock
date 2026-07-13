@@ -31,7 +31,7 @@ function Card({ title, children, id }: { title: string; children: React.ReactNod
 function SaveBtn({ onClick, state }: { onClick: () => void; state: "" | "saving" | "saved" | string }) {
   return (
     <div className="mt-3 flex items-center gap-3">
-      <button type="button" onClick={onClick} disabled={state === "saving"} className="cursor-pointer rounded-xl bg-blue px-6 py-2.5 font-semibold text-white hover:bg-blue-deep disabled:opacity-60">
+      <button type="button" onClick={onClick} disabled={state === "saving"} className="btn btn-primary">
         {state === "saving" ? "Saving..." : "Save"}
       </button>
       {state === "saved" ? <span className="text-sm text-mint">Saved</span> : null}
@@ -150,10 +150,10 @@ export default function SettingsClient(props: {
         <label className="mt-3 block text-sm font-semibold text-slate">Voice guide</label>
         <textarea className={`${input} mt-1`} rows={7} value={masterPrompt} onChange={(e) => setMasterPrompt(e.target.value)} />
         <div className="mt-3 flex items-center gap-3">
-          <button type="button" onClick={() => run(setVoiceState, () => saveVoiceProfile({ questionnaire: q, masterPrompt, samples }))} disabled={voiceState === "saving"} className="cursor-pointer rounded-xl bg-blue px-6 py-2.5 font-semibold text-white hover:bg-blue-deep disabled:opacity-60">
+          <button type="button" onClick={() => run(setVoiceState, () => saveVoiceProfile({ questionnaire: q, masterPrompt, samples }))} disabled={voiceState === "saving"} className="btn btn-primary">
             {voiceState === "saving" ? "Saving..." : "Save voice"}
           </button>
-          <button type="button" disabled={regenPending} onClick={async () => { setRegenPending(true); const r = await generateVoiceProfile(q); setRegenPending(false); if (r.ok) { const d = r.data as VoiceProfileResult; setMasterPrompt(d.master_prompt); setSamples(d.samples); } }} className="cursor-pointer rounded-xl border border-slate/20 px-5 py-2.5 font-semibold text-slate hover:border-blue">
+          <button type="button" disabled={regenPending} onClick={async () => { setRegenPending(true); const r = await generateVoiceProfile(q); setRegenPending(false); if (r.ok) { const d = r.data as VoiceProfileResult; setMasterPrompt(d.master_prompt); setSamples(d.samples); } }} className="btn btn-ghost">
             {regenPending ? "Rewriting..." : "Regenerate"}
           </button>
           {voiceState === "saved" ? <span className="text-sm text-mint">Saved</span> : null}
@@ -191,7 +191,7 @@ export default function SettingsClient(props: {
                   if (res.ok) { setCellStage("verified"); setCellCode(""); }
                   return res;
                 })}
-                className="cursor-pointer rounded-xl bg-blue px-6 py-2.5 font-semibold text-white hover:bg-blue-deep disabled:opacity-60"
+                className="btn btn-primary"
               >
                 {cellState === "saving" ? "Checking..." : "Verify"}
               </button>
@@ -211,7 +211,7 @@ export default function SettingsClient(props: {
                 if (res.ok) setCellStage("code_sent");
                 return res;
               })}
-              className="cursor-pointer rounded-xl bg-blue px-6 py-2.5 font-semibold text-white hover:bg-blue-deep disabled:opacity-60"
+              className="btn btn-primary"
             >
               {cellState === "saving" ? "Texting you a code..." : "Text me a code"}
             </button>
@@ -282,7 +282,7 @@ export default function SettingsClient(props: {
               }
               return res;
             })}
-            className="cursor-pointer rounded-xl border border-slate/20 px-4 py-2.5 text-sm font-semibold text-slate hover:border-blue hover:text-blue disabled:opacity-60"
+            className="btn btn-ghost"
           >
             {senderState === "saving" ? "Adding..." : "Add"}
           </button>
@@ -292,7 +292,7 @@ export default function SettingsClient(props: {
 
       <Card title="Billing">
         <form action={createBillingPortalSession}>
-          <button type="submit" className="cursor-pointer rounded-xl border border-slate/20 px-6 py-2.5 font-semibold text-slate hover:border-blue hover:text-blue">
+          <button type="submit" className="btn btn-ghost">
             Manage billing
           </button>
         </form>

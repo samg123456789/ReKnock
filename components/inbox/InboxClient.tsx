@@ -156,14 +156,14 @@ export default function InboxClient({
                 <span className="ml-auto rounded-full bg-sky px-2.5 py-1 text-xs font-semibold text-blue">{STATUS_LABEL[shownStatus ?? ""] ?? shownStatus}</span>
               </div>
               <div className={`mt-2 flex flex-wrap gap-1.5 transition-opacity ${statusPending ? "opacity-50" : ""}`}>
-                <button type="button" disabled={statusPending} onClick={() => changeStatus("won")} className="cursor-pointer rounded-lg border border-mint/40 px-3 py-1 text-xs font-semibold text-mint hover:bg-mint/10 disabled:cursor-not-allowed">Mark won</button>
-                <button type="button" disabled={statusPending} onClick={() => changeStatus("lost")} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-slate/40 disabled:cursor-not-allowed">Mark lost</button>
+                <button type="button" disabled={statusPending} onClick={() => changeStatus("won")} className="btn btn-sm border border-mint/40 text-mint hover:bg-mint/10">Mark won</button>
+                <button type="button" disabled={statusPending} onClick={() => changeStatus("lost")} className="btn btn-sm border border-slate/20 text-slate hover:border-slate/40">Mark lost</button>
                 {shownStatus === "paused" ? (
-                  <button type="button" disabled={statusPending} onClick={() => changeStatus("sequencing")} className="cursor-pointer rounded-lg border border-blue/40 px-3 py-1 text-xs font-semibold text-blue hover:bg-sky disabled:cursor-not-allowed">Resume</button>
+                  <button type="button" disabled={statusPending} onClick={() => changeStatus("sequencing")} className="btn btn-sm border border-blue/40 text-blue hover:bg-sky">Resume</button>
                 ) : (
-                  <button type="button" disabled={statusPending} onClick={() => changeStatus("paused")} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-slate/40 disabled:cursor-not-allowed">Pause</button>
+                  <button type="button" disabled={statusPending} onClick={() => changeStatus("paused")} className="btn btn-sm border border-slate/20 text-slate hover:border-slate/40">Pause</button>
                 )}
-                <button type="button" onClick={() => setShowReminder(true)} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1 text-xs font-semibold text-slate hover:border-blue hover:text-blue">
+                <button type="button" onClick={() => setShowReminder(true)} className="btn btn-sm border border-slate/20 text-slate hover:border-blue hover:text-blue">
                   Circle back later
                 </button>
                 <button type="button" onClick={() => setShowDetails((v) => !v)} className={`ml-auto cursor-pointer rounded-lg border px-3 py-1 text-xs font-semibold ${showDetails ? "border-blue bg-sky text-blue" : "border-slate/20 text-slate hover:border-slate/40"}`}>
@@ -253,7 +253,7 @@ export default function InboxClient({
                     onChange={(e) => setBody(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!pending && body.trim()) send(); } }}
                   />
-                  <button type="button" disabled={pending || !body.trim()} onClick={send} className="cursor-pointer rounded-xl bg-blue px-5 py-2.5 font-semibold text-white hover:bg-blue-deep disabled:opacity-50">
+                  <button type="button" disabled={pending || !body.trim()} onClick={send} className="btn btn-primary">
                     {pending ? "..." : "Send"}
                   </button>
                 </div>
@@ -335,7 +335,7 @@ function ProspectPanel({ prospect, onSaved }: { prospect: ProspectDetail; onSave
       </div>
       {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
       <div className="mt-2 flex items-center gap-3">
-        <button type="button" disabled={saving} onClick={save} className="cursor-pointer rounded-lg bg-blue px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-deep disabled:opacity-50">
+        <button type="button" disabled={saving} onClick={save} className="btn btn-primary btn-sm">
           {saving ? "Saving..." : "Save details"}
         </button>
         {saved ? <span className="text-xs text-mint">Saved</span> : null}
@@ -397,7 +397,7 @@ function ReminderModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
         {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
 
         <div className="mt-4 flex items-center gap-2">
-          <button type="button" disabled={busy} onClick={save} className="cursor-pointer rounded-lg bg-blue px-4 py-2 text-sm font-semibold text-white hover:bg-blue-deep disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={save} className="btn btn-primary btn-sm">
             {busy ? "Saving..." : "Set it"}
           </button>
           <button type="button" onClick={onClose} className="ml-auto cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate hover:bg-sky">Cancel</button>
@@ -494,12 +494,12 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
               type="button"
               disabled={busy || !text.trim() || (!edited && kind === "custom")}
               onClick={() => run(() => saveTouchMessage(bubble.id, text))}
-              className="cursor-pointer rounded-lg bg-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-deep disabled:opacity-50"
+              className="btn btn-primary btn-sm"
             >
               Save message
             </button>
             {kind === "custom" ? (
-              <button type="button" disabled={busy} onClick={() => run(() => saveTouchMessage(bubble.id, ""))} className="cursor-pointer rounded-lg border border-slate/20 px-3 py-1.5 text-xs font-semibold text-slate hover:border-blue hover:text-blue disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={() => run(() => saveTouchMessage(bubble.id, ""))} className="btn btn-ghost btn-sm">
                 Back to auto-draft
               </button>
             ) : null}
@@ -515,7 +515,7 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
               type="button"
               disabled={busy || !moved || !moveDate || !moveTime}
               onClick={() => run(() => rescheduleTouch(bubble.id, new Date(`${moveDate}T${moveTime}`).toISOString()))}
-              className="cursor-pointer rounded-lg bg-blue px-3 py-2 text-xs font-semibold text-white hover:bg-blue-deep disabled:opacity-50"
+              className="btn btn-primary btn-sm"
             >
               Move it
             </button>
@@ -602,7 +602,7 @@ function AddTouchModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
         ) : null}
 
         <div className="mt-4 flex items-center gap-2">
-          <button type="button" disabled={busy || !date || !time} onClick={() => save()} className="cursor-pointer rounded-lg bg-blue px-4 py-2 text-sm font-semibold text-white hover:bg-blue-deep disabled:opacity-50">
+          <button type="button" disabled={busy || !date || !time} onClick={() => save()} className="btn btn-primary btn-sm">
             {busy ? "Adding..." : "Add it"}
           </button>
           <button type="button" onClick={onClose} className="ml-auto cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate hover:bg-sky">Cancel</button>

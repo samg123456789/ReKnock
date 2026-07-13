@@ -140,7 +140,7 @@ export default function FeatureTour({
           <button
             type="button"
             onClick={() => (last ? finish() : setStep((s) => s + 1))}
-            className="cursor-pointer rounded-xl bg-blue px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-deep"
+            className="btn btn-primary"
           >
             {last ? "Got it" : "Next"}
           </button>
