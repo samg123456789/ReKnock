@@ -577,22 +577,26 @@ export const processInboundEmail = inngest.createFunction(
       if (!mail) return { done: true as const };
 
       const raw = (mail.raw ?? {}) as { data?: { email_id?: string; text?: string; html?: string } };
-      // Resend's email.received webhook carries metadata only; the body is
-      // fetched from the received-emails API.
-      const fetchBody = async (): Promise<string> => {
+      // Resend's email.received webhook carries metadata only; body + headers
+      // are fetched from the received-emails API.
+      const fetchFull = async (): Promise<{ text: string; headers: Record<string, string> }> => {
         let text = raw.data?.text || (raw.data?.html ?? "").replace(/<[^>]+>/g, " ");
-        if (!text.trim() && raw.data?.email_id && process.env.RESEND_API_KEY) {
+        const headers: Record<string, string> = {};
+        if (raw.data?.email_id && process.env.RESEND_API_KEY) {
           // Verified live 2026-07-13: received-email content lives at
-          // /emails/receiving/{id} (returns text, html, attachments).
+          // /emails/receiving/{id} (returns text, html, headers, attachments).
           const resp = await fetch(`https://api.resend.com/emails/receiving/${raw.data.email_id}`, {
             headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
           });
           if (resp.ok) {
-            const full = (await resp.json()) as { text?: string; html?: string };
-            text = full.text || (full.html ?? "").replace(/<[^>]+>/g, " ");
+            const full = (await resp.json()) as { text?: string; html?: string; headers?: Record<string, string> | { name: string; value: string }[] };
+            if (!text.trim()) text = full.text || (full.html ?? "").replace(/<[^>]+>/g, " ");
+            const h = full.headers;
+            if (Array.isArray(h)) for (const x of h) headers[x.name.toLowerCase()] = x.value;
+            else if (h) for (const k of Object.keys(h)) headers[k.toLowerCase()] = h[k];
           }
         }
-        return text;
+        return { text, headers };
       };
 
       // Catch-all forward: the root MX moved from ImprovMX to Resend
@@ -602,21 +606,51 @@ export const processInboundEmail = inngest.createFunction(
       const to = bareEmail(mail.to_addr);
       if (to && to !== INTAKE_EMAIL.toLowerCase()) {
         const ourDomain = INTAKE_EMAIL.split("@")[1];
-        // Loop guards (learned live 2026-07-13: a forward to an admin address
-        // AT our own receiving domain arrived right back at this webhook and
-        // re-forwarded forever): never re-forward our own forwarder's mail,
-        // and only forward to destinations OFF our receiving domain.
+        // Loop protection, four independent layers (a live loop on 2026-07-13
+        // ran 60 iterations in 4 minutes and exhausted the day's send quota;
+        // any ONE of these would have stopped it):
+        // 1. Never process mail sent BY our own forwarder identity.
         const sender = bareEmail(mail.from_addr);
         if (sender === `forward@${ourDomain}`) {
           await admin.from("inbound_emails").update({ resolution: "ignored" }).eq("id", inboundId);
           return { done: true as const };
         }
+        // 2. Never re-forward a message our system already forwarded, no
+        //    matter what address it claims to be from (the marker header
+        //    survives any hop topology).
+        const { text: fwdBody, headers } = await fetchFull();
+        if (headers["x-reknock-forwarded"]) {
+          await admin.from("inbound_emails").update({ resolution: "ignored" }).eq("id", inboundId);
+          return { done: true as const };
+        }
+        // 3. Circuit breaker: forwarding halts outright above a hard rate
+        //    that no legitimate alias traffic reaches. Alerts instead of loops.
+        const { count: recentForwards } = await admin
+          .from("events")
+          .select("id", { count: "exact", head: true })
+          .eq("type", "inbound_email_forwarded")
+          .gt("created_at", new Date(Date.now() - 10 * 60_000).toISOString());
+        if ((recentForwards ?? 0) >= 15) {
+          await admin.from("inbound_emails").update({ resolution: "ignored" }).eq("id", inboundId);
+          await admin.from("failed_jobs").insert({
+            company_id: null,
+            job_type: "email_forward_circuit_open",
+            payload: { inbound_email_id: inboundId, recent_forwards: recentForwards },
+            error: "forwarding circuit breaker tripped (>=15 forwards in 10 minutes); possible loop or abuse",
+          });
+          await notifyAdmin("Email forwarding halted by circuit breaker", [
+            `${recentForwards} forwards in the last 10 minutes - possible loop or abuse.`,
+            "Inbound mail is still stored in inbound_emails; forwarding resumes when the 10-minute window clears.",
+          ]);
+          return { done: true as const };
+        }
+        // 4. Only forward to destinations OFF our receiving domain (an
+        //    in-domain destination arrives right back at this webhook).
         const { data: admins } = await admin.from("users").select("email").eq("platform_admin", true).not("email", "is", null);
         const dest = (admins ?? [])
           .map((a) => (a.email as string).toLowerCase())
           .filter((e) => !e.endsWith(`@${ourDomain}`));
         if (dest.length && process.env.RESEND_API_KEY) {
-          const body = await fetchBody();
           const resp = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
@@ -625,7 +659,8 @@ export const processInboundEmail = inngest.createFunction(
               to: dest,
               reply_to: mail.from_addr,
               subject: `[${to}] ${mail.subject ?? "(no subject)"}`,
-              text: `Forwarded from ${to} (originally sent by ${mail.from_addr}):\n\n${body}`,
+              text: `Forwarded from ${to} (originally sent by ${mail.from_addr}):\n\n${fwdBody}`,
+              headers: { "X-ReKnock-Forwarded": inboundId },
             }),
           });
           if (!resp.ok) throw new Error(`forward failed: ${resp.status}`); // Inngest retries
@@ -645,7 +680,7 @@ export const processInboundEmail = inngest.createFunction(
         return { done: true as const };
       }
       await admin.from("inbound_emails").update({ company_id: match.company_id }).eq("id", inboundId);
-      const text = await fetchBody();
+      const { text } = await fetchFull();
       return { done: false as const, companyId: match.company_id as string, text: `${mail.subject ?? ""}\n\n${text}`.trim().slice(0, 20_000) };
     });
     if (matched.done) return { skipped: true };
