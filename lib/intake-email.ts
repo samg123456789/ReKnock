@@ -2,7 +2,9 @@
 // matched to a company by the sender's verified email (company_sender_emails),
 // Ramp receipts@ style. Safe to import from client and server.
 
-export const INTAKE_EMAIL = "quotes@getreknock.com";
+// Subdomain, not root: the root domain's MX belongs to ImprovMX forwarding
+// (founder decision 2026-07-13, option B).
+export const INTAKE_EMAIL = "quotes@in.getreknock.com";
 
 // "Jim's Roofing <jim@apexroofs.com>" -> "jim@apexroofs.com" (lowercased).
 export function bareEmail(raw: string | null | undefined): string | null {
