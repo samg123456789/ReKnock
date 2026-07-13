@@ -8,6 +8,7 @@ import { notifyAdmin } from "@/lib/notify-admin";
 import { env } from "@/lib/env";
 import { bareEmail, INTAKE_EMAIL } from "@/lib/intake-email";
 import { ONBOARDING_DRIP, DRIP_FROM } from "@/lib/emails/onboarding-drip";
+import { formatMoney } from "@/lib/format";
 import { normalizePhone as normalizeIntakePhone } from "@/lib/phone";
 import { computeStartAt, scheduleSequence } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
@@ -882,4 +883,115 @@ Sam`,
   },
 );
 
-export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail, onboardingDrip, testimonialAsk];
+// Monthly ROI report (original spec Phase 5): first of the month, each active
+// company gets the receipts - follow-ups sent, replies, quotes won and their
+// dollars - straight from SQL over the ledger. The retention email.
+export const monthlyRoiReport = inngest.createFunction(
+  { id: "monthly-roi-report", retries: 2, triggers: [{ cron: "0 14 1 * *" }] },
+  async ({ step }) => {
+    const admin = createAdminClient();
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const monthName = monthStart.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
+
+    const companies = await step.run("companies", async () => {
+      const { data } = await admin
+        .from("companies")
+        .select("id, name")
+        .in("subscription_status", ["trialing", "active"])
+        .eq("is_internal", false)
+        .is("suspended_at", null)
+        .not("onboarded_at", "is", null);
+      return data ?? [];
+    });
+
+    let sentCount = 0;
+    for (const co of companies) {
+      const ok = await step.run(`report-${co.id}`, async () => {
+        const [{ count: sent }, { count: replies }, { data: won }, { data: user }] = await Promise.all([
+          admin.from("messages").select("id", { count: "exact", head: true }).eq("company_id", co.id).eq("direction", "outbound").eq("kind", "sequence").gte("sent_at", monthStart.toISOString()).lt("sent_at", monthEnd.toISOString()),
+          admin.from("events").select("id", { count: "exact", head: true }).eq("company_id", co.id).eq("type", "reply_received").gte("created_at", monthStart.toISOString()).lt("created_at", monthEnd.toISOString()),
+          admin.from("prospects").select("quote_amount").eq("company_id", co.id).eq("status", "won").gte("updated_at", monthStart.toISOString()).lt("updated_at", monthEnd.toISOString()),
+          admin.from("users").select("email, full_name").eq("company_id", co.id).not("email", "is", null).limit(1).maybeSingle(),
+        ]);
+        const wonCount = won?.length ?? 0;
+        const wonDollars = (won ?? []).reduce((a, p) => a + (Number(p.quote_amount) || 0), 0);
+        if (!user?.email || !process.env.RESEND_API_KEY) return false;
+        if (!sent && !replies && !wonCount) return false; // nothing happened; silence beats noise
+        const firstName = (user.full_name ?? "").trim().split(/\s+/)[0] ?? "";
+        const lines = [
+          `Hey${firstName ? ` ${firstName}` : ""},`,
+          "",
+          `Your ${monthName} in ReKnock:`,
+          "",
+          `Follow-up texts sent for you: ${sent ?? 0}`,
+          `Homeowners who replied: ${replies ?? 0}`,
+          wonCount ? `Quotes marked won: ${wonCount} (${formatMoney(wonDollars)})` : `Quotes marked won: 0`,
+          "",
+          wonCount
+            ? `That ${formatMoney(wonDollars)} came from quotes that were already written and sitting there. The chasing is the whole product.`
+            : `Replies turn into wins when the quotes keep going in. Forward every quote the day you send it and let the numbers do the rest.`,
+          "",
+          "Reply if any of this looks off. I read every one.",
+          "",
+          "Sam",
+        ];
+        const resp = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
+          body: JSON.stringify({ from: DRIP_FROM, to: [user.email], subject: `Your ${monthName} numbers: ${replies ?? 0} replies, ${wonCount} won`, text: lines.join("\n") }),
+        });
+        if (!resp.ok) throw new Error(`roi report failed: ${resp.status}`);
+        await admin.from("events").insert({ company_id: co.id, type: "roi_report_sent", payload: { month: monthName, sent: sent ?? 0, replies: replies ?? 0, won: wonCount, won_dollars: wonDollars } });
+        return true;
+      });
+      if (ok) sentCount++;
+    }
+    return { companies: companies.length, reports: sentCount };
+  },
+);
+
+// Abandoned-setup nudge: paid but never finished onboarding after a day. One
+// email, once, from Sam. (The TODO in finishOnboarding, finally closed.)
+export const setupReminder = inngest.createFunction(
+  { id: "setup-reminder", retries: 2, triggers: [{ cron: "0 15 * * *" }] },
+  async ({ step }) => {
+    const admin = createAdminClient();
+    return await step.run("nudge", async () => {
+      const dayAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
+      const { data: stalled } = await admin
+        .from("companies")
+        .select("id, name")
+        .is("onboarded_at", null)
+        .eq("is_internal", false)
+        .is("suspended_at", null)
+        .in("subscription_status", ["trialing", "active"])
+        .lt("created_at", dayAgo);
+      let nudged = 0;
+      for (const co of stalled ?? []) {
+        const { data: already } = await admin.from("events").select("id").eq("company_id", co.id).eq("type", "setup_reminder_sent").limit(1).maybeSingle();
+        if (already) continue;
+        const { data: user } = await admin.from("users").select("email, full_name").eq("company_id", co.id).not("email", "is", null).limit(1).maybeSingle();
+        if (!user?.email || !process.env.RESEND_API_KEY) continue;
+        const firstName = (user.full_name ?? "").trim().split(/\s+/)[0] ?? "";
+        const resp = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            from: DRIP_FROM,
+            to: [user.email],
+            subject: "You're about 2 minutes from your first follow-up",
+            text: `Hey${firstName ? ` ${firstName}` : ""},\n\nYou signed up for ReKnock but setup is not quite finished, which means no quotes are being chased yet.\n\nIt is about two minutes: tell us how you text, set your hours, done. Pick it up where you left off: https://getreknock.com/onboarding\n\nStuck on something? Reply and tell me where. I will sort it out.\n\nSam`,
+          }),
+        });
+        if (!resp.ok) continue; // try again tomorrow's run
+        await admin.from("events").insert({ company_id: co.id, type: "setup_reminder_sent", payload: {} });
+        nudged++;
+      }
+      return { stalled: (stalled ?? []).length, nudged };
+    });
+  },
+);
+
+export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail, onboardingDrip, testimonialAsk, monthlyRoiReport, setupReminder];
