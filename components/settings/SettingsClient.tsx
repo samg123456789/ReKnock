@@ -15,7 +15,13 @@ const US_MARKETS = [
   ["America/New_York", "Eastern"], ["America/Chicago", "Central"], ["America/Denver", "Mountain"],
   ["America/Phoenix", "Arizona"], ["America/Los_Angeles", "Pacific"], ["America/Anchorage", "Alaska"], ["America/Honolulu", "Hawaii"],
 ] as const;
-const COMING_SOON = ["Analytics", "Integrations", "WhatsApp channel", "Email channel", "Team seats"];
+const COMING_SOON: [string, string][] = [
+  ["Analytics", "Track reply rates and win-backs at a glance."],
+  ["Integrations", "Connect your CRM and other tools."],
+  ["WhatsApp channel", "Follow up over WhatsApp, not just SMS."],
+  ["Email channel", "Send follow-ups by email too."],
+  ["Team seats", "Add teammates to your account."],
+];
 
 const input = "w-full rounded-xl border border-slate/20 px-4 py-2.5 text-base outline-none focus:border-blue";
 
@@ -299,14 +305,19 @@ export default function SettingsClient(props: {
       </Card>
 
       <Card title="Coming soon">
-        <div className="flex flex-col gap-2">
-          {COMING_SOON.map((f) => (
-            <div key={f} className="flex items-center justify-between rounded-xl border border-slate/15 px-4 py-2.5 opacity-80">
-              <span className="text-slate">{f}</span>
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          {COMING_SOON.map(([f, desc]) => (
+            <div key={f} className="flex flex-col rounded-xl border border-slate/15 p-4 opacity-90">
+              <span className="font-semibold text-ink">{f}</span>
+              <span className="mt-0.5 flex-1 text-sm text-slate">{desc}</span>
               {notified.includes(f) ? (
-                <span className="text-sm text-mint">We&apos;ll let you know</span>
+                <span className="mt-2.5 text-sm font-semibold text-mint">We&apos;ll let you know</span>
               ) : (
-                <button type="button" className="cursor-pointer text-sm font-semibold text-blue" onClick={async () => { setNotified((n) => [...n, f]); await logFeatureInterest(f); }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm mt-2.5 self-start"
+                  onClick={async () => { setNotified((n) => [...n, f]); await logFeatureInterest(f); }}
+                >
                   Notify me
                 </button>
               )}

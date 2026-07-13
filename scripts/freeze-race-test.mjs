@@ -56,10 +56,13 @@ if (!token) throw new Error("SUPABASE_ACCESS_TOKEN not set (env var or .env.loca
 // Management API calls retry on 429/5xx: CI runners reach api.supabase.com
 // much faster than a laptop, so a run can outpace the per-token rate limit
 // that a local run never hits.
+// Backoff reaches ~60s total: the Management API limit is a per-minute
+// window, so back-to-back CI runs (one queued behind another) can start into
+// a fully saturated window and need to ride it out, not just blip-retry.
 async function sql(query) {
   let lastErr;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    if (attempt) await sleep(1000 * 2 ** (attempt - 1));
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt) await sleep(2000 * 2 ** (attempt - 1));
     const resp = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },

@@ -173,3 +173,21 @@ a:focus-visible, button:focus-visible, input:focus-visible {
     100% { transform: translateX(100%); }
   }
 }
+
+/* Icon-only button, same system as .btn (radius scale, hover, pressed). */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(71, 84, 103, 0.22);
+  background: #fff;
+  color: var(--color-slate);
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease, transform 80ms ease;
+}
+.btn-icon:hover { border-color: var(--color-blue); color: var(--color-blue); }
+.btn-icon:active { transform: scale(0.94); }
