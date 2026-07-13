@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { normalizePhone } from "@/lib/phone";
 import { parseCsv, mapHeader, CSV_ROW_CAP, CSV_TEMPLATE, type CsvColumn } from "@/lib/csv";
@@ -65,6 +66,31 @@ function parseFile(text: string): { rows: ParsedRow[]; error: string | null } {
 }
 
 export default function CsvImport() {
+  const router = useRouter();
+  // Esc backs out one level: review -> file picker, picker -> dashboard.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setRows((r) => {
+        if (r) return null;
+        router.push("/app");
+        return r;
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
+  const closeX = (
+    <button
+      type="button"
+      aria-label="Close"
+      title="Close (Esc)"
+      onClick={() => router.push("/app")}
+      className="flex h-9 w-9 items-center justify-center rounded-full text-slate transition-colors hover:bg-slate/10 hover:text-ink"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+    </button>
+  );
   const [rows, setRows] = useState<ParsedRow[] | null>(null);
   const [fileName, setFileName] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -174,7 +200,10 @@ export default function CsvImport() {
     const preview = rows.slice(0, 10);
     return (
       <div>
-        <p className="eyebrow mb-3">Check the list</p>
+        <div className="flex items-start justify-between">
+          <p className="eyebrow mb-3">Check the list</p>
+          {closeX}
+        </div>
         <h1 className="display text-3xl md:text-4xl">Here is what we found.</h1>
         <p className="mt-3 text-slate">
           {fileName}: {rows.length} row{rows.length === 1 ? "" : "s"}. {validRows.length} ready to import
@@ -260,7 +289,10 @@ export default function CsvImport() {
   // ---------- pick a file ----------
   return (
     <div>
-      <p className="eyebrow mb-3">Bulk import</p>
+      <div className="flex items-start justify-between">
+        <p className="eyebrow mb-3">Bulk import</p>
+        {closeX}
+      </div>
       <h1 className="display text-3xl md:text-4xl">Upload a CSV of quotes.</h1>
       <p className="mt-3 text-slate">
         Export your list from a spreadsheet as CSV, up to {CSV_ROW_CAP} rows at a time. We need at least a first name and a phone number per row.
