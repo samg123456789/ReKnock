@@ -86,6 +86,10 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
   const [extraction, setExtraction] = useState<QuoteExtraction | null>(null);
   const [paste, setPaste] = useState("");
   const [pending, setPending] = useState(false);
+  // Wait copy tracks real progress: "uploading" during the file push,
+  // "reading" once the extract action starts, then a timed hand-off to
+  // "extracting" so a long Haiku call still visibly moves.
+  const [stage, setStage] = useState<"uploading" | "reading" | "extracting" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<CreatedQuote | null>(null);
   const [start, setStart] = useState<StartChoice>("recommended");
@@ -114,7 +118,11 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
   function cancelWork() {
     genRef.current++;
     setPending(false);
+    setStage(null);
   }
+
+  const STAGE_LABEL = { uploading: "Uploading...", reading: "Reading the quote...", extracting: "Pulling out the details..." } as const;
+  const stageLabel = stage ? STAGE_LABEL[stage] : "Reading it...";
 
   // Escape: cancels in-flight extraction first; otherwise closes the flow
   // back to the dashboard (bail-out, no dead end).
@@ -137,10 +145,15 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
   async function runExtract(args: { paths?: string[]; text?: string }, src: "manual" | "ocr_upload") {
     const gen = genRef.current;
     setPending(true);
+    setStage("reading");
     setError(null);
+    window.setTimeout(() => {
+      if (gen === genRef.current) setStage((s) => (s === "reading" ? "extracting" : s));
+    }, 2500);
     const res = await extractQuote(args);
     if (gen !== genRef.current) return; // canceled while reading
     setPending(false);
+    setStage(null);
     if (!res.ok) return setError(res.error);
     const extracted = fieldsFromExtraction(res.data);
     setFields(extracted);
@@ -160,6 +173,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
     if (!files?.length) return;
     const gen = genRef.current;
     setPending(true);
+    setStage("uploading");
     setError(null);
     try {
       const supabase = createClient();
@@ -249,18 +263,22 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
                   <span className="ml-auto text-sm font-semibold text-slate">{prettyDateTime(t.iso)}</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={`shrink-0 text-mist transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></svg>
                 </button>
-                {isOpen ? (
-                  <div className="border-t border-sky-line px-4 py-3">
-                    {d?.text ? (
-                      <p className="whitespace-pre-line rounded-lg bg-sky/50 px-3 py-2 text-sm leading-relaxed text-blue-ink">{d.text}</p>
-                    ) : d?.error ? (
-                      <p className="text-sm text-red-600">{d.error}</p>
-                    ) : (
-                      <p className="text-sm text-mist">Drafting it in your voice...</p>
-                    )}
-                    {d?.text ? <p className="mt-1.5 text-xs text-mist">You can rewrite or move this any time from the inbox thread.</p> : null}
+                {/* 0fr -> 1fr grid rows animate an unknown content height;
+                    no snap, no JS measuring. */}
+                <div className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }} aria-hidden={!isOpen}>
+                  <div className="overflow-hidden">
+                    <div className="border-t border-sky-line px-4 py-3">
+                      {d?.text ? (
+                        <p className="whitespace-pre-line rounded-lg bg-sky/50 px-3 py-2 text-sm leading-relaxed text-blue-ink">{d.text}</p>
+                      ) : d?.error ? (
+                        <p className="text-sm text-red-600">{d.error}</p>
+                      ) : (
+                        <p className="text-sm text-mist">Drafting it in your voice...</p>
+                      )}
+                      {d?.text ? <p className="mt-1.5 text-xs text-mist">You can rewrite or move this any time from the inbox thread.</p> : null}
+                    </div>
                   </div>
-                ) : null}
+                </div>
               </li>
             );
           })}
@@ -415,7 +433,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => { e.preventDefault(); setDragOver(false); if (!pending) void onUpload(e.dataTransfer.files); }}
       >
-        <span className="text-lg font-semibold text-ink">{pending ? "Reading it..." : dragOver ? "Drop it here" : "Upload a photo or PDF"}</span>
+        <span className="text-lg font-semibold text-ink">{pending ? stageLabel : dragOver ? "Drop it here" : "Upload a photo or PDF"}</span>
         <span className="text-sm text-slate">Drag it here, or tap to browse. A photo of the estimate, a screenshot of a text, or the quote PDF.</span>
         <span className="text-xs text-mist">
           Photos (JPG, PNG) up to {Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB · PDFs up to {Math.round(MAX_PDF_BYTES / 1024 / 1024)}MB · up to {MAX_FILES} files
@@ -432,7 +450,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
         <p className="text-sm font-semibold text-slate">Or paste the details</p>
         <textarea className={`${input} mt-2`} rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a quote email, a text thread, anything with the customer's name and number." />
         <button className={`${ghostBtn} mt-2`} disabled={pending || !paste.trim()} onClick={() => runExtract({ text: paste }, "manual")}>
-          {pending ? "Reading it..." : "Read the details"}
+          {pending ? stageLabel : "Read the details"}
         </button>
       </div>
 
