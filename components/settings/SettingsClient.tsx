@@ -59,6 +59,7 @@ export default function SettingsClient(props: {
   senderEmails: { id: string; email: string; verified: boolean }[];
   numberStatus: string | null;
   numberE164: string | null;
+  initialNotified?: string[];
 }) {
   const [basics, setBasics] = useState(props.initialBasics);
   const [trades, setTrades] = useState(props.initialTrades);
@@ -95,7 +96,7 @@ export default function SettingsClient(props: {
     }
   }, []);
   const [copied, setCopied] = useState(false);
-  const [notified, setNotified] = useState<string[]>([]);
+  const [notified, setNotified] = useState<string[]>(props.initialNotified ?? []);
 
   async function run(setState: (s: string) => void, fn: () => Promise<{ ok: boolean; error?: string }>) {
     setState("saving");
@@ -305,22 +306,32 @@ export default function SettingsClient(props: {
       </Card>
 
       <Card title="Coming soon">
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {COMING_SOON.map(([f, desc]) => (
-            <div key={f} className="flex flex-col rounded-xl border border-slate/15 p-5 opacity-90">
+        {/* 5 cards on a 6-column base: three half-thirds up top, two halves
+            below, so the section always fills a solid rectangle instead of
+            leaving a ragged last row. Cards stretch to the row height and pin
+            the action to a fixed-height bottom slot, so every "Notify me"
+            sits on the same line regardless of how titles wrap. */}
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
+          {COMING_SOON.map(([f, desc], i) => (
+            <div
+              key={f}
+              className={`flex flex-col rounded-xl border border-slate/15 p-5 opacity-90 ${i >= 3 ? "lg:col-span-3" : "lg:col-span-2"} ${i === 4 ? "sm:col-span-2" : ""}`}
+            >
               <span className="font-semibold text-ink">{f}</span>
               <span className="mt-0.5 flex-1 text-sm text-slate">{desc}</span>
-              {notified.includes(f) ? (
-                <span className="mt-2.5 text-sm font-semibold text-mint">We&apos;ll let you know</span>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm mt-2.5 self-start"
-                  onClick={async () => { setNotified((n) => [...n, f]); await logFeatureInterest(f); }}
-                >
-                  Notify me
-                </button>
-              )}
+              <div className="mt-2.5 flex h-8 items-center">
+                {notified.includes(f) ? (
+                  <span className="text-sm font-semibold text-mint">We&apos;ll let you know</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={async () => { setNotified((n) => [...n, f]); await logFeatureInterest(f); }}
+                  >
+                    Notify me
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -57,6 +57,10 @@ export default function AppHeader() {
             <Link href="/app" className="text-slate hover:text-ink">Dashboard</Link>
             <Link href="/inbox" className="text-slate hover:text-ink">Inbox</Link>
             <Link href="/campaign" className="text-slate hover:text-ink">Follow-ups</Link>
+            <span aria-disabled="true" title="Coming soon" className="hidden cursor-default select-none items-center gap-1.5 text-mist/70 sm:inline-flex">
+              Analytics
+              <span className="rounded-full bg-sky px-1.5 py-0.5 text-[10px] font-semibold text-mist">Soon</span>
+            </span>
           </div>
         ) : null}
 

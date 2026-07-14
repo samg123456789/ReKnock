@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { sendManualMessage, setProspectStatus, updateProspect, deleteProspect, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
 import { formatMoney } from "@/lib/format";
+import StatusFilter from "@/components/ui/StatusFilter";
 
 export type Conversation = { id: string; name: string; jobType: string; status: string; snippet: string; time: string; needsAttention: boolean };
 export type ThreadMessage = { body: string; direction: "inbound" | "outbound"; status: string; createdAt: string };
@@ -18,10 +19,14 @@ export type ProspectDetail = {
 
 const STATUS_LABEL: Record<string, string> = { new: "New", sequencing: "Chasing", replied: "Replied", won: "Won", lost: "Lost", opted_out: "Opted out", paused: "Paused" };
 const FILTERS = [
-  { key: "all", label: "All" },
+  { key: "all", label: "All statuses" },
+  { key: "attention", label: "Needs review" },
   { key: "replied", label: "Replied" },
   { key: "sequencing", label: "Chasing" },
-  { key: "attention", label: "Needs review" },
+  { key: "paused", label: "Paused" },
+  { key: "won", label: "Won" },
+  { key: "lost", label: "Lost" },
+  { key: "opted_out", label: "Opted out" },
 ] as const;
 
 function dayLabel(iso: string) {
@@ -73,9 +78,8 @@ export default function InboxClient({
     const q = query.trim().toLowerCase();
     return conversations.filter((c) => {
       if (q && !c.name.toLowerCase().includes(q) && !c.jobType.toLowerCase().includes(q)) return false;
-      if (filter === "replied") return c.status === "replied";
-      if (filter === "sequencing") return c.status === "sequencing";
       if (filter === "attention") return c.needsAttention;
+      if (filter !== "all") return c.status === filter;
       return true;
     });
   }, [conversations, query, filter]);
@@ -138,13 +142,9 @@ export default function InboxClient({
       {/* Conversation list */}
       <aside className={`flex flex-col border-r border-sky-line ${selectedId ? "hidden md:flex" : "flex"}`}>
         <div className="border-b border-sky-line p-3">
-          <input className="w-full rounded-xl border border-slate/20 px-3 py-2 text-sm outline-none focus:border-blue" placeholder="Search name or job" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <div className="mt-2 flex gap-1.5">
-            {FILTERS.map((f) => (
-              <button key={f.key} type="button" onClick={() => setFilter(f.key)} className={`cursor-pointer rounded-full px-3 py-1 text-xs font-semibold ${filter === f.key ? "bg-blue text-white" : "bg-sky text-blue"}`}>
-                {f.label}
-              </button>
-            ))}
+          <div className="flex gap-2">
+            <input className="min-w-0 flex-1 rounded-xl border border-slate/20 px-3 py-2 text-sm outline-none focus:border-blue" placeholder="Search name or job" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <StatusFilter value={filter} onChange={(k) => setFilter(k as (typeof FILTERS)[number]["key"])} options={FILTERS} className="shrink-0" />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">

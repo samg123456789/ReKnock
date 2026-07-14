@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/format";
+import StatusFilter from "@/components/ui/StatusFilter";
 
 export type ProspectRow = {
   id: string;
@@ -27,11 +28,13 @@ const STATUS_STYLE: Record<string, string> = {
   new: "bg-sky text-blue",
 };
 const FILTERS = [
-  { key: "all", label: "All" },
+  { key: "all", label: "All statuses" },
   { key: "sequencing", label: "Chasing" },
   { key: "replied", label: "Replied" },
+  { key: "paused", label: "Paused" },
   { key: "won", label: "Won" },
   { key: "lost", label: "Lost" },
+  { key: "opted_out", label: "Opted out" },
 ] as const;
 
 type SortKey = "name" | "amount" | "status" | "nextTouch" | "lastActivity";
@@ -92,18 +95,7 @@ export default function DashboardTable({ rows }: { rows: ProspectRow[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setFilter(f.key)}
-              className={`cursor-pointer rounded-full px-3 py-1 text-xs font-semibold transition-colors ${filter === f.key ? "bg-blue text-white" : "bg-sky text-blue hover:bg-sky-line"}`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <StatusFilter value={filter} onChange={(k) => setFilter(k as (typeof FILTERS)[number]["key"])} options={FILTERS} />
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-sky-line">

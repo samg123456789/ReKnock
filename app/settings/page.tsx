@@ -15,7 +15,7 @@ export default async function Settings() {
   if (!cid) redirect("/app");
 
   // Independent queries run in parallel (was 5 serial round-trips).
-  const [{ data: company }, { data: voice }, { data: windows }, { data: owner }, { data: phone }, { data: senders }] =
+  const [{ data: company }, { data: voice }, { data: windows }, { data: owner }, { data: phone }, { data: senders }, { data: interests }] =
     await Promise.all([
       sb
         .from("companies")
@@ -36,6 +36,7 @@ export default async function Settings() {
       sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
       sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
       sb.from("company_sender_emails").select("id, email, verified_at").eq("company_id", cid).order("created_at", { ascending: true }),
+      sb.from("events").select("payload").eq("company_id", cid).eq("type", "feature_interest"),
     ]);
 
   const rawQ = voice?.questionnaire as Record<string, unknown> | null;
@@ -68,6 +69,13 @@ export default async function Settings() {
         senderEmails={(senders ?? []).map((s) => ({ id: s.id as string, email: s.email as string, verified: s.verified_at != null }))}
         numberStatus={phone?.status ?? null}
         numberE164={phone?.e164 ?? null}
+        initialNotified={Array.from(
+          new Set(
+            (interests ?? [])
+              .map((e) => ((e.payload as Record<string, unknown> | null)?.feature as string) ?? "")
+              .filter(Boolean),
+          ),
+        )}
       />
     </main>
   );

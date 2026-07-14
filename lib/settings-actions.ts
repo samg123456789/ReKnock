@@ -153,8 +153,29 @@ export async function removeSenderEmail(id: string): Promise<SettingsResult> {
 }
 
 // "Notify me" on a coming-soon feature; the demand signal (CLAUDE.md Phase 7).
+// The user is already signed in, so the click alone records who wants what -
+// no email form. One row per user per feature; interest levels read straight
+// off events:
+//   select payload->>'feature', count(*) from events
+//   where type = 'feature_interest' group by 1 order by 2 desc;
 export async function logFeatureInterest(feature: string): Promise<SettingsResult> {
   const a = await acting();
-  await a.client.from("events").insert({ company_id: a.companyId, type: "feature_interest", payload: { feature } });
+  const f = feature.trim().slice(0, 60);
+  if (!f) return { ok: false, error: "Unknown feature." };
+  const { data: existing } = await a.client
+    .from("events")
+    .select("id")
+    .eq("company_id", a.companyId!)
+    .eq("type", "feature_interest")
+    .eq("payload->>feature", f)
+    .eq("payload->>user_id", a.actorUserId ?? "")
+    .limit(1)
+    .maybeSingle();
+  if (existing) return { ok: true };
+  await a.client.from("events").insert({
+    company_id: a.companyId,
+    type: "feature_interest",
+    payload: { feature: f, user_id: a.actorUserId, email: a.actorEmail },
+  });
   return { ok: true };
 }
