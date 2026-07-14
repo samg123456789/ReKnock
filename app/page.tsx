@@ -46,7 +46,7 @@ const benefits = [
   },
   {
     title: "It stops the second they reply.",
-    body: "One reply freezes the sequence instantly and pings your phone. You answer like a normal text. No app to babysit, no lead left hanging.",
+    body: "One reply freezes the sequence instantly and hands you the conversation: we ping your phone, you answer like a normal text. No app to babysit, no lead left hanging.",
   },
   {
     title: "Proof it's working.",
@@ -151,10 +151,8 @@ export default function Home() {
               Then&hellip; <span className="text-mist">nothing.</span>
             </h1>
             <p className="rise rise-2 mt-6 max-w-md text-lg leading-relaxed text-slate">
-              That unanswered quote is money you already earned, walking out
-              the door. ReKnock keeps chasing it, politely, in your own words,
-              until they answer. The second they reply, it stops and hands you
-              the conversation.
+              That unanswered quote is money walking out the door. ReKnock
+              keeps chasing it for you - in your own words.
             </p>
             <div className="rise rise-3 mt-8 flex flex-wrap items-center gap-4">
               <CTA big />
