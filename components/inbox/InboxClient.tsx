@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendManualMessage, setProspectStatus, updateProspect, deleteProspect, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
+import { sendManualMessage, setProspectStatus, updateProspect, deleteProspect, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, cancelQueuedMessage, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
 import { formatMoney } from "@/lib/format";
 import StatusFilter from "@/components/ui/StatusFilter";
 
 export type Conversation = { id: string; name: string; jobType: string; status: string; snippet: string; time: string; needsAttention: boolean };
 export type ThreadMessage = { body: string; direction: "inbound" | "outbound"; status: string; createdAt: string };
 export type ScheduledBubble = { id: string; label: string; iso: string };
+export type PendingSend = { id: string; body: string; iso: string };
 export type ReminderItem = { id: string; remindAt: string; mode: "remind_me" | "auto_send"; note: string | null };
 export type ProspectDetail = {
   id: string; name: string; firstName: string; lastName: string; jobType: string | null; status: string;
@@ -47,6 +48,7 @@ export default function InboxClient({
   scheduled,
   reminders,
   prospect,
+  pending = [],
 }: {
   conversations: Conversation[];
   selectedId: string | null;
@@ -54,12 +56,13 @@ export default function InboxClient({
   scheduled: ScheduledBubble[];
   reminders: ReminderItem[];
   prospect: ProspectDetail | null;
+  pending?: PendingSend[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
   const [body, setBody] = useState("");
-  const [pending, setPending] = useState(false);
+  const [sendPending, setSendPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusPending, startStatusTransition] = useTransition();
   // Optimistic status so the chip + controls flip the instant you click,
@@ -69,6 +72,20 @@ export default function InboxClient({
   useEffect(() => setOptimisticStatus(null), [prospect?.status]);
   const shownStatus = optimisticStatus ?? prospect?.status;
   const [showDetails, setShowDetails] = useState(false);
+
+  // The inbox must fill exactly the space below whatever chrome sits above it
+  // (app header, and the DEV banner off-prod), so the composer is always
+  // on-screen with no page scroll. A hardcoded calc(100dvh-4rem) missed the
+  // banner and pushed the composer below the fold.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const fit = () => { el.style.height = `${window.innerHeight - el.getBoundingClientRect().top}px`; };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
   const [editStep, setEditStep] = useState<ScheduledBubble | null>(null);
   const [showReminder, setShowReminder] = useState(false);
   const [showAddTouch, setShowAddTouch] = useState(false);
@@ -86,10 +103,10 @@ export default function InboxClient({
 
   async function send() {
     if (!prospect) return;
-    setPending(true);
+    setSendPending(true);
     setError(null);
     const res = await sendManualMessage(prospect.id, body);
-    setPending(false);
+    setSendPending(false);
     if (!res.ok) return setError(res.error);
     setBody("");
     // Pausing the chase is a state change the user caused without asking for
@@ -127,7 +144,7 @@ export default function InboxClient({
   let lastDay = "";
 
   return (
-    <div className="grid h-[calc(100dvh-4rem)] md:grid-cols-[340px_1fr]">
+    <div ref={rootRef} className="grid h-[calc(100dvh-4rem)] md:grid-cols-[340px_1fr]">
       {toast ? (
         <div className="toast-pop fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-ink px-4 py-3 text-sm text-white shadow-xl">
           <span>{toast.text}</span>
@@ -214,23 +231,50 @@ export default function InboxClient({
                   <div key={i}>
                     {sep ? <div className="my-2 text-center text-xs text-mist">{sep}</div> : null}
                     <div className={`flex ${out ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[80%] whitespace-pre-line rounded-2xl px-3.5 py-2 text-[15px] leading-snug ${out ? "rounded-br-sm bg-blue text-white" : "rounded-bl-sm bg-sky text-ink"}`}>
+                      <div className={`max-w-[80%] whitespace-pre-line break-words rounded-2xl px-3.5 py-2 text-[15px] leading-snug ${out ? "rounded-br-sm bg-blue text-white" : "rounded-bl-sm bg-sky text-ink"}`}>
                         {m.body}
-                        <span className={`ml-2 align-baseline text-[10px] ${out ? "text-white/70" : "text-mist"}`}>
-                          {timeLabel(m.createdAt)}
-                          {out ? (m.status === "failed" ? " ✗" : m.status === "queued" ? " …" : " ✓") : ""}
+                        <span className={`ml-2 inline-block align-baseline text-[10px] ${out ? "text-white/70" : "text-mist"}`}>
+                          <span className="whitespace-nowrap">
+                            {timeLabel(m.createdAt)}
+                            {/* one tick = sent to the carrier, two = delivery confirmed by the status callback */}
+                            {out ? (m.status === "failed" ? " ✗" : m.status === "queued" ? " …" : m.status === "delivered" ? " ✓✓" : " ✓") : ""}
+                          </span>
                         </span>
                       </div>
                     </div>
                   </div>
                 );
               })}
+              {/* Composer messages inside their grace window: shown as the
+                  real bubble with a live Cancel until the dispatcher claims
+                  them. */}
+              {pending.map((m) => (
+                <div key={`pend-${m.id}`} className="flex justify-end">
+                  <div className="max-w-[80%]">
+                    <div className="whitespace-pre-line break-words rounded-2xl rounded-br-sm bg-blue/75 px-3.5 py-2 text-[15px] leading-snug text-white">{m.body}</div>
+                    <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-mist">
+                      <span>Sending in under a minute</span>
+                      <button
+                        type="button"
+                        className="cursor-pointer font-semibold text-red-700 hover:underline"
+                        onClick={async () => {
+                          const res = await cancelQueuedMessage(m.id);
+                          if (!res.ok) setError(res.error);
+                          router.refresh();
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
               {scheduled.map((s) => (
                 <div key={`sch-${s.id}`} className="flex justify-end">
                   <button
                     type="button"
                     onClick={() => setEditStep(s)}
-                    className="max-w-[80%] cursor-pointer rounded-2xl rounded-br-sm border border-dashed border-slate/30 bg-white px-3.5 py-2 text-left text-[13px] italic text-mist transition-colors hover:border-blue hover:text-blue"
+                    className="max-w-[80%] cursor-pointer break-words rounded-2xl rounded-br-sm border border-dashed border-slate/30 bg-white px-3.5 py-2 text-left text-[13px] italic text-mist transition-colors hover:border-blue hover:text-blue"
                   >
                     {s.label} · {dayLabel(s.iso)} at {timeLabel(s.iso)}
                     <span className="ml-1 not-italic">›</span>
@@ -250,7 +294,7 @@ export default function InboxClient({
               ) : null}
               {reminders.map((r) => (
                 <div key={`rem-${r.id}`} className="flex justify-end">
-                  <div className="flex max-w-[80%] items-center gap-2 rounded-2xl rounded-br-sm border border-dashed border-amber/50 bg-white px-3.5 py-2 text-[13px] italic text-slate">
+                  <div className="flex max-w-[80%] items-center gap-2 break-words rounded-2xl rounded-br-sm border border-dashed border-amber/50 bg-white px-3.5 py-2 text-[13px] italic text-slate">
                     <span>
                       {r.mode === "auto_send" ? "Circle-back text sends" : "We will remind you"} {dayLabel(r.remindAt)} at {timeLabel(r.remindAt)}
                       {r.note ? ` (${r.note})` : ""}
@@ -282,14 +326,16 @@ export default function InboxClient({
                     placeholder="Type a message"
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!pending && body.trim()) send(); } }}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!sendPending && body.trim()) send(); } }}
                   />
-                  <button type="button" disabled={pending || !body.trim()} onClick={send} className="btn btn-primary">
-                    {pending ? "..." : "Send"}
-                  </button>
+                  <span title={!body.trim() ? "Type a message first" : undefined}>
+                    <button type="button" disabled={sendPending || !body.trim()} onClick={send} className="btn btn-primary">
+                      {sendPending ? "..." : "Send"}
+                    </button>
+                  </span>
                 </div>
               )}
-              <p className="mt-1.5 text-center text-[11px] text-mist">Sending here pauses the automatic follow-ups.</p>
+              <p className="mt-1.5 text-center text-[11px] text-mist">Messages wait about a minute before sending, so you can cancel. Sending here pauses the automatic follow-ups.</p>
             </div>
             {editStep ? (
               <TouchEditor

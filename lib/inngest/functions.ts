@@ -155,6 +155,12 @@ export const sendScheduledMessage = inngest.createFunction(
         await admin.from("reminders").update({ status: "canceled" }).eq("message_id", msg.id).eq("status", "pending");
         return { skipped: "opted_out" };
       }
+      // Composer messages sit in a short grace window before dispatch; a STOP
+      // landing inside it must still win.
+      if (msg.kind === "manual" && p.status === "opted_out") {
+        await cancel("opted_out");
+        return { skipped: "opted_out" };
+      }
 
       // Trial cap, enforced at the sending layer.
       if (co.subscription_status === "trialing" && (co.trial_messages_used ?? 0) >= TRIAL_CAP) {
@@ -172,8 +178,11 @@ export const sendScheduledMessage = inngest.createFunction(
       // runs compressed test sequences at all hours). Deferred sends get a
       // few minutes of jitter so everything queued overnight does not fire
       // as one burst the second the window opens.
+      // Owner-initiated composer messages are exempt from windows and the
+      // min-gap (invariant 5: it is their lead, the grace window is the only
+      // delay). Automated kinds keep both.
       const tz = co.timezone ?? "America/New_York";
-      if (isProd() && !canSendNow(tz, windows ?? [])) {
+      if (isProd() && msg.kind !== "manual" && !canSendNow(tz, windows ?? [])) {
         const next = nextSendTime(tz, windows ?? []) ?? new Date(Date.now() + 24 * 3600_000);
         await defer(new Date(next.getTime() + jitterMs(10)), "window");
         return { deferred: "window" };
@@ -181,7 +190,7 @@ export const sendScheduledMessage = inngest.createFunction(
 
       // Minimum gap between automated sends to the same homeowner, enforced
       // at the sending layer so no timeline arrangement can stack texts.
-      if (isProd()) {
+      if (isProd() && msg.kind !== "manual") {
         const { data: lastSent } = await admin
           .from("messages")
           .select("sent_at")
@@ -232,7 +241,13 @@ export const sendScheduledMessage = inngest.createFunction(
       // our draft; otherwise the enrollment-snapshotted template, otherwise an
       // AI draft from the snapshotted intent.
       let body: string | null = null;
-      if (msg.body_is_custom && msg.body?.trim()) {
+      if (msg.kind === "manual" && msg.body?.trim()) {
+        // Live conversation, the contractor's exact words. Compliance dressing
+        // (identification + STOP line) only if this is somehow the first
+        // message this homeowner has ever received from us.
+        const words: string = msg.body;
+        body = isFirst ? enforceCompliance(words, true, businessName) : words;
+      } else if (msg.body_is_custom && msg.body?.trim()) {
         body = enforceCompliance(msg.body, isFirst, businessName);
       } else if (msg.step_template?.trim()) {
         body = enforceCompliance(fillTemplate(msg.step_template, fillCtx), isFirst, businessName);

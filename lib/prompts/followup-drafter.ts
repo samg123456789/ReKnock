@@ -58,22 +58,19 @@ Write the single text now.`;
 }
 
 // Enforce the non-negotiable compliance rules regardless of model output.
+// Founder directive 2026-07-14: the opt-out line goes on EVERY automated
+// message, not only the first touch (first-touch-only read as inconsistent
+// in a real thread). Identification (business name) stays first-touch-only.
 export function enforceCompliance(text: string, isFirstTouch: boolean, businessName: string): string {
   let t = text.trim().replace(/^["']|["']$/g, "");
   t = t.replace(/https?:\/\/\S+/gi, "").replace(/\bwww\.\S+/gi, "").replace(/\s{2,}/g, " ").trim();
   t = t.replace(/—/g, " "); // strip em-dashes
-  if (isFirstTouch) {
-    // The opt-out goes on its own line, blank-line separated from the message
-    // body (founder directive), in the carrier-registered exact casing. Strip
-    // any version the model wrote inline first.
-    t = t.replace(/\s*reply stop to opt out\.?/gi, "").trim();
-    if (businessName && !t.toLowerCase().includes(businessName.toLowerCase().slice(0, 12))) {
-      t = `${businessName}: ${t}`;
-    }
-    if (t.length > 290) t = t.slice(0, 287).trimEnd() + "...";
-    t = `${t}\n\nReply STOP to opt out`;
-  } else if (t.length > 320) {
-    t = t.slice(0, 317).trimEnd() + "...";
+  // Strip any inline copy the model or a template wrote, then append exactly
+  // one, on its own blank-separated line, in the carrier-registered casing.
+  t = t.replace(/\s*reply stop to opt out\.?/gi, "").trim();
+  if (isFirstTouch && businessName && !t.toLowerCase().includes(businessName.toLowerCase().slice(0, 12))) {
+    t = `${businessName}: ${t}`;
   }
-  return t;
+  if (t.length > 290) t = t.slice(0, 287).trimEnd() + "...";
+  return `${t}\n\nReply STOP to opt out`;
 }

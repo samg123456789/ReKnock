@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
-import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ReminderItem, type ProspectDetail } from "@/components/inbox/InboxClient";
+import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ReminderItem, type ProspectDetail, type PendingSend } from "@/components/inbox/InboxClient";
 
 export const metadata: Metadata = { title: "Inbox - ReKnock" };
 
@@ -12,7 +12,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
   const sb = acting.client;
   const { p: selectedId } = await searchParams;
 
-  if (!cid) return <InboxClient conversations={[]} selectedId={null} thread={[]} scheduled={[]} reminders={[]} prospect={null} />;
+  if (!cid) return <InboxClient conversations={[]} selectedId={null} thread={[]} scheduled={[]} reminders={[]} prospect={null} pending={[]} />;
 
   // Independent queries run in parallel (was 2 serial round-trips).
   const [{ data: prospects }, { data: allMessages }] = await Promise.all([
@@ -63,6 +63,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
   let thread: ThreadMessage[] = [];
   let scheduled: ScheduledBubble[] = [];
   let reminders: ReminderItem[] = [];
+  let pending: PendingSend[] = [];
   let prospect: ProspectDetail | null = null;
 
   if (selected) {
@@ -99,6 +100,13 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
         }));
     }
 
+    // Composer messages still inside their grace window: real bubbles with a
+    // live Cancel until the dispatcher claims them.
+    pending = (allMessages ?? [])
+      .filter((m) => m.prospect_id === selected.id && m.status === "scheduled" && m.kind === "manual")
+      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+      .map((m) => ({ id: m.id as string, body: m.body ?? "", iso: m.scheduled_for ?? m.created_at }));
+
     const { data: rems } = await sb
       .from("reminders")
       .select("id, remind_at, mode, note")
@@ -108,5 +116,5 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
     reminders = (rems ?? []).map((r) => ({ id: r.id, remindAt: r.remind_at, mode: r.mode as "remind_me" | "auto_send", note: r.note }));
   }
 
-  return <InboxClient conversations={conversations} selectedId={selectedId ?? null} thread={thread} scheduled={scheduled} reminders={reminders} prospect={prospect} />;
+  return <InboxClient conversations={conversations} selectedId={selectedId ?? null} thread={thread} scheduled={scheduled} reminders={reminders} prospect={prospect} pending={pending} />;
 }

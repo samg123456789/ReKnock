@@ -4,7 +4,8 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import { logAudit } from "@/lib/admin";
-import { sendSms, canSendNow, nextSendTime } from "@/lib/twilio";
+import { canSendNow, nextSendTime } from "@/lib/twilio";
+import { env } from "@/lib/env";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
 import { cancelScheduledForProspect, cancelPendingReminders, rearmSequence } from "@/lib/enrollment";
@@ -30,9 +31,16 @@ async function acting() {
   return a;
 }
 
-// Manual reply from the contractor. Sends from the ReKnock number and pauses the
-// remaining automated sequence (the send step skips 'paused'). Human action, so
-// no model output rule applies.
+// How long a composer message sits cancelable before it becomes eligible to
+// dispatch. The 1-minute dispatcher cron picks it up on its next tick, so the
+// real send lands 60-120s after the contractor hits Send. (Not exported: a
+// "use server" file may only export async functions.)
+const MANUAL_SEND_GRACE_MS = 60_000;
+
+// Manual reply from the contractor. Rides the scheduled-row primitive with a
+// short grace window (undo beats confirmation dialogs), then sends from the
+// ReKnock number; the automated sequence pauses immediately (the send step
+// skips 'paused'). Human action, so no model output rule applies.
 export async function sendManualMessage(prospectId: string, body: string): Promise<ManualSendResult> {
   const text = body.trim();
   if (!text) return { ok: false, error: "Nothing to send." };
@@ -47,15 +55,27 @@ export async function sendManualMessage(prospectId: string, body: string): Promi
   if (!p?.phone_e164) return { ok: false, error: "No phone number for this prospect." };
   if (p.status === "opted_out") return { ok: false, error: "This contact opted out. You cannot text them." };
 
-  const res = await sendSms({
-    companyId: a.companyId!,
-    prospectId,
-    to: p.phone_e164,
+  // Dev feedback stays immediate: off-prod the dispatcher would silently
+  // cancel a non-allowlisted send a minute from now, which reads as a lost
+  // message while testing.
+  if (process.env.VERCEL_ENV !== "production" && !env.devSmsAllowlist().includes(p.phone_e164)) {
+    return { ok: false, error: "Dev mode only texts your allowlisted number." };
+  }
+
+  const { error: insertErr } = await a.client.from("messages").insert({
+    company_id: a.companyId!,
+    prospect_id: prospectId,
+    direction: "outbound",
+    channel: "sms",
+    kind: "manual",
+    status: "scheduled",
+    scheduled_for: new Date(Date.now() + MANUAL_SEND_GRACE_MS).toISOString(),
     body: text,
-    idempotencyKey: `manual:${crypto.randomUUID()}`,
+    body_is_custom: true,
+    idempotency_key: `manual:${crypto.randomUUID()}`,
   });
-  if (!res.sent) {
-    return { ok: false, error: res.skipped === "dev_allowlist" ? "Dev mode only texts your allowlisted number." : "Could not send. Try again." };
+  if (insertErr) {
+    return { ok: false, error: "Could not send. Try again." };
   }
 
   // Pause the sequence so we do not talk over the contractor - but only an
@@ -225,6 +245,23 @@ export async function saveTouchMessage(messageId: string, text: string): Promise
     .select("id");
   if (error) return { ok: false, error: "Could not save." };
   if (!updated?.length) return { ok: false, error: "That follow-up already went out or was canceled." };
+  return { ok: true };
+}
+
+// Pull back a composer message still inside its grace window. Same
+// scheduled->canceled flip as everything else; once the dispatcher has
+// claimed the row it is too late and we say so.
+export async function cancelQueuedMessage(messageId: string): Promise<InboxResult> {
+  const a = await acting();
+  const { data: updated, error } = await a.client
+    .from("messages")
+    .update({ status: "canceled", send_meta: { reason: "user_cancel_grace" } })
+    .eq("id", messageId)
+    .eq("company_id", a.companyId!)
+    .eq("kind", "manual")
+    .eq("status", "scheduled")
+    .select("id");
+  if (error || !updated?.length) return { ok: false, error: "That message already went out." };
   return { ok: true };
 }
 
