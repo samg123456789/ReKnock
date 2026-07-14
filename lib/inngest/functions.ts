@@ -5,6 +5,7 @@ import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/l
 import { buildQuoteExtractorPrompt, type QuoteExtraction } from "@/lib/prompts/quote-extractor";
 import { sendSms, sendClaimedMessage, retrySmsTo, canSendNow, nextSendTime, type Window } from "@/lib/twilio";
 import { notifyAdmin } from "@/lib/notify-admin";
+import { emergencyDisableInboundWebhooks } from "@/lib/inbound-guard";
 import { env } from "@/lib/env";
 import { bareEmail, INTAKE_EMAIL } from "@/lib/intake-email";
 import { ONBOARDING_DRIP, DRIP_FROM } from "@/lib/emails/onboarding-drip";
@@ -640,10 +641,12 @@ export const processInboundEmail = inngest.createFunction(
             payload: { inbound_email_id: inboundId, recent_forwards: recentForwards },
             error: "forwarding circuit breaker tripped (>=15 forwards in 10 minutes); possible loop or abuse",
           });
-          await notifyAdmin("Email forwarding halted by circuit breaker", [
-            `${recentForwards} forwards in the last 10 minutes - possible loop or abuse.`,
-            "Inbound mail is still stored in inbound_emails; forwarding resumes when the 10-minute window clears.",
-          ]);
+          // A trip here means volume no legitimate alias traffic produces, so
+          // stop ingestion at the source too, not just this forward.
+          await emergencyDisableInboundWebhooks(
+            `forward-rate breaker tripped (${recentForwards} forwards in 10 minutes) - webhook disabled as a precaution`,
+            { inbound_email_id: inboundId, recent_forwards: recentForwards },
+          );
           return { done: true as const };
         }
         // 4. Only forward to destinations OFF our receiving domain (an
