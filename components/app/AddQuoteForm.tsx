@@ -142,8 +142,15 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
     if (gen !== genRef.current) return; // canceled while reading
     setPending(false);
     if (!res.ok) return setError(res.error);
-    setFields(fieldsFromExtraction(res.data));
-    setConf(res.data.confidence ?? {});
+    const extracted = fieldsFromExtraction(res.data);
+    setFields(extracted);
+    // A value the model returned WITHOUT a confidence score is itself suspect:
+    // treat it as low so nothing extracted can slip through unflagged.
+    const c = { ...(res.data.confidence ?? {}) };
+    for (const k of Object.keys(extracted) as (keyof QuoteFields)[]) {
+      if (extracted[k] && c[k] == null) c[k] = 0;
+    }
+    setConf(c);
     setExtraction(res.data);
     setSource(src);
     setView("confirm");
@@ -278,7 +285,9 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
   }
 
   if (view === "confirm") {
-    const anyLow = (["first_name", "phone", "job_type", "quote_amount"] as (keyof QuoteFields)[]).some(isLow);
+    // Every extracted field flags when uncertain - trust depends on nothing
+    // wrong slipping through just because of which field it landed in.
+    const anyLow = (["first_name", "last_name", "phone", "email", "address", "job_type", "quote_amount", "quote_date"] as (keyof QuoteFields)[]).some(isLow);
     return (
       <div>
         <div className="flex items-start justify-between">
@@ -295,7 +304,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
             </label>
             <label className="flex flex-1 flex-col gap-1">
               <span className="text-sm font-semibold text-slate">Last name</span>
-              <input className={input} value={fields.last_name} onChange={(e) => set("last_name", e.target.value)} />
+              <input className={isLow("last_name") ? lowConf : input} value={fields.last_name} onChange={(e) => set("last_name", e.target.value)} />
             </label>
           </div>
           <label className="flex flex-col gap-1">
@@ -313,9 +322,17 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
             </label>
             <label className="flex flex-1 flex-col gap-1">
               <span className="text-sm font-semibold text-slate">Quote date <span className="text-mist">(optional)</span></span>
-              <input className={input} type="date" value={fields.quote_date} onChange={(e) => set("quote_date", e.target.value)} />
+              <input className={isLow("quote_date") ? lowConf : input} type="date" value={fields.quote_date} onChange={(e) => set("quote_date", e.target.value)} />
             </label>
           </div>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-slate">Email <span className="text-mist">(optional)</span></span>
+            <input className={isLow("email") ? lowConf : input} type="email" value={fields.email} onChange={(e) => set("email", e.target.value)} placeholder="name@example.com" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-slate">Job location <span className="text-mist">(optional)</span></span>
+            <input className={isLow("address") ? lowConf : input} value={fields.address} onChange={(e) => set("address", e.target.value)} placeholder="123 Main St" />
+          </label>
         </div>
         <div className="mt-7">
           <p className="text-sm font-semibold text-slate">When should the first text go out?</p>
