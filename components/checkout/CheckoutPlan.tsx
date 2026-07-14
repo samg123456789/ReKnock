@@ -87,7 +87,7 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
       </div>
 
       {/* Starter card. No card-hover here: the hover lift shifts the buy button out from under the cursor. */}
-      <div className="card relative mt-8 flex flex-col border-blue p-7 shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)]">
+      <div className="card relative mt-8 flex flex-col border-blue p-7 shadow-pop">
         <h2 className="display text-3xl">Starter</h2>
         <p className="mt-1 text-slate">One contractor, unlimited chasing.</p>
 

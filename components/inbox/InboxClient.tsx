@@ -146,7 +146,7 @@ export default function InboxClient({
   return (
     <div ref={rootRef} className="grid h-[calc(100dvh-4rem)] md:grid-cols-[340px_1fr]">
       {toast ? (
-        <div className="toast-pop fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-ink px-4 py-3 text-sm text-white shadow-xl">
+        <div className="toast-pop fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-ink px-4 py-3 text-sm text-white shadow-overlay">
           <span>{toast.text}</span>
           <button type="button" onClick={resumeFromToast} className="shrink-0 cursor-pointer font-semibold text-sky underline underline-offset-2">
             Resume
@@ -374,7 +374,7 @@ export default function InboxClient({
   );
 }
 
-const panelInput = "w-full rounded-lg border border-slate/20 px-3 py-2 text-sm outline-none focus:border-blue";
+const panelInput = "w-full rounded-xl border border-slate/20 px-3 py-2 text-sm outline-none focus:border-blue";
 
 // Editable prospect details + notes. Notes feed the AI when drafting future
 // follow-ups for this prospect.
@@ -451,7 +451,7 @@ function DeleteProspectModal({ prospect, onClose, onDeleted }: { prospect: Prosp
   return (
     <>
       <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-overlay">
         <h3 className="font-semibold text-ink">Delete {prospect.name}?</h3>
         <p className="mt-1 text-sm text-slate">
           This stops every follow-up and reminder and removes them from your dashboard and inbox. Their message history stays on file for compliance.
@@ -510,7 +510,7 @@ function ReminderModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
   return (
     <>
       <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-overlay">
         <h3 className="font-semibold text-ink">Circle back with {prospect.firstName || "this lead"}</h3>
         <p className="mt-1 text-xs text-mist">Pick when. You can go months out ("not until spring" works).</p>
 
@@ -603,7 +603,7 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
   return (
     <>
       <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-sky-line bg-white p-6 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-sky-line bg-white p-6 shadow-overlay">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-ink">{bubble.label}</h3>
           <span className="text-xs text-mist">{dayLabel(bubble.iso)} at {timeLabel(bubble.iso)}</span>
@@ -721,7 +721,7 @@ function AddTouchModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
   return (
     <>
       <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
-      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-overlay">
         <h3 className="font-semibold text-ink">Add a follow-up for {prospect.firstName || "this lead"}</h3>
         <p className="mt-1 text-xs text-mist">Pick any date and time inside your sending hours.</p>
 

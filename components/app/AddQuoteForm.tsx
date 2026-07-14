@@ -362,7 +362,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
                 onClick={() => setStart(o.key)}
                 className={`cursor-pointer rounded-xl border p-3 text-left transition-colors ${
                   start === o.key
-                    ? "border-blue bg-sky/50 shadow-[0_4px_16px_-6px_rgba(29,95,219,0.4)]"
+                    ? "border-blue bg-sky/50 shadow-pop"
                     : "border-slate/20 hover:border-blue/50"
                 } ${o.key === "recommended" ? "sm:order-first ring-1 ring-blue/20" : ""}`}
               >

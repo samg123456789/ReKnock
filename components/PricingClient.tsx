@@ -66,7 +66,7 @@ export default function PricingClient({ spotsLeft = 20 }: { spotsLeft?: number }
           </p>
 
           <div className="mt-8">
-            <Link href="/signup" className="inline-block rounded-xl bg-blue px-9 py-4 text-lg font-semibold text-white shadow-[0_8px_20px_-8px_rgba(29,95,219,0.6)] transition-all hover:-translate-y-0.5 hover:bg-blue-deep">
+            <Link href="/signup" className="inline-block rounded-xl bg-blue px-9 py-4 text-lg font-semibold text-white shadow-pop transition-all hover:-translate-y-0.5 hover:bg-blue-deep">
               Claim a founding spot →
             </Link>
           </div>
@@ -112,7 +112,7 @@ export default function PricingClient({ spotsLeft = 20 }: { spotsLeft?: number }
             tiers collapse to a single quiet line below (prices kept as the
             anchor). */}
         <div className="mx-auto mt-10 max-w-md">
-          <div className="card card-hover relative flex flex-col border-blue p-7 shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)]">
+          <div className="card card-hover relative flex flex-col border-blue p-7 shadow-pop">
             <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue px-3 py-1 text-xs font-bold tracking-wide text-white">AVAILABLE NOW</span>
             <h2 className="display text-3xl">Starter</h2>
             <p className="mt-1 text-slate">One contractor, unlimited chasing.</p>

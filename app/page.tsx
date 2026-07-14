@@ -28,7 +28,7 @@ function CTA({ label = "Start for $1 →", big = false }: { label?: string; big?
   return (
     <Link
       href="/signup"
-      className={`inline-block rounded-xl bg-blue font-semibold text-white shadow-[0_8px_20px_-8px_rgba(29,95,219,0.6)] transition-all hover:-translate-y-0.5 hover:bg-blue-deep ${big ? "px-9 py-4 text-lg" : "px-6 py-3 text-base"}`}
+      className={`inline-block rounded-xl bg-blue font-semibold text-white shadow-pop transition-all hover:-translate-y-0.5 hover:bg-blue-deep ${big ? "px-9 py-4 text-lg" : "px-6 py-3 text-base"}`}
     >
       {label}
     </Link>
@@ -232,7 +232,7 @@ export default function Home() {
           </div>
 
           {/* receipt card - plan-agnostic, revenue framing */}
-          <div className="mx-auto w-full max-w-sm rotate-1 rounded-lg bg-white p-7 text-ink shadow-[0_24px_60px_-20px_rgba(0,0,0,0.5)]">
+          <div className="mx-auto w-full max-w-sm rotate-1 rounded-lg bg-white p-7 text-ink shadow-overlay">
             <p className="text-center font-mono text-xs tracking-[0.2em] text-mist">
               ··· ONE QUOTE, TWO ENDINGS ···
             </p>

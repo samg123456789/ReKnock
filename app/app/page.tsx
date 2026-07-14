@@ -105,7 +105,7 @@ export default async function AppHome() {
       ) : null}
 
       {!hasQuotes ? (
-        <div className="card mt-8 border-blue p-7 text-center shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)]">
+        <div className="card mt-8 border-blue p-7 text-center shadow-pop">
           <h2 className="display text-2xl">Add your first quote</h2>
           <p className="mx-auto mt-2 max-w-sm text-slate">
             Drop in a job you just quoted. We&apos;ll show you exactly how and when we&apos;ll chase it, in your voice.

@@ -87,7 +87,7 @@ export default function AppHeader() {
               />
               <div
                 role="menu"
-                className="overlay-panel absolute right-0 z-50 mt-2 w-56 rounded-xl border border-sky-line bg-white p-1.5 shadow-[0_16px_48px_-16px_rgba(16,24,40,0.25)]"
+                className="overlay-panel absolute right-0 z-50 mt-2 w-56 rounded-xl border border-sky-line bg-white p-1.5 shadow-overlay"
               >
                 <p className="truncate px-3 py-2 text-xs text-mist">{email}</p>
                 {me?.isAdmin ? (
