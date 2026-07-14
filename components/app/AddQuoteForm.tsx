@@ -57,7 +57,7 @@ function prettyDateTime(iso: string): string {
 
 type StartChoice = "now" | "tomorrow" | "recommended" | "custom";
 const START_OPTIONS: { key: StartChoice; label: string; hint: string }[] = [
-  { key: "recommended", label: "In 2 days", hint: "Recommended: not pushy, still fresh" },
+  { key: "recommended", label: "In 2 days", hint: "Not pushy, still fresh" },
   { key: "tomorrow", label: "Tomorrow morning", hint: "First thing in your sending hours" },
   { key: "now", label: "Start now", hint: "First text goes out within minutes" },
 ];
@@ -368,7 +368,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
               >
                 <span className={`block font-semibold ${start === o.key ? "text-blue" : "text-ink"}`}>
                   {o.label}
-                  {o.key === "recommended" ? <span className="ml-1.5 rounded-full bg-blue px-2 py-0.5 text-[10px] font-bold text-white">BEST</span> : null}
+                  {o.key === "recommended" ? <span className="ml-1.5 rounded-full bg-sky px-2 py-0.5 text-[11px] font-semibold text-blue">Recommended</span> : null}
                 </span>
                 <span className="mt-0.5 block text-xs text-slate">{o.hint}</span>
               </button>
