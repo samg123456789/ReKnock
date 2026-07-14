@@ -1,6 +1,16 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { appendStopLine } from "@/lib/prompts/followup-drafter";
+
+// Kinds that reach a homeowner. Standing rule (founder, 2026-07-14, interim
+// pending legal review): every one of these carries the STOP line, applied
+// HERE at the send layer so no origin - engine draft, template, reminder,
+// composer, or relay - can forget it. Owner pings and system messages
+// (including the carrier-registered STOP/HELP confirmations, which must stay
+// byte-exact) are excluded. appendStopLine dedupes, so upstream callers that
+// already added it are unaffected.
+const HOMEOWNER_KINDS = new Set(["sequence", "reminder", "manual", "relay"]);
 
 // Exact confirmation strings we registered with the carriers (CLAUDE.md SMS
 // compliance). Do not reword.
@@ -128,6 +138,8 @@ export async function sendSms(opts: {
 }): Promise<SendResult> {
   const admin = createAdminClient();
   const isProd = process.env.VERCEL_ENV === "production";
+  const kind = opts.kind ?? (opts.isRelay ? "relay" : "manual");
+  const body = HOMEOWNER_KINDS.has(kind) ? appendStopLine(opts.body) : opts.body;
 
   if (!isProd && !env.devSmsAllowlist().includes(opts.to)) {
     await admin.from("events").insert({
@@ -144,10 +156,10 @@ export async function sendSms(opts: {
     prospect_id: opts.prospectId,
     direction: "outbound",
     channel: "sms",
-    body: opts.body,
+    body,
     status: "queued",
     sequence_step: opts.sequenceStep ?? null,
-    kind: opts.kind ?? (opts.isRelay ? "relay" : "manual"),
+    kind,
     idempotency_key: opts.idempotencyKey,
   });
   if (insertErr) {
@@ -164,7 +176,7 @@ export async function sendSms(opts: {
 
   try {
     const from = await companyFromNumber(opts.companyId);
-    const twilioSid = await deliverViaTwilio(opts.to, opts.body, from);
+    const twilioSid = await deliverViaTwilio(opts.to, body, from);
     await admin
       .from("messages")
       .update({ status: "sent", twilio_sid: twilioSid, sent_at: new Date().toISOString() })
@@ -228,11 +240,15 @@ export async function sendClaimedMessage(opts: {
 }): Promise<SendResult> {
   const admin = createAdminClient();
   const isProd = process.env.VERCEL_ENV === "production";
+  // Every scheduled row is homeowner-facing (sequence/reminder/manual), so
+  // the every-message STOP rule applies unconditionally; deduped, so bodies
+  // that came through enforceCompliance are unchanged.
+  const body = appendStopLine(opts.body);
 
   if (!isProd && !env.devSmsAllowlist().includes(opts.to)) {
     await admin
       .from("messages")
-      .update({ status: "canceled", body: opts.body, send_meta: { reason: "dev_allowlist" } })
+      .update({ status: "canceled", body, send_meta: { reason: "dev_allowlist" } })
       .eq("id", opts.messageId);
     await admin.from("events").insert({
       company_id: opts.companyId,
@@ -244,15 +260,15 @@ export async function sendClaimedMessage(opts: {
 
   try {
     const from = await companyFromNumber(opts.companyId);
-    const twilioSid = await deliverViaTwilio(opts.to, opts.body, from);
+    const twilioSid = await deliverViaTwilio(opts.to, body, from);
     await admin
       .from("messages")
-      .update({ status: "sent", body: opts.body, twilio_sid: twilioSid, sent_at: new Date().toISOString() })
+      .update({ status: "sent", body, twilio_sid: twilioSid, sent_at: new Date().toISOString() })
       .eq("id", opts.messageId);
     return { sent: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    await admin.from("messages").update({ status: "failed", body: opts.body }).eq("id", opts.messageId);
+    await admin.from("messages").update({ status: "failed", body }).eq("id", opts.messageId);
     await admin.from("failed_jobs").insert({
       company_id: opts.companyId,
       job_type: "sms_send",

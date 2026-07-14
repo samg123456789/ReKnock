@@ -57,20 +57,27 @@ Write the single text now.`;
   return { system, prompt, temperature: 0.7, maxTokens: 200 };
 }
 
+// Founder standing rule 2026-07-14 (interim-conservative pending legal
+// review): the opt-out line goes on EVERY homeowner-facing outbound message
+// without exception - automated drafts, templates, reminders, AND live
+// composer/relay replies. Exactly one copy, on its own blank-separated line,
+// in the carrier-registered casing; any inline copy the model, a template,
+// or the contractor wrote is stripped first so it never doubles.
+export function appendStopLine(text: string): string {
+  const t = text.replace(/\s*reply stop to opt out\.?/gi, "").trim();
+  return `${t}\n\nReply STOP to opt out`;
+}
+
 // Enforce the non-negotiable compliance rules regardless of model output.
-// Founder directive 2026-07-14: the opt-out line goes on EVERY automated
-// message, not only the first touch (first-touch-only read as inconsistent
-// in a real thread). Identification (business name) stays first-touch-only.
+// Identification (business name) stays first-touch-only.
 export function enforceCompliance(text: string, isFirstTouch: boolean, businessName: string): string {
   let t = text.trim().replace(/^["']|["']$/g, "");
   t = t.replace(/https?:\/\/\S+/gi, "").replace(/\bwww\.\S+/gi, "").replace(/\s{2,}/g, " ").trim();
   t = t.replace(/—/g, " "); // strip em-dashes
-  // Strip any inline copy the model or a template wrote, then append exactly
-  // one, on its own blank-separated line, in the carrier-registered casing.
   t = t.replace(/\s*reply stop to opt out\.?/gi, "").trim();
   if (isFirstTouch && businessName && !t.toLowerCase().includes(businessName.toLowerCase().slice(0, 12))) {
     t = `${businessName}: ${t}`;
   }
   if (t.length > 290) t = t.slice(0, 287).trimEnd() + "...";
-  return `${t}\n\nReply STOP to opt out`;
+  return appendStopLine(t);
 }

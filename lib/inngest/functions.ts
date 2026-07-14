@@ -242,9 +242,10 @@ export const sendScheduledMessage = inngest.createFunction(
       // AI draft from the snapshotted intent.
       let body: string | null = null;
       if (msg.kind === "manual" && msg.body?.trim()) {
-        // Live conversation, the contractor's exact words. Compliance dressing
-        // (identification + STOP line) only if this is somehow the first
-        // message this homeowner has ever received from us.
+        // Live conversation, the contractor's exact words. Business-name
+        // identification only on the homeowner's first-ever message; the STOP
+        // line is appended to every message at the send layer
+        // (sendClaimedMessage), per the standing every-message rule.
         const words: string = msg.body;
         body = isFirst ? enforceCompliance(words, true, businessName) : words;
       } else if (msg.body_is_custom && msg.body?.trim()) {
