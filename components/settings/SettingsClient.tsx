@@ -108,64 +108,65 @@ export default function SettingsClient(props: {
 
   return (
     <div>
-      <Card title="Company profile">
-        <div className="flex flex-col gap-3">
-          <input className={input} value={basics.name} onChange={(e) => setBasics({ ...basics, name: e.target.value })} placeholder="Business name" />
-          <input className={input} value={basics.website} onChange={(e) => setBasics({ ...basics, website: e.target.value })} placeholder="Website" />
-          <TradePicker value={trades} onChange={setTrades} />
-          <textarea className={input} rows={2} value={basics.description} onChange={(e) => setBasics({ ...basics, description: e.target.value })} placeholder="What you do" />
-          <div className="flex gap-3">
-            <input className={input} value={basics.avg_quote_amount} onChange={(e) => setBasics({ ...basics, avg_quote_amount: e.target.value })} placeholder="Typical quote $" />
-            <input className={input} value={basics.quotes_per_month} onChange={(e) => setBasics({ ...basics, quotes_per_month: e.target.value })} placeholder="Quotes / month" />
-          </div>
+      <Card id="forwarding" title="Quote forwarding">
+        <p className="text-sm text-slate">Forward or BCC any quote email here and we start chasing it:</p>
+        <div className="mt-1 flex items-center gap-2">
+          <code className="rounded-lg bg-sky px-3 py-1.5 text-sm text-blue-ink">{props.forwardingAddress}</code>
+          <button type="button" className="cursor-pointer text-sm text-blue underline" onClick={() => { navigator.clipboard.writeText(props.forwardingAddress); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+            {copied ? "Copied" : "Copy"}
+          </button>
         </div>
-        <SaveBtn state={basicsState} onClick={() => run(setBasicsState, () => saveCompanyBasics({ ...basics, trades }))} />
-      </Card>
-
-      <Card title="Sending hours">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate">Market (timezone)</span>
-          <select className={input} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-            {US_MARKETS.map(([tz, label]) => <option key={tz} value={tz}>{label}</option>)}
-          </select>
-        </label>
-        <div className="mt-2 flex flex-col gap-1.5">
-          {windows.map((w, i) => (
-            <div key={w.day_of_week} className="flex items-center gap-2 text-sm">
-              <label className="flex w-20 items-center gap-2">
-                <input type="checkbox" checked={w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x)))} />
-                <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
-              </label>
-              <input type="time" className="rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
-              <span className="text-mist">to</span>
-              <input type="time" className="rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
-            </div>
+        <p className="mt-4 text-sm font-semibold text-slate">We only accept mail from your verified emails:</p>
+        <ul className="mt-2 flex flex-col gap-1.5">
+          {senders.map((s) => (
+            <li key={s.id} className="flex items-center gap-2 text-sm">
+              <span className="min-w-0 truncate text-ink">{s.email}</span>
+              {s.verified ? (
+                <span className="shrink-0 rounded-full bg-mint/15 px-2 py-0.5 text-[11px] font-semibold text-mint">Verified</span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-amber/15 px-2 py-0.5 text-[11px] font-semibold text-amber">Check your inbox</span>
+              )}
+              {senders.length > 1 ? (
+                <button
+                  type="button"
+                  className="ml-auto shrink-0 cursor-pointer text-xs text-slate underline hover:text-ink"
+                  onClick={() => run(setSenderState, async () => {
+                    const res = await removeSenderEmail(s.id);
+                    if (res.ok) setSenders((cur) => cur.filter((x) => x.id !== s.id));
+                    return res;
+                  })}
+                >
+                  Remove
+                </button>
+              ) : null}
+            </li>
           ))}
-        </div>
-        <button type="button" className="mt-2 cursor-pointer text-sm text-blue underline" onClick={() => setWindows(windows.map((x) => (x.day_of_week >= 1 && x.day_of_week <= 5 ? { ...x, start_time: windows[1].start_time, end_time: windows[1].end_time } : x)))}>
-          Use Monday&apos;s hours for all weekdays
-        </button>
-        <SaveBtn state={schedState} onClick={() => run(setSchedState, () => saveSchedule(windows, timezone))} />
-      </Card>
-
-      <Card title="Your voice">
-        {samples.length ? (
-          <div className="flex flex-col gap-2">
-            {samples.map((s, i) => <div key={i} className="max-w-[90%] self-start rounded-2xl rounded-bl-sm bg-sky px-3.5 py-2 text-[15px] text-ink">{s}</div>)}
-          </div>
-        ) : null}
-        <label className="mt-3 block text-sm font-semibold text-slate">Voice guide</label>
-        <textarea className={`${input} mt-1`} rows={7} value={masterPrompt} onChange={(e) => setMasterPrompt(e.target.value)} />
-        <div className="mt-3 flex items-center gap-3">
-          <button type="button" onClick={() => run(setVoiceState, () => saveVoiceProfile({ questionnaire: q, masterPrompt, samples }))} disabled={voiceState === "saving"} className="btn btn-primary">
-            {voiceState === "saving" ? "Saving..." : "Save voice"}
+        </ul>
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            className={`${input} max-w-xs`}
+            type="email"
+            value={newSender}
+            onChange={(e) => setNewSender(e.target.value)}
+            placeholder="Add another email you send from"
+          />
+          <button
+            type="button"
+            disabled={senderState === "saving" || !newSender.trim()}
+            onClick={() => run(setSenderState, async () => {
+              const res = await addSenderEmail(newSender);
+              if (res.ok) {
+                setSenders((cur) => [...cur, { id: `tmp-${Date.now()}`, email: newSender.trim().toLowerCase(), verified: false }]);
+                setNewSender("");
+              }
+              return res;
+            })}
+            className="btn btn-ghost"
+          >
+            {senderState === "saving" ? "Adding..." : "Add"}
           </button>
-          <button type="button" disabled={regenPending} onClick={async () => { setRegenPending(true); const r = await generateVoiceProfile(q); setRegenPending(false); if (r.ok) { const d = r.data as VoiceProfileResult; setMasterPrompt(d.master_prompt); setSamples(d.samples); } }} className="btn btn-ghost">
-            {regenPending ? "Rewriting..." : "Regenerate"}
-          </button>
-          {voiceState === "saved" ? <span className="text-sm text-mint">Saved</span> : null}
-          {voiceState && voiceState !== "saving" && voiceState !== "saved" ? <span className="text-sm text-red-700">{voiceState}</span> : null}
         </div>
+        {senderState && senderState !== "saving" && senderState !== "saved" ? <p className="mt-2 text-sm text-red-600">{senderState}</p> : null}
       </Card>
 
       <Card id="relay-cell" title="Reply relay number">
@@ -230,71 +231,70 @@ export default function SettingsClient(props: {
         )}
       </Card>
 
+      <Card title="Sending hours">
+        <label className="flex flex-col gap-1">
+          <span className="text-sm font-semibold text-slate">Market (timezone)</span>
+          <select className={input} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+            {US_MARKETS.map(([tz, label]) => <option key={tz} value={tz}>{label}</option>)}
+          </select>
+        </label>
+        <div className="mt-2 flex flex-col gap-1.5">
+          {windows.map((w, i) => (
+            <div key={w.day_of_week} className="flex items-center gap-2 text-sm">
+              <label className="flex w-20 items-center gap-2">
+                <input type="checkbox" checked={w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x)))} />
+                <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
+              </label>
+              <input type="time" className="rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
+              <span className="text-mist">to</span>
+              <input type="time" className="rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
+            </div>
+          ))}
+        </div>
+        <button type="button" className="mt-2 cursor-pointer text-sm text-blue underline" onClick={() => setWindows(windows.map((x) => (x.day_of_week >= 1 && x.day_of_week <= 5 ? { ...x, start_time: windows[1].start_time, end_time: windows[1].end_time } : x)))}>
+          Use Monday&apos;s hours for all weekdays
+        </button>
+        <SaveBtn state={schedState} onClick={() => run(setSchedState, () => saveSchedule(windows, timezone))} />
+      </Card>
+
       <Card title="Your ReKnock line">
         <p className="text-sm text-slate">
           Texting number: <span className="font-semibold text-ink">{props.numberE164 ?? (props.numberStatus ? props.numberStatus : "activating")}</span>
         </p>
       </Card>
 
-      <Card id="forwarding" title="Quote forwarding">
-        <p className="text-sm text-slate">Forward or BCC any quote email here and we start chasing it:</p>
-        <div className="mt-1 flex items-center gap-2">
-          <code className="rounded-lg bg-sky px-3 py-1.5 text-sm text-blue-ink">{props.forwardingAddress}</code>
-          <button type="button" className="cursor-pointer text-sm text-blue underline" onClick={() => { navigator.clipboard.writeText(props.forwardingAddress); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
-            {copied ? "Copied" : "Copy"}
+      <Card title="Your voice">
+        {samples.length ? (
+          <div className="flex flex-col gap-2">
+            {samples.map((s, i) => <div key={i} className="max-w-[90%] self-start rounded-2xl rounded-bl-sm bg-sky px-3.5 py-2 text-[15px] text-ink">{s}</div>)}
+          </div>
+        ) : null}
+        <label className="mt-3 block text-sm font-semibold text-slate">Voice guide</label>
+        <textarea className={`${input} mt-1`} rows={7} value={masterPrompt} onChange={(e) => setMasterPrompt(e.target.value)} />
+        <div className="mt-3 flex items-center gap-3">
+          <button type="button" onClick={() => run(setVoiceState, () => saveVoiceProfile({ questionnaire: q, masterPrompt, samples }))} disabled={voiceState === "saving"} className="btn btn-primary">
+            {voiceState === "saving" ? "Saving..." : "Save voice"}
           </button>
-        </div>
-        <p className="mt-4 text-sm font-semibold text-slate">We only accept mail from your verified emails:</p>
-        <ul className="mt-2 flex flex-col gap-1.5">
-          {senders.map((s) => (
-            <li key={s.id} className="flex items-center gap-2 text-sm">
-              <span className="min-w-0 truncate text-ink">{s.email}</span>
-              {s.verified ? (
-                <span className="shrink-0 rounded-full bg-mint/15 px-2 py-0.5 text-[11px] font-semibold text-mint">Verified</span>
-              ) : (
-                <span className="shrink-0 rounded-full bg-amber/15 px-2 py-0.5 text-[11px] font-semibold text-amber">Check your inbox</span>
-              )}
-              {senders.length > 1 ? (
-                <button
-                  type="button"
-                  className="ml-auto shrink-0 cursor-pointer text-xs text-slate underline hover:text-ink"
-                  onClick={() => run(setSenderState, async () => {
-                    const res = await removeSenderEmail(s.id);
-                    if (res.ok) setSenders((cur) => cur.filter((x) => x.id !== s.id));
-                    return res;
-                  })}
-                >
-                  Remove
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-        <div className="mt-3 flex items-center gap-2">
-          <input
-            className={`${input} max-w-xs`}
-            type="email"
-            value={newSender}
-            onChange={(e) => setNewSender(e.target.value)}
-            placeholder="Add another email you send from"
-          />
-          <button
-            type="button"
-            disabled={senderState === "saving" || !newSender.trim()}
-            onClick={() => run(setSenderState, async () => {
-              const res = await addSenderEmail(newSender);
-              if (res.ok) {
-                setSenders((cur) => [...cur, { id: `tmp-${Date.now()}`, email: newSender.trim().toLowerCase(), verified: false }]);
-                setNewSender("");
-              }
-              return res;
-            })}
-            className="btn btn-ghost"
-          >
-            {senderState === "saving" ? "Adding..." : "Add"}
+          <button type="button" disabled={regenPending} onClick={async () => { setRegenPending(true); const r = await generateVoiceProfile(q); setRegenPending(false); if (r.ok) { const d = r.data as VoiceProfileResult; setMasterPrompt(d.master_prompt); setSamples(d.samples); } }} className="btn btn-ghost">
+            {regenPending ? "Rewriting..." : "Regenerate"}
           </button>
+          {voiceState === "saved" ? <span className="text-sm text-mint">Saved</span> : null}
+          {voiceState && voiceState !== "saving" && voiceState !== "saved" ? <span className="text-sm text-red-700">{voiceState}</span> : null}
         </div>
-        {senderState && senderState !== "saving" && senderState !== "saved" ? <p className="mt-2 text-sm text-red-600">{senderState}</p> : null}
+      </Card>
+
+      <Card title="Company profile">
+        <div className="flex flex-col gap-3">
+          <input className={input} value={basics.name} onChange={(e) => setBasics({ ...basics, name: e.target.value })} placeholder="Business name" />
+          <input className={input} value={basics.website} onChange={(e) => setBasics({ ...basics, website: e.target.value })} placeholder="Website" />
+          <TradePicker value={trades} onChange={setTrades} />
+          <textarea className={input} rows={2} value={basics.description} onChange={(e) => setBasics({ ...basics, description: e.target.value })} placeholder="What you do" />
+          <div className="flex gap-3">
+            <input className={input} value={basics.avg_quote_amount} onChange={(e) => setBasics({ ...basics, avg_quote_amount: e.target.value })} placeholder="Typical quote $" />
+            <input className={input} value={basics.quotes_per_month} onChange={(e) => setBasics({ ...basics, quotes_per_month: e.target.value })} placeholder="Quotes / month" />
+          </div>
+        </div>
+        <SaveBtn state={basicsState} onClick={() => run(setBasicsState, () => saveCompanyBasics({ ...basics, trades }))} />
       </Card>
 
       <Card title="Billing">
