@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
+import { appendStopLine, enforceCompliance } from "@/lib/prompts/followup-drafter";
 import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ReminderItem, type ProspectDetail, type PendingSend } from "@/components/inbox/InboxClient";
 
 export const metadata: Metadata = { title: "Inbox - ReKnock" };
@@ -15,7 +16,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
   if (!cid) return <InboxClient conversations={[]} selectedId={null} thread={[]} scheduled={[]} reminders={[]} prospect={null} pending={[]} />;
 
   // Independent queries run in parallel (was 2 serial round-trips).
-  const [{ data: prospects }, { data: allMessages }] = await Promise.all([
+  const [{ data: prospects }, { data: allMessages }, { data: company }] = await Promise.all([
     sb
       .from("prospects")
       .select("id, first_name, last_name, job_type, status, phone_e164, email, address, quote_amount, quote_date, source, campaign_id, notes, created_at")
@@ -28,6 +29,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       .eq("company_id", cid)
       .order("created_at", { ascending: true })
       .limit(2000),
+    sb.from("companies").select("name").eq("id", cid).maybeSingle(),
   ]);
 
   // The homeowner-facing thread: hide future/canceled rows (they render as
@@ -101,11 +103,21 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
     }
 
     // Composer messages still inside their grace window: real bubbles with a
-    // live Cancel until the dispatcher claims them.
+    // live Cancel until the dispatcher claims them. Previewed EXACTLY as they
+    // will send - same functions the engine applies at dispatch: STOP line on
+    // every message, business-name identification only when it would be the
+    // homeowner's first-ever message from us.
+    const hasPriorSend = (messages ?? []).some(
+      (m) => m.prospect_id === selected.id && m.direction === "outbound" && m.status !== "failed" && ["sequence", "reminder", "manual", "relay"].includes(m.kind ?? ""),
+    );
     pending = (allMessages ?? [])
       .filter((m) => m.prospect_id === selected.id && m.status === "scheduled" && m.kind === "manual")
       .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
-      .map((m) => ({ id: m.id as string, body: m.body ?? "", iso: m.scheduled_for ?? m.created_at }));
+      .map((m) => ({
+        id: m.id as string,
+        body: hasPriorSend ? appendStopLine(m.body ?? "") : enforceCompliance(m.body ?? "", true, company?.name ?? ""),
+        iso: m.scheduled_for ?? m.created_at,
+      }));
 
     const { data: rems } = await sb
       .from("reminders")

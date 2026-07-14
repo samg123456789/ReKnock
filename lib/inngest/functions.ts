@@ -230,7 +230,9 @@ export const sendScheduledMessage = inngest.createFunction(
         .select("id")
         .eq("prospect_id", msg.prospect_id)
         .eq("direction", "outbound")
-        .eq("status", "sent")
+        // Delivery callbacks flip sent -> delivered; both mean "already
+        // contacted", or the first-touch identification would repeat.
+        .in("status", ["sent", "delivered"])
         .in("kind", ["sequence", "reminder", "manual", "relay"])
         .limit(1);
       const isFirst = !prior?.length;

@@ -444,7 +444,9 @@ export async function draftTouchPreview(messageId: string): Promise<DraftResult>
     .select("id")
     .eq("prospect_id", msg.prospect_id)
     .eq("direction", "outbound")
-    .eq("status", "sent")
+    // Delivery callbacks flip sent -> delivered; both mean "already
+    // contacted" (same rule as the engine).
+    .in("status", ["sent", "delivered"])
     .in("kind", ["sequence", "reminder", "manual", "relay"])
     .limit(1);
   const isFirst = !prior?.length;
