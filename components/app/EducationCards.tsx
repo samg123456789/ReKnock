@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { markFeatureTourDone } from "@/lib/tour-actions";
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -32,9 +33,9 @@ function CopyButton({ value }: { value: string }) {
 // at the top, body filling the middle, and a fixed-height action slot pinned
 // to the bottom edge - the copy field, link, or status note in one card sits
 // at exactly the same vertical position as in its neighbors.
-function Card({ badge, title, children, action }: { badge: string; title: string; children: React.ReactNode; action: React.ReactNode }) {
+function Card({ badge, title, children, action, className = "" }: { badge: string; title: string; children: React.ReactNode; action: React.ReactNode; className?: string }) {
   return (
-    <div className="flex flex-col rounded-2xl border border-sky-line bg-white p-5">
+    <div className={`flex flex-col rounded-2xl border border-sky-line bg-white p-5 ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-blue">{badge}</p>
       <h3 className="mt-1 font-semibold text-ink">{title}</h3>
       <div className="mt-2 flex-1 text-sm leading-relaxed text-slate">{children}</div>
@@ -62,6 +63,7 @@ export default function EducationCards({
   reknockNumber,
   forwardingEmail,
   hasEmailProspect = false,
+  introduce = false,
 }: {
   relayCell: string | null;
   reknockNumber: { e164: string; status: string } | null;
@@ -69,8 +71,20 @@ export default function EducationCards({
   // True once the company has at least one prospect that came in by email
   // (forward or BCC), i.e. the forwarding address has been used for real.
   hasEmailProspect?: boolean;
+  // First dashboard visit after onboarding: the cards stagger in (replaces
+  // the old blocking feature-tour modal) and the visit is recorded so the
+  // entrance never repeats.
+  introduce?: boolean;
 }) {
   const numberLive = reknockNumber?.status === "active";
+
+  useEffect(() => {
+    if (!introduce) return;
+    // One retry if the flag write fails; otherwise the entrance replays next login.
+    void markFeatureTourDone().then((ok) => {
+      if (!ok) void markFeatureTourDone();
+    });
+  }, [introduce]);
 
   // Completion signals: a set-up feature compacts to a one-line row, but a
   // card never disappears entirely.
@@ -113,6 +127,7 @@ export default function EducationCards({
         <div className={`mt-4 grid gap-3 ${gridCols}`}>
           {!emailDone && (
             <Card
+              className={introduce ? "rise rise-1" : ""}
               badge="Crown jewel"
               title="Forward any quote, we chase it"
               action={
@@ -127,6 +142,7 @@ export default function EducationCards({
           )}
           {!relayDone && (
             <Card
+              className={introduce ? "rise rise-2" : ""}
               badge="Reply relay"
               title="Replies come straight to your phone"
               action={<Link href="/settings#relay-cell" className="text-sm font-semibold text-blue hover:underline">Add your cell number →</Link>}
@@ -136,6 +152,7 @@ export default function EducationCards({
           )}
           {!lineDone && (
             <Card
+              className={introduce ? "rise rise-3" : ""}
               badge="Your ReKnock line"
               title="A local number they recognize"
               action={

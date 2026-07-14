@@ -4,7 +4,6 @@ import Link from "next/link";
 import { getActingCompany } from "@/lib/acting-company";
 import DashboardTable, { type ProspectRow } from "@/components/app/DashboardTable";
 import EducationCards from "@/components/app/EducationCards";
-import FeatureTour from "@/components/app/FeatureTour";
 import NumberPicker from "@/components/app/NumberPicker";
 import { INTAKE_EMAIL } from "@/lib/intake-email";
 
@@ -145,14 +144,8 @@ export default async function AppHome() {
         reknockNumber={phone?.e164 ? { e164: phone.e164, status: phone.status ?? "" } : null}
         forwardingEmail={forwardingEmail}
         hasEmailProspect={hasEmailProspect}
+        introduce={showTour}
       />
-
-      {showTour && (
-        <FeatureTour
-          forwardingEmail={forwardingEmail}
-          reknockNumber={phone?.e164 ? { e164: phone.e164, status: phone.status ?? "" } : null}
-        />
-      )}
     </main>
   );
 }
