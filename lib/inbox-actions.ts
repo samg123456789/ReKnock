@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/admin";
 import { sendSms, canSendNow, nextSendTime } from "@/lib/twilio";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
-import { cancelScheduledForProspect, rearmSequence } from "@/lib/enrollment";
+import { cancelScheduledForProspect, cancelPendingReminders, rearmSequence } from "@/lib/enrollment";
 import { inngest } from "@/lib/inngest/client";
 
 export type InboxResult = { ok: true } | { ok: false; error: string };
@@ -102,6 +102,34 @@ export async function setProspectStatus(prospectId: string, status: string): Pro
   }
   if (a.impersonating) {
     await logAudit(a.client, { actorUserId: a.actorUserId, actorEmail: a.actorEmail, action: "support_set_status", targetCompanyId: a.companyId, metadata: { prospect_id: prospectId, status } });
+  }
+  return { ok: true };
+}
+
+// Soft delete only. Stamps deleted_at and cancels all pending work; the row
+// and its message ledger stay in the database permanently (append-only TCPA
+// defense file). There is no hard-delete code path anywhere in the app.
+export async function deleteProspect(prospectId: string): Promise<InboxResult> {
+  const a = await acting();
+  const { data: updated, error } = await a.client
+    .from("prospects")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", prospectId)
+    .eq("company_id", a.companyId!)
+    .is("deleted_at", null)
+    .select("id");
+  if (error) return { ok: false, error: "Could not delete. Try again." };
+  if (!updated?.length) return { ok: false, error: "Already deleted." };
+
+  await cancelScheduledForProspect(prospectId, "prospect_deleted");
+  await cancelPendingReminders(prospectId, "prospect_deleted");
+  await a.client.from("events").insert({
+    company_id: a.companyId!,
+    type: "prospect_deleted",
+    payload: { prospect_id: prospectId },
+  });
+  if (a.impersonating) {
+    await logAudit(a.client, { actorUserId: a.actorUserId, actorEmail: a.actorEmail, action: "support_delete_prospect", targetCompanyId: a.companyId, metadata: { prospect_id: prospectId } });
   }
   return { ok: true };
 }

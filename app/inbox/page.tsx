@@ -20,6 +20,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       .from("prospects")
       .select("id, first_name, last_name, job_type, status, phone_e164, email, address, quote_amount, quote_date, source, campaign_id, notes, created_at")
       .eq("company_id", cid)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false }),
     sb
       .from("messages")

@@ -25,6 +25,7 @@ export default async function AppHome() {
             .from("prospects")
             .select("id, first_name, last_name, job_type, quote_amount, quote_date, status, campaign_id, source, created_at")
             .eq("company_id", cid)
+            .is("deleted_at", null)
             .order("created_at", { ascending: false }),
           sb
             .from("messages")

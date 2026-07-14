@@ -98,6 +98,7 @@ export async function bulkCreateProspects(
     .from("prospects")
     .select("phone_e164")
     .eq("company_id", companyId)
+    .is("deleted_at", null)
     .in("phone_e164", valid.map((v) => v.phone));
   if (existErr) return fail("Could not check for existing customers. Please try again.");
   const existingPhones = new Set((existing ?? []).map((p) => p.phone_e164));

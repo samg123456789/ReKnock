@@ -180,6 +180,7 @@ export async function createQuote(input: {
       .select("id, first_name, last_name, job_type, status")
       .eq("company_id", company.id)
       .eq("phone_e164", phone)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

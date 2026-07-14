@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendManualMessage, setProspectStatus, updateProspect, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
+import { sendManualMessage, setProspectStatus, updateProspect, deleteProspect, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
 import { formatMoney } from "@/lib/format";
 
 export type Conversation = { id: string; name: string; jobType: string; status: string; snippet: string; time: string; needsAttention: boolean };
@@ -67,6 +67,7 @@ export default function InboxClient({
   const [editStep, setEditStep] = useState<ScheduledBubble | null>(null);
   const [showReminder, setShowReminder] = useState(false);
   const [showAddTouch, setShowAddTouch] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -200,7 +201,7 @@ export default function InboxClient({
                   {showDetails ? "Hide details" : "Details"}
                 </button>
               </div>
-              {showDetails ? <ProspectPanel key={prospect.id} prospect={prospect} onSaved={() => router.refresh()} /> : null}
+              {showDetails ? <ProspectPanel key={prospect.id} prospect={prospect} onSaved={() => router.refresh()} onDelete={() => setShowDelete(true)} /> : null}
             </div>
 
             {/* messages */}
@@ -313,6 +314,13 @@ export default function InboxClient({
                 onSaved={() => { setShowReminder(false); router.refresh(); }}
               />
             ) : null}
+            {showDelete ? (
+              <DeleteProspectModal
+                prospect={prospect}
+                onClose={() => setShowDelete(false)}
+                onDeleted={() => { setShowDelete(false); router.push("/inbox"); router.refresh(); }}
+              />
+            ) : null}
           </>
         )}
       </section>
@@ -324,7 +332,7 @@ const panelInput = "w-full rounded-lg border border-slate/20 px-3 py-2 text-sm o
 
 // Editable prospect details + notes. Notes feed the AI when drafting future
 // follow-ups for this prospect.
-function ProspectPanel({ prospect, onSaved }: { prospect: ProspectDetail; onSaved: () => void }) {
+function ProspectPanel({ prospect, onSaved, onDelete }: { prospect: ProspectDetail; onSaved: () => void; onDelete: () => void }) {
   const [f, setF] = useState({
     first_name: prospect.firstName,
     last_name: prospect.lastName,
@@ -369,8 +377,65 @@ function ProspectPanel({ prospect, onSaved }: { prospect: ProspectDetail; onSave
           {saving ? "Saving..." : "Save details"}
         </button>
         {saved ? <span className="text-xs text-mint">Saved</span> : null}
+        <button type="button" onClick={onDelete} className="ml-auto cursor-pointer text-xs font-semibold text-red-700/70 hover:text-red-700 hover:underline">
+          Delete this quote
+        </button>
       </div>
     </div>
+  );
+}
+
+// Delete confirmation, same confirm-with-1 pattern as the SMS relay ("text 1
+// to send it"). Soft delete: the thread disappears from the app, the record
+// stays on file.
+function DeleteProspectModal({ prospect, onClose, onDeleted }: { prospect: ProspectDetail; onClose: () => void; onDeleted: () => void }) {
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setErr(null);
+    const res = await deleteProspect(prospect.id);
+    setBusy(false);
+    if (!res.ok) return setErr(res.error);
+    onDeleted();
+  }
+
+  return (
+    <>
+      <button type="button" aria-label="Close" className="overlay-scrim fixed inset-0 z-40 cursor-default bg-ink/20" onClick={onClose} />
+      <div className="overlay-panel fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-sky-line bg-white p-6 shadow-[0_24px_64px_-16px_rgba(16,24,40,0.35)]">
+        <h3 className="font-semibold text-ink">Delete {prospect.name}?</h3>
+        <p className="mt-1 text-sm text-slate">
+          This stops every follow-up and reminder and removes them from your dashboard and inbox. Their message history stays on file for compliance.
+        </p>
+        <label className="mt-4 flex flex-col gap-1">
+          <span className="text-[11px] font-semibold text-mist">Type 1 to delete</span>
+          <input
+            className={panelInput}
+            inputMode="numeric"
+            autoFocus
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && confirm.trim() === "1" && !busy) run(); }}
+            placeholder="1"
+          />
+        </label>
+        {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={busy || confirm.trim() !== "1"}
+            onClick={run}
+            className="btn btn-sm bg-red-700 text-white hover:bg-red-800 disabled:opacity-40"
+          >
+            {busy ? "Deleting..." : "Delete"}
+          </button>
+          <button type="button" onClick={onClose} className="ml-auto cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate hover:bg-sky">Keep it</button>
+        </div>
+      </div>
+    </>
   );
 }
 

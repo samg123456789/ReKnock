@@ -105,7 +105,7 @@ export const sendScheduledMessage = inngest.createFunction(
       const [{ data: p }, { data: co }, { data: windows }, { data: voice }] = await Promise.all([
         admin
           .from("prospects")
-          .select("status, phone_e164, first_name, job_type, quote_amount, quote_date, notes")
+          .select("status, phone_e164, first_name, job_type, quote_amount, quote_date, notes, deleted_at")
           .eq("id", msg.prospect_id)
           .maybeSingle(),
         admin
@@ -128,6 +128,12 @@ export const sendScheduledMessage = inngest.createFunction(
       if (!p?.phone_e164 || !co) {
         await cancel("no_phone");
         return { skipped: "no_phone" };
+      }
+      // Deleting a prospect cancels its rows; this is the send-time backstop
+      // in case anything was scheduled between the delete and now.
+      if (p.deleted_at) {
+        await cancel("prospect_deleted");
+        return { skipped: "prospect_deleted" };
       }
       if (co.suspended_at) {
         await cancel("suspended");
@@ -724,6 +730,7 @@ export const processInboundEmail = inngest.createFunction(
         .select("id, first_name, status")
         .eq("company_id", companyId)
         .eq("phone_e164", phone)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

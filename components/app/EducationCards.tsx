@@ -28,12 +28,17 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function Card({ badge, title, children }: { badge: string; title: string; children: React.ReactNode }) {
+// Shared internal grid so the three cards align row for row: badge and title
+// at the top, body filling the middle, and a fixed-height action slot pinned
+// to the bottom edge - the copy field, link, or status note in one card sits
+// at exactly the same vertical position as in its neighbors.
+function Card({ badge, title, children, action }: { badge: string; title: string; children: React.ReactNode; action: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-sky-line bg-white p-5">
+    <div className="flex flex-col rounded-2xl border border-sky-line bg-white p-5">
       <p className="text-xs font-semibold uppercase tracking-wide text-blue">{badge}</p>
       <h3 className="mt-1 font-semibold text-ink">{title}</h3>
-      <div className="mt-2 text-sm leading-relaxed text-slate">{children}</div>
+      <div className="mt-2 flex-1 text-sm leading-relaxed text-slate">{children}</div>
+      <div className="mt-3 flex h-12 items-center">{action}</div>
     </div>
   );
 }
@@ -107,33 +112,46 @@ export default function EducationCards({
       {fullCount > 0 && (
         <div className={`mt-4 grid gap-3 ${gridCols}`}>
           {!emailDone && (
-            <Card badge="Crown jewel" title="Forward any quote, we chase it">
+            <Card
+              badge="Crown jewel"
+              title="Forward any quote, we chase it"
+              action={
+                <div className="flex h-full w-full items-center gap-2 rounded-lg bg-sky/50 px-3">
+                  <code className="min-w-0 flex-1 truncate text-[13px] font-semibold text-blue-ink">{forwardingEmail}</code>
+                  <CopyButton value={forwardingEmail} />
+                </div>
+              }
+            >
               <p>Forward or BCC a quote email from your registered email address and we pull out the customer and start following up. No typing.</p>
-              <div className="mt-3 flex items-center gap-2 rounded-lg bg-sky/50 px-3 py-2">
-                <code className="min-w-0 flex-1 truncate text-[13px] font-semibold text-blue-ink">{forwardingEmail}</code>
-                <CopyButton value={forwardingEmail} />
-              </div>
             </Card>
           )}
           {!relayDone && (
-            <Card badge="Reply relay" title="Replies come straight to your phone">
+            <Card
+              badge="Reply relay"
+              title="Replies come straight to your phone"
+              action={<Link href="/settings#relay-cell" className="text-sm font-semibold text-blue hover:underline">Add your cell number →</Link>}
+            >
               <p>The moment a homeowner texts back, we stop the follow-ups and ping your cell. Just text back and we pass it on.</p>
-              <Link href="/settings#relay-cell" className="mt-3 inline-block text-sm font-semibold text-blue hover:underline">Add your cell number →</Link>
             </Card>
           )}
           {!lineDone && (
-            <Card badge="Your ReKnock line" title="A local number they recognize">
+            <Card
+              badge="Your ReKnock line"
+              title="A local number they recognize"
+              action={
+                <div className="flex h-full w-full items-center gap-2 rounded-lg bg-sky/50 px-3">
+                  {reknockNumber ? (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-blue-ink">{reknockNumber.e164}</span>
+                      <span className="shrink-0 rounded-full bg-amber/15 px-2 py-0.5 text-[11px] font-semibold text-amber">Activating</span>
+                    </>
+                  ) : (
+                    <span className="text-[13px] text-slate">Setting up your number. Carriers take up to a couple of days.</span>
+                  )}
+                </div>
+              }
+            >
               <p>Every text comes from your own local number, so customers know it is you. It is registered with the carriers so your messages land.</p>
-              <div className="mt-3 flex items-center gap-2 rounded-lg bg-sky/50 px-3 py-2">
-                {reknockNumber ? (
-                  <>
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-blue-ink">{reknockNumber.e164}</span>
-                    <span className="shrink-0 rounded-full bg-amber/15 px-2 py-0.5 text-[11px] font-semibold text-amber">Activating</span>
-                  </>
-                ) : (
-                  <span className="text-[13px] text-slate">Setting up your number. Carriers take up to a couple of days.</span>
-                )}
-              </div>
             </Card>
           )}
         </div>
