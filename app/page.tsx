@@ -97,7 +97,7 @@ const faqs = [
   },
   {
     q: "What does the $1 trial include?",
-    a: "A full week of the Starter plan: your dedicated number, your voice-matched sequences, and your first 50 follow-up texts. The week starts the day your number goes live. Card up front, cancel with one tap.",
+    a: "A full week of the Starter plan: your dedicated number, your voice-matched sequences, and your first 50 follow-up texts. The week starts the day your number goes live. Card up front.",
   },
 ];
 
@@ -143,7 +143,7 @@ export default function Home() {
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-14 md:grid-cols-2 md:pb-24 md:pt-20">
           <div>
             <p className="eyebrow rise rise-1 mb-4">
-              For roofers, painters, landscapers &amp; every quoted trade
+              For every tradesperson who quotes a job
             </p>
             <h1 className="display rise rise-1 text-6xl md:text-7xl">
               You quoted it.
@@ -151,17 +151,16 @@ export default function Home() {
               Then&hellip; <span className="text-mist">nothing.</span>
             </h1>
             <p className="rise rise-2 mt-6 max-w-md text-lg leading-relaxed text-slate">
-              ReKnock texts your homeowners after every quote - politely, in
-              your own words - until they answer. The second they reply, it
-              stops and hands the conversation to you.
+              That unanswered quote is money you already earned, walking out
+              the door. ReKnock keeps chasing it, politely, in your own words,
+              until they answer. The second they reply, it stops and hands you
+              the conversation.
             </p>
             <div className="rise rise-3 mt-8 flex flex-wrap items-center gap-4">
               <CTA big />
               <p className="font-mono text-sm text-mist">
                 $1 first week · $29/mo founding rate{" "}
                 <span className="text-mist/70 line-through">$39</span>
-                <br />
-                Cancel with one tap
               </p>
             </div>
           </div>
@@ -330,7 +329,7 @@ export default function Home() {
             One week of everything for a dollar - your dedicated number,
             voice-matched follow-ups, 50 texts. Then $29/month, locked for
             life for our first 20 founding contractors (list price $39). No
-            contracts, cancel with one tap.
+            contracts.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <CTA big />
