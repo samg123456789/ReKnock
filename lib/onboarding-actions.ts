@@ -280,6 +280,18 @@ export async function saveSchedule(
 export async function finishOnboarding(heardAbout?: string): Promise<void> {
   const { supabase, company } = await requireCompany();
 
+  // The number step is mandatory: nothing in the product can text without
+  // one, so the dashboard is unreachable number-less no matter how this
+  // action gets called.
+  const { data: number } = await supabase
+    .from("phone_numbers")
+    .select("id")
+    .eq("company_id", company.id)
+    .neq("status", "released")
+    .limit(1)
+    .maybeSingle();
+  if (!number) redirect("/onboarding");
+
   if (heardAbout?.trim()) {
     await supabase.from("companies").update({ heard_about: heardAbout.trim() }).eq("id", company.id);
   }

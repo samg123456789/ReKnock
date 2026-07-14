@@ -5,6 +5,7 @@ import { captureAttribution } from "@/lib/attribution-actions";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import type { InputImage } from "@/lib/ai";
 import TradePicker from "@/components/onboarding/TradePicker";
+import NumberPicker from "@/components/app/NumberPicker";
 import {
   saveCompanyBasics,
   saveQuoteVolume,
@@ -54,7 +55,7 @@ function defaultWindows(): Window[] {
   });
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
 const primaryBtn =
   "btn btn-primary btn-lg";
@@ -81,6 +82,7 @@ export default function OnboardingWizard({
   initialWindows,
   initialTimezone,
   initialStep = 0,
+  initialAreaCode = "",
 }: {
   initialBasics: Basics;
   initialTrades: string[];
@@ -89,6 +91,7 @@ export default function OnboardingWizard({
   initialWindows: Window[] | null;
   initialTimezone: string;
   initialStep?: number;
+  initialAreaCode?: string;
 }) {
   const [step, setStep] = useState(Math.min(Math.max(initialStep, 0), TOTAL_STEPS - 1));
 
@@ -613,8 +616,24 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 6: done */}
+      {/* Step 6: pick the ReKnock number. Mandatory - nothing in the product
+          can text without it, so nobody reaches the dashboard number-less. */}
       {step === 5 && (
+        <div>
+          <p className="eyebrow mb-3">Your texting line</p>
+          <h1 className="display text-3xl md:text-4xl">Pick your ReKnock number.</h1>
+          <p className="mt-3 text-slate">
+            This is the local number your customers will see, so pick one in your area code. Every follow-up and reply runs through it.
+          </p>
+          <NumberPicker phone={null} defaultAreaCode={initialAreaCode} bare onClaimed={() => goTo(6)} />
+          <div className="mt-8 flex items-center justify-between">
+            <button className={ghostBtn} onClick={() => goTo(4)}>Back</button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 7: done */}
+      {step === 6 && (
         <div>
           <p className="eyebrow mb-3">You&apos;re set up</p>
           <h1 className="display text-3xl md:text-4xl">Your voice is ready.</h1>

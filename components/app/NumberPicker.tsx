@@ -9,14 +9,19 @@ function prettyUs(e164: string): string {
   return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : e164;
 }
 
-// Pick-your-ReKnock-number card. Shown on the dashboard until the company has
-// a number. One search, one tap to claim, honest activating state after.
+// Pick-your-ReKnock-number flow. The primary home is the mandatory onboarding
+// step (bare variant, onClaimed advances the wizard); the dashboard card
+// remains as the fallback for accounts that predate that step.
 export default function NumberPicker({
   phone,
   defaultAreaCode,
+  bare = false,
+  onClaimed,
 }: {
   phone: { e164: string | null; status: string } | null;
   defaultAreaCode: string;
+  bare?: boolean;
+  onClaimed?: () => void;
 }) {
   const router = useRouter();
   const [areaCode, setAreaCode] = useState(defaultAreaCode);
@@ -25,7 +30,7 @@ export default function NumberPicker({
   const [claiming, setClaiming] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  if (phone) {
+  if (phone && !bare) {
     if (phone.status === "active") return null;
     return (
       <div className="card mt-6 p-5">
@@ -54,15 +59,20 @@ export default function NumberPicker({
     const res = await claimNumber(e164);
     setClaiming(null);
     if (!res.ok) return setErr(res.error);
-    router.refresh();
+    if (onClaimed) onClaimed();
+    else router.refresh();
   }
 
   return (
-    <div className="card mt-6 p-5">
-      <p className="font-semibold text-ink">Pick your ReKnock number</p>
-      <p className="mt-1 text-sm text-slate">
-        This is the local number your customers will see. Pick one in your area code so it feels like you.
-      </p>
+    <div className={bare ? "" : "card mt-6 p-5"}>
+      {!bare ? (
+        <>
+          <p className="font-semibold text-ink">Pick your ReKnock number</p>
+          <p className="mt-1 text-sm text-slate">
+            This is the local number your customers will see. Pick one in your area code so it feels like you.
+          </p>
+        </>
+      ) : null}
       <div className="mt-3 flex items-center gap-2">
         <input
           className="w-24 rounded-xl border border-slate/20 px-3 py-2 text-center text-base outline-none focus:border-blue"

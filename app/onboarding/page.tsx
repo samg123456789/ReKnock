@@ -14,7 +14,7 @@ export default async function Onboarding() {
   if (!user) redirect("/login");
 
   // Independent queries run in parallel (was 3 serial round-trips).
-  const [{ data: company }, { data: voice }, { data: windows }] = await Promise.all([
+  const [{ data: company }, { data: voice }, { data: windows }, { data: phone }, { data: owner }] = await Promise.all([
     supabase
       .from("companies")
       .select("name, website, description, trades, trade, heard_about, avg_quote_amount, quotes_per_month, timezone")
@@ -28,6 +28,8 @@ export default async function Onboarding() {
       .from("sending_windows")
       .select("day_of_week, start_time, end_time, enabled")
       .order("day_of_week", { ascending: true }),
+    supabase.from("phone_numbers").select("id").neq("status", "released").limit(1).maybeSingle(),
+    supabase.from("users").select("cell_phone").not("cell_phone", "is", null).limit(1).maybeSingle(),
   ]);
 
   const initialProfile: VoiceProfileResult | null = voice?.master_prompt
@@ -47,17 +49,20 @@ export default async function Onboarding() {
 
   // Resume where they left off, derived from what is already saved (no extra
   // column needed). Steps: 0 business, 1 quotes, 2 voice questions, 3 voice
-  // review, 4 hours, 5 done. A saved voice profile means the review step was
-  // approved, and sending_windows rows only exist once the hours step saved.
+  // review, 4 hours, 5 number, 6 done. A saved voice profile means the review
+  // step was approved, sending_windows rows only exist once the hours step
+  // saved, and a live phone_numbers row means the number step is done.
   const hasBasics = Boolean(company?.name && initialTrades.length > 0 && (company?.description || company?.website));
   const hasQuotes = company?.avg_quote_amount != null && company?.quotes_per_month != null;
   const hasVoice = Boolean(initialProfile);
   const hasWindows = Boolean(windows && windows.length);
+  const hasNumber = Boolean(phone);
   let initialStep = 0;
   if (hasBasics) initialStep = 1;
   if (hasBasics && hasQuotes) initialStep = 2;
   if (hasBasics && hasQuotes && hasVoice) initialStep = 4;
   if (hasBasics && hasQuotes && hasVoice && hasWindows) initialStep = 5;
+  if (hasBasics && hasQuotes && hasVoice && hasWindows && hasNumber) initialStep = 6;
 
   return (
     <main className="min-h-[70vh]">
@@ -85,6 +90,7 @@ export default async function Onboarding() {
         }
         initialTimezone={company?.timezone ?? ""}
         initialStep={initialStep}
+        initialAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3)}
       />
     </main>
   );
