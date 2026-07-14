@@ -55,7 +55,7 @@ function defaultWindows(): Window[] {
   });
 }
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 6;
 const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
 const primaryBtn =
   "btn btn-primary btn-lg";
@@ -227,18 +227,24 @@ export default function OnboardingWizard({
     goTo(1);
   }
 
-  function submitQuotes() {
+  function submitSchedule() {
+    persist(saveSchedule(windows, timezone));
+    goTo(4);
+  }
+
+  // Final screen: quote volume is still REQUIRED (founder decision), just
+  // collected after the voice reveal instead of before it. Awaited, not
+  // fire-and-forget: a failed save must block the redirect, or the data is
+  // silently lost.
+  async function submitFinish() {
     const avg = basics.avg_quote_amount.replace(/[^0-9.]/g, "");
     const qpm = basics.quotes_per_month.replace(/[^0-9]/g, "");
     if (!avg || !Number(avg)) return setError("Roughly how big is a typical quote? A ballpark is fine.");
     if (!qpm || !Number(qpm)) return setError("About how many quotes do you send a month? A guess is fine.");
-    persist(saveQuoteVolume({ avg_quote_amount: basics.avg_quote_amount, quotes_per_month: basics.quotes_per_month }));
-    goTo(2);
-  }
-
-  function submitSchedule() {
-    persist(saveSchedule(windows, timezone));
-    goTo(5);
+    setError(null);
+    const r = await saveQuoteVolume({ avg_quote_amount: basics.avg_quote_amount, quotes_per_month: basics.quotes_per_month });
+    if (!r.ok) return setError(r.error ?? "That did not save. Check your connection and try again.");
+    startFinish(() => finishOnboarding(basics.heard_about));
   }
 
   async function onScreenshots(files: FileList | null) {
@@ -272,12 +278,11 @@ export default function OnboardingWizard({
     if (tag === "TEXTAREA") return;
     e.preventDefault();
     if (step === 0) submitBasics();
-    else if (step === 1) submitQuotes();
-    else if (step === 2) {
+    else if (step === 1) {
       setProfile(null);
       runGenerate();
-      goTo(3);
-    } else if (step === 4) submitSchedule();
+      goTo(2);
+    } else if (step === 3) submitSchedule();
   }
 
   const setSample = (i: number, v: string) =>
@@ -346,31 +351,8 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 2: quote volume */}
+      {/* Step 2: voice */}
       {step === 1 && (
-        <div>
-          <p className="eyebrow mb-3">Your quotes</p>
-          <h1 className="display text-3xl md:text-4xl">What do your quotes look like?</h1>
-          <p className="mt-3 text-slate">Ballpark is fine. This tunes how we write your follow-ups and shows you what ReKnock brings back.</p>
-          <div className="mt-6 flex flex-col gap-4">
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-slate">Typical quote size</span>
-              <input className={input} inputMode="decimal" value={basics.avg_quote_amount} onChange={(e) => setBasics({ ...basics, avg_quote_amount: e.target.value })} placeholder="$8,500" />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-slate">Quotes you send in a typical month</span>
-              <input className={input} inputMode="numeric" value={basics.quotes_per_month} onChange={(e) => setBasics({ ...basics, quotes_per_month: e.target.value })} placeholder="20" />
-            </label>
-          </div>
-          <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(0)}>Back</button>
-            <button className={primaryBtn} onClick={submitQuotes}>Continue</button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: voice */}
-      {step === 2 && (
         <div>
           <p className="eyebrow mb-3">Your voice</p>
           <h1 className="display text-3xl md:text-4xl">How do you text customers?</h1>
@@ -446,13 +428,13 @@ export default function OnboardingWizard({
             </label>
           </div>
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(1)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(0)}>Back</button>
             <button
               className={primaryBtn}
               onClick={() => {
                 setProfile(null);
                 runGenerate();
-                goTo(3);
+                goTo(2);
               }}
             >
               Build my voice
@@ -461,8 +443,8 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 4: voice review - the reveal */}
-      {step === 3 && (
+      {/* Step 3: voice review - the reveal */}
+      {step === 2 && (
         <div>
           <p className="eyebrow mb-3">Your voice</p>
           <h1 className="display text-3xl md:text-4xl">Here&apos;s how we&apos;ll sound.</h1>
@@ -521,13 +503,13 @@ export default function OnboardingWizard({
                   className={primaryBtn}
                   onClick={() => {
                     persist(saveVoiceProfile({ questionnaire: q, masterPrompt, samples: profile.samples }));
-                    goTo(4);
+                    goTo(3);
                   }}
                 >
                   Sounds like me
                 </button>
                 <div className="flex items-center justify-center gap-2">
-                  <button className={ghostBtn} onClick={() => goTo(2)}>Adjust answers</button>
+                  <button className={ghostBtn} onClick={() => goTo(1)}>Adjust answers</button>
                   <button className={ghostBtn} disabled={genPending} onClick={runGenerate}>{genPending ? "Writing..." : "Try another take"}</button>
                 </div>
               </div>
@@ -548,8 +530,8 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 5: schedule + market */}
-      {step === 4 && (
+      {/* Step 4: schedule + market */}
+      {step === 3 && (
         <div>
           <p className="eyebrow mb-3">When we text</p>
           <h1 className="display text-3xl md:text-4xl">Your sending hours.</h1>
@@ -610,30 +592,30 @@ export default function OnboardingWizard({
             ))}
           </div>
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(3)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(2)}>Back</button>
             <button className={primaryBtn} onClick={submitSchedule}>Continue</button>
           </div>
         </div>
       )}
 
-      {/* Step 6: pick the ReKnock number. Mandatory - nothing in the product
+      {/* Step 5: pick the ReKnock number. Mandatory - nothing in the product
           can text without it, so nobody reaches the dashboard number-less. */}
-      {step === 5 && (
+      {step === 4 && (
         <div>
           <p className="eyebrow mb-3">Your texting line</p>
           <h1 className="display text-3xl md:text-4xl">Pick your ReKnock number.</h1>
           <p className="mt-3 text-slate">
             This is the local number your customers will see, so pick one in your area code. Every follow-up and reply runs through it.
           </p>
-          <NumberPicker phone={null} defaultAreaCode={initialAreaCode} bare onClaimed={() => goTo(6)} />
+          <NumberPicker phone={null} defaultAreaCode={initialAreaCode} bare onClaimed={() => goTo(5)} />
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(4)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(3)}>Back</button>
           </div>
         </div>
       )}
 
-      {/* Step 7: done */}
-      {step === 6 && (
+      {/* Step 6: done */}
+      {step === 5 && (
         <div>
           <p className="eyebrow mb-3">You&apos;re set up</p>
           <h1 className="display text-3xl md:text-4xl">Your voice is ready.</h1>
@@ -643,6 +625,19 @@ export default function OnboardingWizard({
             <p className="mt-2 text-sm leading-relaxed text-slate">
               Ask every lead: &quot;What&apos;s the best number to text your quote to?&quot; A number you can text is a lead ReKnock can chase.
             </p>
+          </div>
+          <div className="mt-6">
+            <p className="text-sm font-semibold text-slate">Last thing: what do your quotes look like? Ballpark is fine.</p>
+            <div className="mt-2 flex gap-3">
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-sm text-mist">Typical quote size</span>
+                <input className={input} inputMode="decimal" value={basics.avg_quote_amount} onChange={(e) => setBasics({ ...basics, avg_quote_amount: e.target.value })} placeholder="$8,500" />
+              </label>
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-sm text-mist">Quotes per month</span>
+                <input className={input} inputMode="numeric" value={basics.quotes_per_month} onChange={(e) => setBasics({ ...basics, quotes_per_month: e.target.value })} placeholder="20" />
+              </label>
+            </div>
           </div>
           <label className="mt-6 flex flex-col gap-1">
             <span className="text-sm text-mist">How did you hear about us? <span>(optional)</span></span>
@@ -655,7 +650,7 @@ export default function OnboardingWizard({
             </select>
           </label>
           <div className="mt-8 flex justify-end">
-            <button className={primaryBtn} disabled={finishing} onClick={() => startFinish(() => finishOnboarding(basics.heard_about))}>
+            <button className={primaryBtn} disabled={finishing} onClick={submitFinish}>
               {finishing ? "Setting up your dashboard..." : "Add my first quote"}
             </button>
           </div>

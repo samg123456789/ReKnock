@@ -48,21 +48,20 @@ export default async function Onboarding() {
       : [];
 
   // Resume where they left off, derived from what is already saved (no extra
-  // column needed). Steps: 0 business, 1 quotes, 2 voice questions, 3 voice
-  // review, 4 hours, 5 number, 6 done. A saved voice profile means the review
-  // step was approved, sending_windows rows only exist once the hours step
-  // saved, and a live phone_numbers row means the number step is done.
+  // column needed). Steps: 0 business, 1 voice questions, 2 voice review,
+  // 3 hours, 4 number, 5 done (quote volume + heard-about live on the final
+  // screen now). A saved voice profile means the review step was approved,
+  // sending_windows rows only exist once the hours step saved, and a live
+  // phone_numbers row means the number step is done.
   const hasBasics = Boolean(company?.name && initialTrades.length > 0 && (company?.description || company?.website));
-  const hasQuotes = company?.avg_quote_amount != null && company?.quotes_per_month != null;
   const hasVoice = Boolean(initialProfile);
   const hasWindows = Boolean(windows && windows.length);
   const hasNumber = Boolean(phone);
   let initialStep = 0;
   if (hasBasics) initialStep = 1;
-  if (hasBasics && hasQuotes) initialStep = 2;
-  if (hasBasics && hasQuotes && hasVoice) initialStep = 4;
-  if (hasBasics && hasQuotes && hasVoice && hasWindows) initialStep = 5;
-  if (hasBasics && hasQuotes && hasVoice && hasWindows && hasNumber) initialStep = 6;
+  if (hasBasics && hasVoice) initialStep = 3;
+  if (hasBasics && hasVoice && hasWindows) initialStep = 4;
+  if (hasBasics && hasVoice && hasWindows && hasNumber) initialStep = 5;
 
   return (
     <main className="min-h-[70vh]">
