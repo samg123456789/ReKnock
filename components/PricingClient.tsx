@@ -22,24 +22,6 @@ const starterFeatures: { lead: string; rest: string }[] = [
   { lead: "10-second intake.", rest: " Forward the email, snap a photo, done" },
   { lead: "See the money.", rest: " Quotes chased, jobs won, revenue recovered" },
 ];
-const growthFeatures = [
-  "Everything in Starter",
-  "Zapier connection (quotes in, results out)",
-  "Direct integrations - Jobber & Housecall Pro first",
-  "Review requests: auto-text a Google review ask after every won job",
-  "Missed-call text-back on your ReKnock line",
-  "WhatsApp follow-up as an optional channel per customer",
-  "Extra texting numbers as an add-on (+$10/mo each)",
-];
-const crewFeatures = [
-  "Everything in Growth",
-  "Up to 5 team members",
-  "3 dedicated texting numbers included",
-  "Per-estimator close-rate reporting",
-  "Custom sequence timing per job size",
-  "Onboarding call included",
-];
-
 function Price({ monthly, annual, isAnnual, struck }: { monthly: number; annual: number; isAnnual: boolean; struck?: { monthly: number; annual: number } }) {
   return (
     <p className="mt-5">
@@ -126,10 +108,11 @@ export default function PricingClient({ spotsLeft = 20 }: { spotsLeft?: number }
 
         </div>
 
-        {/* tiers: stacked on mobile (Starter first), 3 across on desktop with
-            Starter featured in the middle since it is the only purchasable plan */}
-        <div className="mt-10 grid items-stretch gap-6 md:grid-cols-3">
-          <div className="card card-hover relative flex flex-col border-blue p-7 shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)] md:order-2 md:scale-[1.03]">
+        {/* One purchasable plan gets the stage to itself; the unpurchasable
+            tiers collapse to a single quiet line below (prices kept as the
+            anchor). */}
+        <div className="mx-auto mt-10 max-w-md">
+          <div className="card card-hover relative flex flex-col border-blue p-7 shadow-[0_16px_48px_-16px_rgba(29,95,219,0.35)]">
             <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue px-3 py-1 text-xs font-bold tracking-wide text-white">AVAILABLE NOW</span>
             <h2 className="display text-3xl">Starter</h2>
             <p className="mt-1 text-slate">One contractor, unlimited chasing.</p>
@@ -150,39 +133,12 @@ export default function PricingClient({ spotsLeft = 20 }: { spotsLeft?: number }
             </Link>
           </div>
 
-          <div className="card relative flex flex-col p-7 opacity-75 grayscale-[0.3] md:order-1">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-[#e4e7ec] bg-[#f2f4f7] px-3 py-1 text-xs font-bold tracking-wide text-mist">COMING SOON</span>
-            <h2 className="display text-3xl text-slate">Growth</h2>
-            <p className="mt-1 text-mist">For businesses running on other tools too.</p>
-            <div className="text-slate"><Price monthly={79} annual={790} isAnnual={annual} /></div>
-            <ul className="mt-6 flex-1 space-y-3">
-              {growthFeatures.map((f) => (
-                <li key={f} className="flex gap-2.5 text-[15px] leading-snug text-mist">
-                  <span aria-hidden className="mt-0.5 font-bold text-mist">✓</span>{f}
-                </li>
-              ))}
-            </ul>
-            <a href="mailto:hello@getreknock.com?subject=Waitlist: Growth plan&body=Put me on the Growth waitlist. My trade: " className="mt-8 rounded-xl border border-[#e4e7ec] bg-white px-6 py-3.5 text-center font-semibold text-slate transition-colors hover:border-mist">
+          <p className="mt-6 text-center text-sm text-mist">
+            Growth $79 · Crew $149 - coming soon.{" "}
+            <a href="mailto:hello@getreknock.com?subject=Waitlist: Growth or Crew plan&body=Put me on the waitlist. My trade and team size: " className="text-slate underline underline-offset-2 hover:text-ink">
               Join the waitlist
             </a>
-          </div>
-
-          <div className="card relative flex flex-col p-7 opacity-75 grayscale-[0.3] md:order-3">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-[#e4e7ec] bg-[#f2f4f7] px-3 py-1 text-xs font-bold tracking-wide text-mist">COMING SOON</span>
-            <h2 className="display text-3xl text-slate">Crew</h2>
-            <p className="mt-1 text-mist">For teams with more than one estimator.</p>
-            <div className="text-slate"><Price monthly={149} annual={1490} isAnnual={annual} /></div>
-            <ul className="mt-6 flex-1 space-y-3">
-              {crewFeatures.map((f) => (
-                <li key={f} className="flex gap-2.5 text-[15px] leading-snug text-mist">
-                  <span aria-hidden className="mt-0.5 font-bold text-mist">✓</span>{f}
-                </li>
-              ))}
-            </ul>
-            <a href="mailto:hello@getreknock.com?subject=Waitlist: Crew plan&body=Put me on the Crew waitlist. My trade and team size: " className="mt-8 rounded-xl border border-[#e4e7ec] bg-white px-6 py-3.5 text-center font-semibold text-slate transition-colors hover:border-mist">
-              Join the waitlist
-            </a>
-          </div>
+          </p>
         </div>
       </div>
     </section>
