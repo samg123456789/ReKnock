@@ -11,7 +11,11 @@ import { formatMoney } from "@/lib/format";
 const input =
   "w-full rounded-xl border border-slate/20 px-4 py-3 text-lg font-semibold tabular-nums outline-none focus:border-blue";
 
-export default function RoiCalculator() {
+export default function RoiCalculator({
+  className = "card mt-8 p-6 md:p-8",
+}: {
+  className?: string;
+}) {
   const [avgQuote, setAvgQuote] = useState("4500");
   const [perMonth, setPerMonth] = useState("15");
   const [recoverPct, setRecoverPct] = useState(5);
@@ -23,7 +27,7 @@ export default function RoiCalculator() {
   const recoveredJobs = quote > 0 ? Math.round((recoveredYear / quote) * 10) / 10 : 0;
 
   return (
-    <div className="card mt-8 p-6 md:p-8">
+    <div className={className}>
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-semibold text-slate">Your average quote</span>

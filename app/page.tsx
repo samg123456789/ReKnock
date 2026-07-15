@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import PhoneThread from "@/components/PhoneThread";
+import Reveal from "@/components/Reveal";
+import RoiCalculator from "@/components/RoiCalculator";
 
 export const metadata: Metadata = {
   title: "ReKnock - automatic follow-up texts for contractor quotes",
@@ -174,11 +176,11 @@ export default function Home() {
             The jobs go to the last contractor in the thread.
           </h2>
           <div className="mt-12 grid gap-5 sm:grid-cols-2">
-            {benefits.map((b) => (
-              <div key={b.title} className="card card-hover p-6">
+            {benefits.map((b, i) => (
+              <Reveal key={b.title} className="card card-hover p-6" delay={i * 90}>
                 <h3 className="display text-2xl text-blue-ink">{b.title}</h3>
                 <p className="mt-2 leading-relaxed text-slate">{b.body}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -197,13 +199,13 @@ export default function Home() {
             and freezes the instant your homeowner answers.
           </p>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {intake.map((s) => (
-              <div key={s.label} className="card card-hover p-6">
+            {intake.map((s, i) => (
+              <Reveal key={s.label} className="card card-hover p-6" delay={i * 90}>
                 <p className="font-mono text-xs uppercase tracking-wide text-blue">
                   {s.label}
                 </p>
                 <p className="mt-3 leading-relaxed text-slate">{s.body}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -213,51 +215,27 @@ export default function Home() {
       <section className="bg-blue-ink text-white">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
           <div>
+            <p className="eyebrow mb-3 !text-white">Do the math</p>
             <h2 className="display text-4xl md:text-5xl">
               One saved job pays for years of this.
             </h2>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-white/75">
-              Say you send 10 quotes a month and close 3. Following up 4 times
-              instead of 0 doesn&apos;t need to work miracles - it just needs
-              to turn <span className="font-semibold text-white">one</span>{" "}
-              dead quote into a job.
+              Following up 4 times instead of 0 doesn&apos;t need to work
+              miracles - it just needs to turn{" "}
+              <span className="font-semibold text-white">one</span> dead quote
+              into a job. One $4,000 fence. One $8,000 roof repair.
             </p>
             <p className="mt-4 max-w-md text-lg leading-relaxed text-white/75">
-              One $4,000 fence. One $8,000 roof repair. That&apos;s the whole
-              pitch.
+              Put in your own numbers and see what silence is costing you - no
+              signup, right here.
             </p>
           </div>
 
-          {/* receipt card - plan-agnostic, revenue framing */}
-          <div className="mx-auto w-full max-w-sm rotate-1 rounded-lg bg-white p-7 text-ink shadow-overlay">
-            <p className="text-center font-mono text-xs tracking-[0.2em] text-mist">
-              ··· ONE QUOTE, TWO ENDINGS ···
-            </p>
-            <div className="mt-6 space-y-4 font-mono text-[15px]">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-slate">Quote ghosted</span>
-                <span className="flex-1 border-b border-dotted border-sky-line" />
-                <span className="font-semibold text-mist">$0</span>
-              </div>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-slate">Quote re-knocked</span>
-                <span className="flex-1 border-b border-dotted border-sky-line" />
-                <span className="font-semibold">+$4,000</span>
-              </div>
-            </div>
-            <div className="my-5 border-t-2 border-dashed border-sky-line" />
-            <div className="flex items-baseline justify-between font-mono">
-              <span className="font-semibold uppercase tracking-wide">
-                New revenue
-              </span>
-              <span className="display text-4xl text-mint">+$4,000</span>
-            </div>
-            <p className="mt-5 text-center text-sm text-mist">
-              One homeowner answering one follow-up covers years of ReKnock,
-              whatever plan you pick. Your margins are your business - the
-              revenue is new either way.
-            </p>
-          </div>
+          {/* live ROI calculator - the visitor types their own numbers here
+             (same component powers the standalone /roi-calculator page). */}
+          <Reveal className="text-ink">
+            <RoiCalculator className="card p-6 md:p-8" />
+          </Reveal>
         </div>
       </section>
 
