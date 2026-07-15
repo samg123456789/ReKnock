@@ -32,7 +32,12 @@ export default function Privacy() {
         <h2 className="display pt-2 text-2xl text-ink">Consent</h2>
         <p>
           You receive texts because you gave your phone number to a contractor
-          when requesting an estimate and agreed to be contacted about it.
+          when requesting an estimate and agreed to be contacted about it. How
+          consent is collected and the exact opt-in wording are described on our{" "}
+          <Link href="/sms-terms" className="text-blue underline">
+            text message program &amp; consent
+          </Link>{" "}
+          page.
         </p>
 
         <h2 className="display pt-2 text-2xl text-ink">Message frequency</h2>
@@ -85,6 +90,10 @@ export default function Privacy() {
 
         <p className="pt-2 text-sm text-mist">
           See also our{" "}
+          <Link href="/sms-terms" className="text-blue underline">
+            text message program &amp; consent
+          </Link>{" "}
+          page and our{" "}
           <Link href="/terms" className="text-blue underline">
             Terms &amp; Conditions
           </Link>

@@ -43,8 +43,12 @@ export default function Terms() {
           <strong className="text-ink">Message and data rates may apply.</strong>{" "}
           Reply <strong className="text-ink">STOP</strong> to opt out at any time
           and <strong className="text-ink">HELP</strong> for help. Carriers are
-          not liable for delayed or undelivered messages. How we handle this data
-          is described in our{" "}
+          not liable for delayed or undelivered messages. How consent is
+          collected and the exact opt-in wording are described on our{" "}
+          <Link href="/sms-terms" className="text-blue underline">
+            text message program &amp; consent
+          </Link>{" "}
+          page, and how we handle this data is described in our{" "}
           <Link href="/privacy" className="text-blue underline">
             Privacy &amp; texting policy
           </Link>
