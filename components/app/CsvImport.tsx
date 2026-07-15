@@ -7,6 +7,7 @@ import { normalizePhone } from "@/lib/phone";
 import { formatMoney } from "@/lib/format";
 import { parseCsv, mapHeader, CSV_ROW_CAP, CSV_TEMPLATE, type CsvColumn } from "@/lib/csv";
 import { bulkCreateProspects, type CsvProspectRow, type CsvImportResult } from "@/lib/csv-actions";
+import { CONSENT_ATTESTATION_BULK, CONSENT_LINK_HREF, CONSENT_LINK_LABEL } from "@/lib/consent";
 
 const primaryBtn =
   "btn btn-primary btn-lg";
@@ -132,6 +133,7 @@ export default function CsvImport() {
     const res = await bulkCreateProspects(
       validRows.map((r) => r.fields),
       enroll,
+      consent,
     );
     setPending(false);
     // Server error rows are 1-based over the array we sent; map back to file lines.
@@ -174,6 +176,12 @@ export default function CsvImport() {
             <div className="flex items-center gap-3 rounded-xl border border-sky-line bg-white px-4 py-3">
               <span className="text-slate">-</span>
               <span className="text-slate">{result.skippedDuplicates} skipped, already in your quotes (matched by phone)</span>
+            </div>
+          )}
+          {result.skippedOptedOut > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border border-amber/40 bg-amber/5 px-4 py-3">
+              <span className="text-amber">!</span>
+              <span className="text-slate">{result.skippedOptedOut} skipped, opted out of your texts. They&apos;ll need to text you first before you can start a new sequence.</span>
             </div>
           )}
           {serverErrorLines.map((e, i) => (
@@ -259,8 +267,14 @@ export default function CsvImport() {
           <label className="flex cursor-pointer items-start gap-3">
             <input type="checkbox" className="mt-1 h-5 w-5 accent-blue" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span className="text-ink">
-              I have permission to text these customers about their quotes.
-              <span className="block text-sm text-slate">Required. This records how each customer agreed to hear from you.</span>
+              {CONSENT_ATTESTATION_BULK}
+              <span className="block text-sm text-slate">
+                Required. This records their consent for your texting compliance. See our{" "}
+                <Link href={CONSENT_LINK_HREF} target="_blank" className="text-blue underline">
+                  {CONSENT_LINK_LABEL}
+                </Link>
+                .
+              </span>
             </span>
           </label>
           <label className="flex cursor-pointer items-start gap-3">

@@ -8,7 +8,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/admin";
 import { generateText, generateFromMedia, parseJson, AI_MODEL, type MediaInput } from "@/lib/ai";
 import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES } from "@/lib/quote-limits";
-import { scheduleSequence, computeStartAt, type StartChoice } from "@/lib/enrollment";
+import { scheduleSequence, computeStartAt, findActiveOptOut, type StartChoice } from "@/lib/enrollment";
+import { CONSENT_ATTESTATION_VERSION } from "@/lib/consent";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import {
   buildQuoteExtractorPrompt,
@@ -152,6 +153,7 @@ export async function createQuote(input: {
   start_choice?: StartChoice;
   start_custom_iso?: string;
   allow_duplicate?: boolean;
+  consent_attested?: boolean;
 }): Promise<CreateQuoteResult> {
   const firstName = input.first_name.trim();
   if (!firstName) return { ok: false, error: "Please enter the customer's first name." };
@@ -159,8 +161,13 @@ export async function createQuote(input: {
   const phone = normalizePhone(input.phone);
   if (!phone) return { ok: false, error: "Please enter a valid US phone number." };
 
-  // 10DLC consent path is defaulted silently by source (never asked at intake):
-  // manual + upload = verbal-at-quote. It stays editable on the prospect record.
+  // Consent attestation is a hard server-side gate, not just a UI checkbox:
+  // we only ever record consent when the contractor actually confirmed it.
+  if (input.consent_attested !== true)
+    return { ok: false, error: "Please confirm this customer agreed to receive texts about their quote." };
+
+  // 10DLC consent path is verbal-at-quote for manual + upload intake, now
+  // backed by the required attestation above. It stays editable on the record.
   const consentPath = "verbal_at_quote";
 
   const amount = input.quote_amount.replace(/[^0-9.]/g, "");
@@ -170,6 +177,19 @@ export async function createQuote(input: {
     : new Date().toISOString().slice(0, 10);
 
   const { supabase, company, acting } = await requireCompany();
+
+  // Opt-out block (hard, not bypassable by allow_duplicate). If this homeowner
+  // texted STOP to this contractor, they stay suppressed across every quote
+  // until they text the contractor first. Checked at intake so no new sequence
+  // is ever armed for a suppressed number.
+  const optOut = await findActiveOptOut(supabase, company.id, phone);
+  if (optOut.optedOut) {
+    const since = optOut.since ? ` on ${new Date(optOut.since).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "";
+    return {
+      ok: false,
+      error: `This number opted out of your texts${since}. They'll need to text you first before you can start a new sequence.`,
+    };
+  }
 
   // Same-phone dedupe (mirrors the CSV import's check): a second quote for a
   // number already in the book means a second parallel sequence to the same
@@ -292,7 +312,16 @@ export async function createQuote(input: {
     supabase.from("events").insert({
       company_id: company.id,
       type: "prospect_created",
-      payload: { prospect_id: prospect.id, source: input.source, consent_path: consentPath, start_choice: input.start_choice ?? "recommended" },
+      payload: {
+        prospect_id: prospect.id,
+        source: input.source,
+        consent_path: consentPath,
+        // Durable, per-number record of the contractor's consent attestation
+        // (which version of the wording they confirmed) for dispute/A2P audit.
+        consent_attested: true,
+        consent_version: CONSENT_ATTESTATION_VERSION,
+        start_choice: input.start_choice ?? "recommended",
+      },
     }),
     acting.impersonating
       ? logAudit(acting.client, {

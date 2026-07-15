@@ -12,6 +12,7 @@ import {
   REPLY_CLASSIFIER_PROMPT_VERSION,
   SUGGESTED_REPLY_PROMPT_VERSION,
   type ReplyClassification,
+  type ReplyIntent,
 } from "@/lib/prompts/reply-classifier";
 import { formatMoney } from "@/lib/format";
 
@@ -290,14 +291,16 @@ export async function POST(request: NextRequest) {
   // Kills pending scheduled sends and reminders too.
   if (kw === "stop") {
     if (prospect && companyId) {
+      const alreadyOptedOut = OPT_OUT_STATUSES.has(prospect.status);
       const ids = (matches ?? []).map((m) => m.id);
       await admin.from("prospects").update({ status: "opted_out" }).eq("company_id", companyId).eq("phone_e164", from);
-      await admin.from("events").insert({ company_id: companyId, type: "opt_out", payload: { phone: from, source: "sms_stop" } });
+      // Name the prospect on the ledger so the in-app notification can say who.
+      await admin.from("events").insert({ company_id: companyId, type: "opt_out", payload: { prospect_id: prospect.id, phone: from, source: "sms_stop" } });
       for (const id of ids) {
         await cancelScheduledForProspect(id, "opt_out", ["sequence", "reminder"]);
         await cancelPendingReminders(id, "opt_out");
       }
-      // One confirmation (idempotent).
+      // One confirmation to the homeowner (idempotent).
       await sendSms({
         companyId,
         prospectId: prospect.id,
@@ -306,6 +309,26 @@ export async function POST(request: NextRequest) {
         idempotencyKey: `optout-confirm:${messageSid || from}`,
         kind: "system",
       });
+      // Tell the contractor why the sequence went quiet - a distinct one-way
+      // ping (no relay session; they can't text an opted-out homeowner). Only
+      // on the FIRST stop, so repeat STOPs don't re-ping. Owner notification,
+      // so it is exempt from the STOP-line append (kind owner_ping).
+      if (!alreadyOptedOut) {
+        const { data: owner } = await admin.from("users").select("cell_phone").eq("company_id", companyId).not("cell_phone", "is", null).limit(1).maybeSingle();
+        if (owner?.cell_phone) {
+          const name = prospect.first_name ?? "A customer";
+          const key = `optout-owner:${messageSid || prospect.id}`;
+          const res = await sendSms({
+            companyId,
+            prospectId: prospect.id,
+            to: owner.cell_phone,
+            body: `${name} (${from}) replied STOP, so they've opted out of your texts. Their follow-ups are stopped and we won't text them again unless they message you first.`,
+            idempotencyKey: key,
+            kind: "owner_ping",
+          });
+          await retryIfFailed(res, { idempotency_key: key, company_id: companyId, to: owner.cell_phone, context: "optout_owner_ping" });
+        }
+      }
     }
     return TWIML_OK;
   }
@@ -331,6 +354,44 @@ export async function POST(request: NextRequest) {
       await admin.from("events").insert({ company_id: companyId, type: "resubscribe", payload: { phone: from } });
     }
     return TWIML_OK;
+  }
+
+  // Re-engagement: a homeowner who previously opted out has texted this
+  // contractor again (this is not STOP/START/HELP - those returned above). An
+  // AFFIRMATIVE inbound (a real question or interest) counts as them
+  // re-initiating contact, which lifts the opt-out for THIS contractor so the
+  // contractor can respond. The automated sequence is NOT auto-resumed. A
+  // negative or opt-out-style message keeps them suppressed. This is the one
+  // path that re-opens contact with an opted-out number, so it is
+  // classifier-gated (a bare "any inbound lifts it" rule would wrongly
+  // re-subscribe someone texting "leave me alone").
+  //
+  // >>> COMPLIANCE-SENSITIVE - PENDING LEGAL REVIEW (same review as /sms-terms)
+  // before A2P resubmit / production. Ships on dev for review; the founder's
+  // dev->main merge gates it. Easily reverted (delete this block). <<<
+  if (prospect && companyId && OPT_OUT_STATUSES.has(prospect.status)) {
+    let intent: ReplyIntent | null = null;
+    let confidence = 0;
+    try {
+      const { system, prompt, temperature, maxTokens } = buildReplyClassifierPrompt(body, prospect.first_name ?? undefined);
+      const { text } = await generateText({ system, prompt, temperature, maxTokens });
+      const c = parseJson<ReplyClassification>(text);
+      if (c) { intent = c.intent; confidence = c.confidence; }
+    } catch {
+      /* best-effort; if we can't classify, stay suppressed (fail closed) */
+    }
+    const affirmative = intent != null && confidence >= 0.5 && ["interested", "question", "reschedule"].includes(intent);
+    if (affirmative) {
+      // Lift suppression for this (company, phone), scoped exactly like STOP.
+      await admin.from("prospects").update({ status: "paused" }).eq("company_id", companyId).eq("phone_e164", from).in("status", [...OPT_OUT_STATUSES]);
+      await admin.from("events").insert({ company_id: companyId, type: "re_engaged", payload: { prospect_id: prospect.id, phone: from, intent, confidence } });
+      prospect.status = "paused"; // let the reply branch below run + relay to the owner
+    } else {
+      // Stay suppressed. Log for audit; do not re-open or ping (mirrors today's
+      // silent handling of opted-out inbounds, but now recorded).
+      await admin.from("events").insert({ company_id: companyId, type: "re_engagement_held", payload: { prospect_id: prospect.id, phone: from, intent, confidence } });
+      return TWIML_OK;
+    }
   }
 
   // A real reply. Freeze is DB-atomic: status flip + canceling the scheduled

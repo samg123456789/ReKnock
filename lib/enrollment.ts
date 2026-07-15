@@ -1,7 +1,59 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/server";
 import { DEFAULT_CAMPAIGN_STEPS, stepEnabled, type CampaignStep } from "@/lib/campaign";
 import { canSendNow, nextSendTime, type Window } from "@/lib/twilio";
+
+// A homeowner who texted STOP is suppressed for THIS company forever, across
+// every quote (prospects.status='opted_out'). The flag is NOT cleared by a
+// soft-delete, so these lookups intentionally ignore deleted_at: re-adding or
+// re-importing the same number must stay blocked until the homeowner
+// re-initiates contact (the Twilio inbound webhook lifts it on a genuine
+// affirmative reply). Scope is (company_id, phone) so Contractor A's opt-out
+// never blocks Contractor B.
+export async function findActiveOptOut(
+  supabase: SupabaseClient,
+  companyId: string,
+  phoneE164: string,
+): Promise<{ optedOut: boolean; since: string | null }> {
+  const { data: opted } = await supabase
+    .from("prospects")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("phone_e164", phoneE164)
+    .eq("status", "opted_out")
+    .limit(1)
+    .maybeSingle();
+  if (!opted) return { optedOut: false, since: null };
+  // Best-effort opt-out date from the append-only ledger, for the message.
+  const { data: ev } = await supabase
+    .from("events")
+    .select("created_at")
+    .eq("company_id", companyId)
+    .eq("type", "opt_out")
+    .contains("payload", { phone: phoneE164 })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { optedOut: true, since: ev?.created_at ?? null };
+}
+
+// Set-based variant for the CSV import: which of these phones are opted out
+// for this company. Same scope + soft-delete-ignoring rules as above.
+export async function findOptedOutPhones(
+  supabase: SupabaseClient,
+  companyId: string,
+  phones: string[],
+): Promise<Set<string>> {
+  if (!phones.length) return new Set();
+  const { data } = await supabase
+    .from("prospects")
+    .select("phone_e164")
+    .eq("company_id", companyId)
+    .eq("status", "opted_out")
+    .in("phone_e164", phones);
+  return new Set((data ?? []).map((p) => p.phone_e164 as string));
+}
 
 // The scheduled-send primitive. Every future automated send is a `messages`
 // row with status='scheduled' + scheduled_for; the Inngest dispatcher fires

@@ -8,6 +8,7 @@ import { extractQuote, createQuote, createQuoteUploadUrl, type CreatedQuote, typ
 import { draftTouchPreview } from "@/lib/inbox-actions";
 import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES, IMAGE_MAX_EDGE } from "@/lib/quote-limits";
 import type { QuoteExtraction, QuoteFields } from "@/lib/prompts/quote-extractor";
+import { CONSENT_ATTESTATION_SINGLE, CONSENT_LINK_HREF, CONSENT_LINK_LABEL } from "@/lib/consent";
 
 const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
 const lowConf = "w-full rounded-xl border-2 border-amber/70 bg-amber/5 px-4 py-3 text-base outline-none focus:border-blue";
@@ -96,6 +97,9 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
   const [startCustom, setStartCustom] = useState("");
   const [dup, setDup] = useState<DuplicateProspect | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Required consent attestation on the confirm screen (proof of opt-in for
+  // 10DLC). Hard-gates the submit; the server re-checks it too.
+  const [consent, setConsent] = useState(false);
   // Confirmation-screen previews: draft each touch on first expand, cache after.
   const [openStep, setOpenStep] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<string, { text?: string; error?: string }>>({});
@@ -219,6 +223,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
   }
 
   async function submit(allowDuplicate = false) {
+    if (!consent) return setError("Please confirm this customer agreed to receive texts about their quote.");
     if (start === "custom" && !startCustom) return setError("Pick a date and time for the first text, or choose one of the options.");
     setPending(true);
     setError(null);
@@ -231,6 +236,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
       start_choice: start,
       start_custom_iso: start === "custom" && startCustom ? new Date(startCustom).toISOString() : undefined,
       allow_duplicate: allowDuplicate,
+      consent_attested: consent,
     });
     setPending(false);
     if (!res.ok) {
@@ -293,7 +299,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
           <p className="mt-4 rounded-xl bg-sky px-4 py-3 text-sm text-blue-ink">Sends begin once your ReKnock number finishes activating. Nothing goes out before then.</p>
         ) : null}
         <div className="mt-8 flex gap-3">
-          <button className={primaryBtn} onClick={() => { setFields(EMPTY); setConf({}); setPaste(""); setPaths([]); setExtraction(null); setDone(null); setView("intake"); }}>
+          <button className={primaryBtn} onClick={() => { setFields(EMPTY); setConf({}); setPaste(""); setPaths([]); setExtraction(null); setDone(null); setConsent(false); setView("intake"); }}>
             Add another quote
           </button>
           <Link href="/app" className={ghostBtn}>Back to dashboard</Link>
@@ -393,6 +399,20 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
           </div>
         </div>
 
+        <label className="mt-7 flex cursor-pointer items-start gap-3">
+          <input type="checkbox" className="mt-1 h-5 w-5 accent-blue" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+          <span className="text-ink">
+            {CONSENT_ATTESTATION_SINGLE}
+            <span className="block text-sm text-slate">
+              Required. This records their consent for your texting compliance. See our{" "}
+              <Link href={CONSENT_LINK_HREF} target="_blank" className="text-blue underline">
+                {CONSENT_LINK_LABEL}
+              </Link>
+              .
+            </span>
+          </span>
+        </label>
+
         {error ? <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
         {dup ? (
           <div className="mt-4 rounded-xl border border-amber/50 bg-amber/10 px-4 py-3 text-sm">
@@ -411,7 +431,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
         ) : null}
         <div className="mt-8 flex items-center justify-between">
           <button className={ghostBtn} onClick={() => { setError(null); setDup(null); setView("intake"); }}>Back</button>
-          <button className={primaryBtn} disabled={pending} onClick={() => submit()}>{pending ? "Setting up the chase..." : "Start chasing this quote"}</button>
+          <button className={primaryBtn} disabled={pending || !consent} onClick={() => submit()}>{pending ? "Setting up the chase..." : "Start chasing this quote"}</button>
         </div>
       </div>
     );

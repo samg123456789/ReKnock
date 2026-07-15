@@ -49,6 +49,6 @@ export async function getNotifications(): Promise<Notification[]> {
       return { id: e.id, kind: "reply" as const, text: `${who} replied to your follow-up`, href: pid ? `/inbox?p=${pid}` : "/inbox", at: e.created_at };
     if (e.type === "cap_reached")
       return { id: e.id, kind: "cap" as const, text: `Trial limit hit while chasing ${who}. Upgrade to keep going.`, href: "/settings", at: e.created_at };
-    return { id: e.id, kind: "opt_out" as const, text: "A customer opted out of texts", href: "/inbox", at: e.created_at };
+    return { id: e.id, kind: "opt_out" as const, text: `${who} opted out of texts. Their follow-ups are stopped.`, href: pid ? `/inbox?p=${pid}` : "/inbox", at: e.created_at };
   });
 }

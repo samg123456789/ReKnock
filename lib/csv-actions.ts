@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import { logAudit } from "@/lib/admin";
 import { normalizePhone } from "@/lib/phone";
-import { scheduleSequence, computeStartAt } from "@/lib/enrollment";
+import { scheduleSequence, computeStartAt, findOptedOutPhones } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import { CSV_ROW_CAP } from "@/lib/csv";
+import { CONSENT_ATTESTATION_VERSION } from "@/lib/consent";
 
 export type CsvProspectRow = {
   first_name: string;
@@ -24,11 +25,12 @@ export type CsvImportResult = {
   ok: boolean;
   imported: number;
   skippedDuplicates: number;
+  skippedOptedOut: number;
   errors: Array<{ row: number; message: string }>;
 };
 
 function fail(message: string): CsvImportResult {
-  return { ok: false, imported: 0, skippedDuplicates: 0, errors: [{ row: 0, message }] };
+  return { ok: false, imported: 0, skippedDuplicates: 0, skippedOptedOut: 0, errors: [{ row: 0, message }] };
 }
 
 // Accepts YYYY-MM-DD or M/D/YYYY; anything else falls back to today.
@@ -50,12 +52,18 @@ function normalizeDate(raw: string): string {
 export async function bulkCreateProspects(
   rows: CsvProspectRow[],
   enroll: boolean,
+  consentAttested: boolean,
 ): Promise<CsvImportResult> {
   const acting = await getActingCompany();
   if (!acting) redirect("/login");
   if (!acting.companyId) return fail("No company found for your account.");
   const supabase = acting.client;
   const companyId = acting.companyId;
+
+  // Hard server-side consent gate (not just the UI checkbox): we only ever
+  // record consent + enroll when the contractor actually attested to it.
+  if (consentAttested !== true)
+    return fail("Please confirm these customers agreed to receive texts about their quotes.");
 
   if (!rows.length) return fail("Nothing to import.");
   if (rows.length > CSV_ROW_CAP)
@@ -66,6 +74,7 @@ export async function bulkCreateProspects(
   const errors: Array<{ row: number; message: string }> = [];
   const seenPhones = new Set<string>();
   let skippedDuplicates = 0;
+  let skippedOptedOut = 0;
 
   type ValidRow = { row: number; data: CsvProspectRow; phone: string; quoteDate: string };
   const valid: ValidRow[] = [];
@@ -91,7 +100,7 @@ export async function bulkCreateProspects(
   });
 
   if (!valid.length)
-    return { ok: true, imported: 0, skippedDuplicates, errors };
+    return { ok: true, imported: 0, skippedDuplicates, skippedOptedOut, errors };
 
   // Skip anyone already in this company's prospects (matched by phone).
   const { data: existing, error: existErr } = await supabase
@@ -103,7 +112,7 @@ export async function bulkCreateProspects(
   if (existErr) return fail("Could not check for existing customers. Please try again.");
   const existingPhones = new Set((existing ?? []).map((p) => p.phone_e164));
 
-  const fresh = valid.filter((v) => {
+  const notDuplicate = valid.filter((v) => {
     if (existingPhones.has(v.phone)) {
       skippedDuplicates++;
       return false;
@@ -111,8 +120,19 @@ export async function bulkCreateProspects(
     return true;
   });
 
+  // Block re-adding numbers that opted out of THIS company's texts (soft-delete
+  // does not clear the opt-out). They stay suppressed until they text back.
+  const optedOutPhones = await findOptedOutPhones(supabase, companyId, notDuplicate.map((v) => v.phone));
+  const fresh = notDuplicate.filter((v) => {
+    if (optedOutPhones.has(v.phone)) {
+      skippedOptedOut++;
+      return false;
+    }
+    return true;
+  });
+
   if (!fresh.length)
-    return { ok: true, imported: 0, skippedDuplicates, errors };
+    return { ok: true, imported: 0, skippedDuplicates, skippedOptedOut, errors };
 
   const { data: campaign } = await supabase
     .from("campaigns")
@@ -201,7 +221,15 @@ export async function bulkCreateProspects(
     supabase.from("events").insert({
       company_id: companyId,
       type: "csv_import",
-      payload: { imported: created.length, skipped_duplicates: skippedDuplicates, enrolled },
+      payload: {
+        imported: created.length,
+        skipped_duplicates: skippedDuplicates,
+        skipped_opted_out: skippedOptedOut,
+        enrolled,
+        // Durable record of the batch consent attestation for dispute/A2P audit.
+        consent_attested: true,
+        consent_version: CONSENT_ATTESTATION_VERSION,
+      },
     }),
     acting.impersonating
       ? logAudit(acting.client, {
@@ -216,5 +244,5 @@ export async function bulkCreateProspects(
 
   revalidatePath("/app");
   revalidatePath("/inbox");
-  return { ok: true, imported: created.length, skippedDuplicates, errors };
+  return { ok: true, imported: created.length, skippedDuplicates, skippedOptedOut, errors };
 }
