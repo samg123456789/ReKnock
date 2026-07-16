@@ -404,12 +404,11 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
           <span className="text-ink">
             {CONSENT_ATTESTATION_SINGLE}
             <span className="block text-sm text-slate">
-              Required. This records their consent for your texting compliance. See our{" "}
-              <Link href={CONSENT_LINK_HREF} target="_blank" className="text-blue underline">
-                {CONSENT_LINK_LABEL}
-              </Link>
-              .
+              Required. This records their consent for your texting compliance.
             </span>
+            <Link href={CONSENT_LINK_HREF} target="_blank" className="mt-0.5 block text-xs text-mist underline underline-offset-2 hover:text-blue">
+              See our {CONSENT_LINK_LABEL}
+            </Link>
           </span>
         </label>
 

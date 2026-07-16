@@ -59,27 +59,12 @@ export default function SmsTerms() {
         <h2 className="display pt-2 text-2xl text-ink">How you opt in</h2>
         <p>
           You receive these texts because you asked a contractor for a quote and
-          agreed to be contacted about it. Consent is collected in one of two
-          ways:
+          agreed to be contacted about it. When you request a quote in person or
+          by phone, you give the contractor your mobile number and agree they
+          can text you about your estimate. The contractor reads the agreement
+          wording shown below and records your consent in ReKnock before any
+          texts are scheduled.
         </p>
-        <ul className="ml-5 list-disc space-y-3">
-          <li>
-            <strong className="text-ink">When you request a quote.</strong> You
-            give the contractor your mobile number and agree that they can text
-            you about your estimate. The contractor presents or reads the
-            agreement wording shown below and records your consent. This is the
-            most common way homeowners opt in.
-          </li>
-          <li>
-            <strong className="text-ink">
-              On a contractor&apos;s quote request form.
-            </strong>{" "}
-            If a contractor collects your details on their own web form or
-            written estimate, that form includes a clearly worded checkbox with
-            the same agreement language below. Checking it is optional and is not
-            required to receive your quote itself.
-          </li>
-        </ul>
         <p>
           Consent is never bought, sold, or transferred. A contractor may only
           add you if you personally gave them your number for your own quote.

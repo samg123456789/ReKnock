@@ -10,13 +10,13 @@
 
 export const CONSENT_ATTESTATION_VERSION = 1;
 
-// Linked word is "Terms" -> /terms, whose "Contractor responsibilities"
-// section is the page that actually covers the contractor's consent
-// obligation ("each person you add gave you their number and agreed to be
-// contacted about their quote ... TCPA"). Privacy covers data handling, not
-// the permission attestation, so we link Terms, not Privacy.
-export const CONSENT_LINK_HREF = "/terms";
-export const CONSENT_LINK_LABEL = "Terms";
+// Linked reference points at /sms-terms - the "Text message program & consent"
+// page that lays out the opt-in call-to-action, message frequency, msg & data
+// rates, STOP/HELP, and links onward to Privacy + Terms. It is the single most
+// on-point page for a consent attestation. Rendered small + de-emphasized (a
+// secondary reference, not a call-to-action) next to the checkbox label.
+export const CONSENT_LINK_HREF = "/sms-terms";
+export const CONSENT_LINK_LABEL = "SMS terms";
 
 export const CONSENT_ATTESTATION_SINGLE =
   "I confirm this customer agreed to receive text messages about their quote.";
