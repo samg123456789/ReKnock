@@ -18,22 +18,37 @@ launch of the whole app. Treat it as a launch, not a patch.
 
 ### Blocker 1 (legal): the pending consent wording will ship
 
-A dev to main merge carries EVERY change on dev, including the verbal-script text
-and the checkbox attestation wording that are still pending your legal answer.
-There is no way to ship the structural consent fixes without also shipping the
-wording, because they live on the same branch. The wording lives in:
+A dev to main merge carries EVERY change on dev, including the DRAFT consent
+wording still pending Sam's legal answer. There is no way to ship the structural
+consent fixes without also shipping the draft wording, because they live on the
+same branch. The wording is isolated into three flagged artifacts (each carries a
+`LEGAL REVIEW PENDING` comment in the code):
 
-- `components/app/AddQuoteForm.tsx` (consent checkbox label / attestation)
-- `components/app/CsvImport.tsx` (consent checkbox)
-- `lib/consent.ts` (consent labels + href)
-- `app/sms-terms/page.tsx` (the opt-in disclosure copy)
+1. Single-quote checkbox attestation: `CONSENT_ATTESTATION_SINGLE` in
+   `lib/consent.ts`, rendered in `components/app/AddQuoteForm.tsx`.
+2. Bulk checkbox attestation: `CONSENT_ATTESTATION_BULK` in `lib/consent.ts`,
+   rendered in `components/app/CsvImport.tsx`.
+3. Verbal script / CTA copy: `CONSENT_LANGUAGE` and the "How you opt in" section
+   in `app/sms-terms/page.tsx`.
 
-Introduced across commits `a4e425f`, `1276447`, `0ff8ebc`. Decide one of:
-  (a) get legal sign-off first, then cut over with the wording as-is, or
-  (b) revert only the wording strings on dev (keep the structural changes),
-      commit that to dev, then cut over.
+Introduced across commits `a4e425f`, `1276447`. NOTE (verified 2026-07-17):
+there is NO prior legally-cleared version to "revert" to. The single-quote
+checkbox and the entire /sms-terms page are net-new in this batch (no earlier
+version exists); only the bulk CSV attestation had an earlier dev-only line
+("I have permission to text these customers about their quotes."), which was
+itself never formally cleared. So the only paths are:
+  (a) author + get legal sign-off on the exact wording, set the three
+      constants / the page copy to the approved strings on dev, THEN cut over; or
+  (b) cut over with the drafts as-is only if legal has signed off on them as-is.
 
-Do NOT merge to main until this is decided.
+KEEP regardless (structural, already separated, commit `0ff8ebc`): the Path 2
+(unverifiable web-form opt-in) removal and the cross-linking
+(`CONSENT_LINK_HREF`/`CONSENT_LINK_LABEL` -> /sms-terms). These are not part of
+the legal hold.
+
+Founder decision 2026-07-17: leave the drafts on dev as-is (do not guess at
+wording); finalize before cutover. Do NOT merge to main until the wording is
+signed off.
 
 ### Blocker 2 (git): the legal pages WILL conflict on merge
 
