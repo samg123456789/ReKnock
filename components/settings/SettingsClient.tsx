@@ -240,14 +240,14 @@ export default function SettingsClient(props: {
         </label>
         <div className="mt-2 flex flex-col gap-1.5">
           {windows.map((w, i) => (
-            <div key={w.day_of_week} className="flex items-center gap-2 text-sm">
+            <div key={w.day_of_week} className="flex flex-wrap items-center gap-2 text-sm">
               <label className="flex w-20 items-center gap-2">
                 <input type="checkbox" checked={w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x)))} />
                 <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
               </label>
-              <input type="time" className="rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
+              <input type="time" className="min-w-0 flex-1 rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
               <span className="text-mist">to</span>
-              <input type="time" className="rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
+              <input type="time" className="min-w-0 flex-1 rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
             </div>
           ))}
         </div>

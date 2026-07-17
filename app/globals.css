@@ -227,6 +227,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 .btn-icon:hover { border-color: var(--color-blue); color: var(--color-blue); }
 .btn-icon:active { transform: scale(0.94); }
 
+/* Touch devices: guarantee a ~44px tap target on compact controls without
+   changing desktop density. min-size wins even where width/height is smaller
+   (e.g. CopyButton's h-8 w-8). */
+@media (pointer: coarse) {
+  .btn-sm { min-height: 2.75rem; }
+  .btn-icon { min-width: 2.75rem; min-height: 2.75rem; }
+}
+
 /* ---------- overlay choreography (one arrival for every modal/menu) ----------
    Overlays enter with weight (fade + slight rise); scrims fade. Exit stays
    instant by design: fast dismissal reads as responsiveness, sudden arrival

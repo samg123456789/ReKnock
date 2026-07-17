@@ -52,7 +52,7 @@ export default function PricingClient({ spotsLeft = 20 }: { spotsLeft?: number }
       <div className="relative mx-auto max-w-6xl px-5 pb-16 pt-14 md:pb-24 md:pt-20">
         <div className="text-center">
           <p className="eyebrow mb-4">Pricing</p>
-          <h1 className="display text-5xl md:text-7xl">
+          <h1 className="display text-4xl sm:text-5xl md:text-7xl">
             <span className="text-blue">$1</span> for a week.
             <br />
             Then <span className="text-blue">$29</span>

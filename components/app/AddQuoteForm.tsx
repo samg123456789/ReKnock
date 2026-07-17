@@ -321,7 +321,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
         <h1 className="display text-3xl md:text-4xl">Confirm the details.</h1>
         {anyLow && <p className="mt-3 rounded-lg bg-amber/10 px-4 py-2 text-sm text-amber">The highlighted fields were unclear. Please double-check them.</p>}
         <div className="mt-6 flex flex-col gap-4">
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <label className="flex flex-1 flex-col gap-1">
               <span className="text-sm font-semibold text-slate">First name</span>
               <input className={isLow("first_name") ? lowConf : input} value={fields.first_name} onChange={(e) => set("first_name", e.target.value)} />
@@ -339,7 +339,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
             <span className="text-sm font-semibold text-slate">Job <span className="text-mist">(optional)</span></span>
             <input className={isLow("job_type") ? lowConf : input} value={fields.job_type} onChange={(e) => set("job_type", e.target.value)} placeholder="Roof replacement" />
           </label>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <label className="flex flex-1 flex-col gap-1">
               <span className="text-sm font-semibold text-slate">Quote amount <span className="text-mist">(optional)</span></span>
               <input className={isLow("quote_amount") ? lowConf : input} inputMode="decimal" value={fields.quote_amount} onChange={(e) => set("quote_amount", e.target.value)} placeholder="$8,500" />

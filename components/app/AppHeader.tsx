@@ -53,11 +53,11 @@ export default function AppHeader() {
         </Link>
 
         {!inAdmin && me ? (
-          <div className="flex items-center gap-5 text-sm font-medium">
+          <div className="hidden items-center gap-5 text-sm font-medium md:flex">
             <Link href="/app" className="text-slate hover:text-ink">Dashboard</Link>
             <Link href="/inbox" className="text-slate hover:text-ink">Inbox</Link>
             <Link href="/campaign" className="text-slate hover:text-ink">Follow-ups</Link>
-            <span aria-disabled="true" title="Coming soon" className="hidden cursor-default select-none items-center gap-1.5 text-mist/70 sm:inline-flex">
+            <span aria-disabled="true" title="Coming soon" className="cursor-default select-none items-center gap-1.5 text-mist/70 inline-flex">
               Analytics
               <span className="rounded-full bg-sky px-1.5 py-0.5 text-[10px] font-semibold text-mist">Soon</span>
             </span>
@@ -90,6 +90,13 @@ export default function AppHeader() {
                 className="overlay-panel absolute right-0 z-50 mt-2 w-56 rounded-xl border border-sky-line bg-white p-1.5 shadow-overlay"
               >
                 <p className="truncate px-3 py-2 text-xs text-mist">{email}</p>
+                {!inAdmin ? (
+                  <div className="mb-1 border-b border-sky-line pb-1 md:hidden">
+                    <Link href="/app" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-sky">Dashboard</Link>
+                    <Link href="/inbox" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-sky">Inbox</Link>
+                    <Link href="/campaign" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-sky">Follow-ups</Link>
+                  </div>
+                ) : null}
                 {me?.isAdmin ? (
                   <Link
                     href={inAdmin ? "/app" : "/admin"}

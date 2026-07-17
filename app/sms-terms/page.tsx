@@ -37,7 +37,7 @@ export default function SmsTerms() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
       <p className="eyebrow mb-4">ReKnock</p>
-      <h1 className="display text-5xl">Text message program &amp; consent</h1>
+      <h1 className="display text-3xl sm:text-4xl md:text-5xl">Text message program &amp; consent</h1>
 
       <div className="mt-8 space-y-6 leading-relaxed text-slate">
         <p className="font-mono text-sm text-mist">Last updated: July 2026</p>

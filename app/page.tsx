@@ -147,7 +147,7 @@ export default function Home() {
             <p className="eyebrow rise rise-1 mb-4">
               For every tradesperson who quotes a job
             </p>
-            <h1 className="display rise rise-1 text-6xl md:text-7xl">
+            <h1 className="display rise rise-1 text-5xl sm:text-6xl md:text-7xl">
               You quoted it.
               <br />
               Then&hellip; <span className="text-mist">nothing.</span>

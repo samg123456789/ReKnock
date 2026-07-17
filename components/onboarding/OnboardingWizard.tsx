@@ -547,7 +547,7 @@ export default function OnboardingWizard({
           <div className="mt-4 flex flex-col gap-2">
             {windows.map((w, i) => (
               <div key={w.day_of_week}>
-                <div className="flex items-center gap-3 rounded-xl border border-slate/20 px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate/20 px-3 py-2.5">
                   <label className="flex w-24 items-center gap-2 sm:w-28">
                     <input type="checkbox" checked={w.enabled} onChange={(e) => { setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x))); if (!e.target.checked && copyFrom === w.day_of_week) setCopyFrom(null); }} />
                     <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
