@@ -201,18 +201,18 @@ export default function Home() {
             Pick the follow-up timing, approve the wording, and ReKnock handles
             the chase until they reply.
           </p>
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {intake.map((s, i) => (
               <Reveal
                 key={s.label}
-                className="card card-hover flex min-h-52 flex-col justify-between p-6"
+                className="card card-hover flex min-h-44 flex-col justify-between p-6 sm:min-h-52"
                 delay={i * 90}
               >
                 <div>
                   <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky font-mono text-sm font-bold text-blue">
                     0{i + 1}
                   </span>
-                  <h3 className="display mt-8 text-3xl text-blue-ink">{s.label}</h3>
+                  <h3 className="display mt-8 text-2xl text-blue-ink xl:text-3xl">{s.label}</h3>
                 </div>
                 <p className="mt-5 text-base leading-relaxed text-slate">{s.body}</p>
               </Reveal>
