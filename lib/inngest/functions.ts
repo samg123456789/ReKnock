@@ -14,6 +14,7 @@ import { normalizePhone as normalizeIntakePhone } from "@/lib/phone";
 import { computeStartAt, scheduleSequence } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import { extractReplyToken, stripQuotedEmail } from "@/lib/reply-email";
+import { monthlyQuoteLimitMessage, monthlyQuoteUsage, notifyQuoteUsage } from "@/lib/quote-usage";
 
 // Scheduled-send engine. Every future send is a `messages` row with
 // status='scheduled'; the dispatcher cron finds due rows and fans out one
@@ -847,6 +848,13 @@ export const processInboundEmail = inngest.createFunction(
         return { resolution: "updated_prospect" };
       }
 
+      const usage = await monthlyQuoteUsage(admin, companyId);
+      if (usage.remaining < 1) {
+        await admin.from("inbound_emails").update({ resolution: "needs_review" }).eq("id", inboundId);
+        await notifyOwner(`ReKnock: we received the forwarded quote for ${firstName}, but ${monthlyQuoteLimitMessage().toLowerCase()}`);
+        return { resolution: "needs_review" };
+      }
+
       const amountRaw = String(extraction?.quote_amount ?? "").replace(/[^0-9.]/g, "");
       const { data: prospect, error } = await admin
         .from("prospects")
@@ -867,7 +875,14 @@ export const processInboundEmail = inngest.createFunction(
         })
         .select("id")
         .single();
+      if (error?.message?.includes("monthly_quote_limit_reached")) {
+        await admin.from("inbound_emails").update({ resolution: "needs_review" }).eq("id", inboundId);
+        await notifyOwner(`ReKnock: we received the forwarded quote for ${firstName}, but ${monthlyQuoteLimitMessage().toLowerCase()}`);
+        return { resolution: "needs_review" };
+      }
       if (error || !prospect) throw new Error(`prospect insert failed: ${error?.message}`);
+
+      await notifyQuoteUsage(companyId);
 
       const [{ data: campaign }, { data: co }, { data: windows }] = await Promise.all([
         admin.from("campaigns").select("id, steps").eq("company_id", companyId).eq("is_default", true).maybeSingle(),

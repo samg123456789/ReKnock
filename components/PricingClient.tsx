@@ -9,7 +9,7 @@ import Link from "next/link";
 const timeline = [
   { step: "Today", title: "Set up in 10 minutes, pay $1", body: "Pick your tone, approve your follow-ups, log your open quotes. Card up front - tire-kickers don't close jobs." },
   { step: "1–2 days", title: "Your number goes live", body: "Carriers verify your dedicated local number (an anti-spam step every legit texting service goes through). We build everything while you wait." },
-  { step: "Day 1 of your week", title: "Your $1 week starts now", body: "50 follow-up texts included. The clock doesn't start until your line is live - you never pay for waiting." },
+  { step: "Day 1 of your week", title: "Your $1 week starts now", body: "50 follow-up texts included. After that, Starter includes up to 100 new quotes each month." },
   { step: "After the week", title: "Your founding rate kicks in", body: "Locked for life for the first 20 contractors. Cancel anytime with one tap." },
 ];
 
@@ -115,7 +115,7 @@ export default function PricingClient({ spotsLeft = 20 }: { spotsLeft?: number }
           <div className="card card-hover relative flex flex-col border-blue p-7 shadow-pop">
             <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue px-3 py-1 text-xs font-bold tracking-wide text-white">AVAILABLE NOW</span>
             <h2 className="display text-3xl">Starter</h2>
-            <p className="mt-1 text-slate">One contractor, unlimited chasing.</p>
+            <p className="mt-1 text-slate">One contractor, up to 100 new quotes a month.</p>
             <Price monthly={29} annual={290} isAnnual={annual} struck={{ monthly: 39, annual: 390 }} />
             <p className="mt-1 text-sm font-semibold text-blue">
               Founding rate · {spotsLeft} of 20 spots left · locked for life

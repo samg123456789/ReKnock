@@ -4,7 +4,7 @@ import { getActingCompany } from "@/lib/acting-company";
 
 export type Notification = {
   id: string;
-  kind: "reply" | "cap" | "opt_out";
+  kind: "reply" | "cap" | "opt_out" | "usage";
   text: string;
   href: string | null;
   at: string; // ISO timestamp
@@ -21,7 +21,7 @@ export async function getNotifications(): Promise<Notification[]> {
     .from("events")
     .select("id, type, payload, created_at")
     .eq("company_id", acting.companyId)
-    .in("type", ["reply_received", "cap_reached", "opt_out"])
+    .in("type", ["reply_received", "cap_reached", "opt_out", "quote_limit_warning", "quote_limit_reached"])
     .order("created_at", { ascending: false })
     .limit(20);
   if (!events?.length) return [];
@@ -49,6 +49,13 @@ export async function getNotifications(): Promise<Notification[]> {
       return { id: e.id, kind: "reply" as const, text: `${who} replied to your follow-up`, href: pid ? `/inbox?p=${pid}` : "/inbox", at: e.created_at };
     if (e.type === "cap_reached")
       return { id: e.id, kind: "cap" as const, text: `Trial limit hit while chasing ${who}. Upgrade to keep going.`, href: "/settings", at: e.created_at };
+    if (e.type === "quote_limit_reached")
+      return { id: e.id, kind: "usage" as const, text: "Monthly quote limit reached. Existing follow-ups are still running.", href: "/settings", at: e.created_at };
+    if (e.type === "quote_limit_warning") {
+      const payload = (e.payload as { threshold?: number; used?: number } | null) ?? {};
+      const remaining = Math.max(0, 100 - (payload.used ?? 0));
+      return { id: e.id, kind: "usage" as const, text: `${payload.threshold ?? 0}% of your monthly quote allowance used. ${remaining} quotes remain.`, href: "/settings", at: e.created_at };
+    }
     return { id: e.id, kind: "opt_out" as const, text: `${who} opted out of texts. Their follow-ups are stopped.`, href: pid ? `/inbox?p=${pid}` : "/inbox", at: e.created_at };
   });
 }

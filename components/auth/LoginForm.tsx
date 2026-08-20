@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { signIn, sendMagicLink, type AuthState } from "@/lib/supabase/auth-actions";
 import GoogleButton from "@/components/auth/GoogleButton";
 import PasswordInput from "@/components/auth/PasswordInput";
 
 export default function LoginForm() {
+  const [showMagicLink, setShowMagicLink] = useState(false);
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, undefined);
   const [linkState, linkAction, linkPending] = useActionState<AuthState, FormData>(
     sendMagicLink,
@@ -59,27 +60,40 @@ export default function LoginForm() {
         </button>
       </form>
 
-      <form action={linkAction} className="border-t border-slate/10 pt-6">
-        <p className="text-sm text-slate">Forgot your password? Get a one-time login link by email.</p>
-        <input
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className="mt-3 w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue"
-          placeholder="you@yourbusiness.com"
-        />
-        {linkState?.error ? (
-          <p className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{linkState.error}</p>
-        ) : null}
-        <button
-          type="submit"
-          disabled={linkPending}
-          className="mt-3 w-full rounded-xl border border-blue px-8 py-3 font-semibold text-blue transition-colors hover:bg-blue hover:text-white disabled:opacity-60"
-        >
-          {linkPending ? "Sending..." : "Email me a login link"}
-        </button>
-      </form>
+      <div className="border-t border-slate/10 pt-6">
+        {!showMagicLink ? (
+          <button
+            type="button"
+            onClick={() => setShowMagicLink(true)}
+            className="text-left text-sm text-slate underline decoration-slate/30 underline-offset-4 hover:text-ink"
+          >
+            Forgot your password? Click here to get a one-time login link.
+          </button>
+        ) : (
+          <form action={linkAction}>
+            <p className="text-sm text-slate">Enter your email and we&apos;ll send a one-time login link.</p>
+            <input
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              autoFocus
+              className="mt-3 w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue"
+              placeholder="you@yourbusiness.com"
+            />
+            {linkState?.error ? (
+              <p className="mt-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{linkState.error}</p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={linkPending}
+              className="mt-3 w-full rounded-xl border border-blue px-8 py-3 font-semibold text-blue transition-colors hover:bg-blue hover:text-white disabled:opacity-60"
+            >
+              {linkPending ? "Sending..." : "Email me a login link"}
+            </button>
+          </form>
+        )}
+      </div>
 
       <p className="text-center text-sm text-slate">
         New here?{" "}
