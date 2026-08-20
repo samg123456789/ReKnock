@@ -125,6 +125,11 @@ re-verifies, and outbound Resend from the domain is 403-blocked while pending.
   them.
 - Point the prod number's inbound webhook at `https://getreknock.com/api/webhooks/twilio`.
 - Point the status callback at `https://getreknock.com/api/webhooks/twilio/status`.
+- Point the prod number's voice webhook at `https://getreknock.com/api/webhooks/twilio/voice`.
+  Calls to company-owned ReKnock numbers forward to that company's verified owner
+  phone. Calls to a shared number in `TWILIO_SHARED_NUMBERS` forward to the
+  verified platform admin phone. Misconfigured/missed calls land in `events` and
+  `failed_jobs`.
 - Verify Advanced Opt-Out is configured with the registered STOP/HELP strings
   (or Twilio's default opt-out responses are disabled), so our custom
   confirmations are not double-sent / 21610-blocked.
@@ -152,14 +157,17 @@ re-verifies, and outbound Resend from the domain is 403-blocked while pending.
 signup -> Stripe LIVE checkout ($1 charged today, confirm in Stripe) -> confirm
 email -> onboard (6 steps, pick a number) -> add a quote with "Start now" ->
 first touch schedules DAY-spaced not minutes (testMode is off on prod) -> reply
-freezes + relays -> reply to the relay reaches the homeowner -> STOP works over
-the air. On prod the 2h min-gap and TCPA quiet hours are ACTIVE. Note: the first
-real onboarding fires drip email 1/5 about an hour in.
+freezes + relays -> reply to the relay reaches the homeowner -> call the ReKnock
+number and confirm it forwards to the verified owner phone -> STOP works over the
+air. On prod the 2h min-gap and TCPA quiet hours are ACTIVE. Note: the first real
+onboarding fires drip email 1/5 about an hour in.
 
 ### 9. Watch after cutover
 
 - `failed_jobs` table (dead-letter).
 - `events` types: `delivery_filtered` (30007), `relay_delivery_failed`.
+- Voice events: `incoming_call_forwarded`, `incoming_call_missed`,
+  `incoming_call_unrouted`.
 - CI on PRs to main stays green (freeze-race + loop-guard tripwires).
 - Twilio delivery status callbacks landing on the messages ledger
   (send_meta.delivery_error_code).
