@@ -86,6 +86,7 @@ export default function OnboardingWizard({
   initialRelayCell = "",
   initialRelayVerified = false,
   initialAreaCode = "",
+  initialLegalAccepted = false,
 }: {
   initialBasics: Basics;
   initialTrades: string[];
@@ -97,6 +98,7 @@ export default function OnboardingWizard({
   initialRelayCell?: string;
   initialRelayVerified?: boolean;
   initialAreaCode?: string;
+  initialLegalAccepted?: boolean;
 }) {
   const [step, setStep] = useState(Math.min(Math.max(initialStep, 0), TOTAL_STEPS - 1));
 
@@ -108,6 +110,7 @@ export default function OnboardingWizard({
   }, []);
   const [error, setError] = useState<string | null>(null);
   const [finishing, startFinish] = useTransition();
+  const [legalAccepted, setLegalAccepted] = useState(initialLegalAccepted);
 
   const [basics, setBasics] = useState<Basics>(initialBasics);
   const [trades, setTrades] = useState<string[]>(initialTrades);
@@ -249,7 +252,11 @@ export default function OnboardingWizard({
     setError(null);
     const r = await saveQuoteVolume({ avg_quote_amount: basics.avg_quote_amount, quotes_per_month: basics.quotes_per_month });
     if (!r.ok) return setError(r.error ?? "That did not save. Check your connection and try again.");
-    startFinish(() => finishOnboarding(basics.heard_about));
+    if (!legalAccepted) return setError("Please agree to the Terms and SMS Use Rules to finish setup.");
+    startFinish(async () => {
+      const result = await finishOnboarding(basics.heard_about, legalAccepted);
+      if (!result.ok) setError(result.error);
+    });
   }
 
   async function onScreenshots(files: FileList | null) {
@@ -672,8 +679,27 @@ export default function OnboardingWizard({
               ))}
             </select>
           </label>
+          <label className="mt-6 flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-slate">
+            <input
+              type="checkbox"
+              className="mt-1 h-5 w-5 shrink-0 accent-blue"
+              checked={legalAccepted}
+              onChange={(e) => setLegalAccepted(e.target.checked)}
+            />
+            <span>
+              I agree to ReKnock&apos;s{" "}
+              <a href="/terms" target="_blank" rel="noreferrer" className="text-blue underline underline-offset-2">
+                Terms &amp; Conditions
+              </a>{" "}
+              and{" "}
+              <a href="/sms-terms" target="_blank" rel="noreferrer" className="text-blue underline underline-offset-2">
+                SMS Use Rules
+              </a>
+              .
+            </span>
+          </label>
           <div className="mt-8 flex justify-end">
-            <button className={primaryBtn} disabled={finishing} onClick={submitFinish}>
+            <button className={primaryBtn} disabled={finishing || !legalAccepted} onClick={submitFinish}>
               {finishing ? "Setting up your dashboard..." : "Add my first quote"}
             </button>
           </div>

@@ -103,7 +103,7 @@ const useCases = [
 ];
 
 const integrations = [
-  "Jobber", "Housecall Pro", "QuickBooks", "Zapier", "Joist", "Google Calendar",
+  "Jobber", "Housecall Pro", "QuickBooks", "Joist", "Google Calendar",
   "Angi Leads", "Thumbtack", "ServiceTitan", "Invoice Simple",
 ];
 
@@ -118,7 +118,7 @@ const faqs = [
   },
   {
     q: "I use Jobber / Housecall Pro / QuickBooks.",
-    a: "Keep them. ReKnock doesn't replace anything - log the quote in ReKnock (or connect via Zapier) and we handle just the chasing. Direct integrations are on the way.",
+    a: "Keep them. ReKnock doesn't replace anything - log the quote in ReKnock and we handle just the chasing. Direct integrations are on the way.",
   },
   {
     q: "What trades does this work for?",
@@ -338,8 +338,8 @@ export default function Home() {
               </h2>
             </div>
             <p className="max-w-sm text-slate">
-              Zapier connection at launch. Direct integrations rolling out to
-              Growth plans - tell us which one you need first.
+              Tell us which connection would save you the most time. Direct
+              integrations are rolling out to Growth plans.
             </p>
           </div>
           <div className="mt-10 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">

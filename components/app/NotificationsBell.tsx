@@ -18,7 +18,7 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-const ICON: Record<Notification["kind"], string> = { reply: "💬", cap: "⬆️", opt_out: "🚫" };
+const ICON: Record<Notification["kind"], string> = { reply: "💬", cap: "⬆️", opt_out: "🚫", usage: "◷" };
 
 export default function NotificationsBell() {
   const [open, setOpen] = useState(false);

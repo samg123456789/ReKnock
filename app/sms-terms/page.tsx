@@ -3,26 +3,23 @@ import type { Metadata } from "next";
 import { CONSENT_ATTESTATION_SINGLE } from "@/lib/consent";
 
 /* ============================================================================
-   /sms-terms - public opt-in proof page for the 10DLC campaign.
+   /sms-terms - public program and consent page for the 10DLC campaign.
 
    Twilio rejected the earlier campaign because reviewers could not verify the
    call-to-action for the listed opt-in paths. This page intentionally describes
-   one opt-in path for the current A2P submission: verbal consent at the time a
-   homeowner requests a quote. Web-form opt-in is not part of this submission.
+   the contractor workflow, the hardcoded first-message disclosure, and the
+   consent boundary that must be satisfied before a prospect is enrolled.
    ========================================================================== */
 
 export const metadata: Metadata = {
   title: "Text message program & consent - ReKnock",
   description:
-    "How ReKnock's quote follow-up texting program works: verbal opt-in, message frequency, message and data rates, STOP, HELP, and consent proof.",
+    "How ReKnock's quote follow-up texting program works: consent, first-message disclosures, message frequency, message and data rates, STOP, and HELP.",
   alternates: { canonical: "https://getreknock.com/sms-terms" },
 };
 
-const CONSENT_SCRIPT =
-  "Can I text you updates and follow-ups about this quote at this mobile number? Message frequency varies, message and data rates may apply, and you can reply STOP to opt out or HELP for help.";
-
 const FIRST_MESSAGE =
-  "Hi [Homeowner], it's [Contractor] with [Business] through ReKnock, following up on the [job] quote we discussed. Any questions I can answer? Msg & data rates may apply. Reply STOP to opt out";
+  "Hi [Homeowner], it's [Contractor] with [Business] through ReKnock, following up on the [job] quote we discussed. Any questions I can answer?\n\nMessage and data rates may apply.\nReply STOP to opt out.";
 
 export default function SmsTerms() {
   return (
@@ -52,35 +49,46 @@ export default function SmsTerms() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="display text-2xl text-ink">How homeowners opt in</h2>
+          <h2 className="display text-2xl text-ink">How contractors use ReKnock</h2>
           <p>
-            For the current A2P 10DLC campaign, homeowners opt in verbally when
-            they request a quote from the contractor in person or by phone. The
-            homeowner gives the contractor their mobile number and agrees to
-            receive text messages about that specific quote.
+            Contractors receive inquiries through their normal channels, such
+            as a website form, Facebook, referrals, phone calls, or direct
+            messages. When the conversation slows down or a reply is still
+            pending, they add the inquiry to ReKnock and choose the follow-up
+            plan.
           </p>
           <p>
-            ReKnock does not use web-form opt-in for this campaign submission.
-            A contractor may not add a phone number to ReKnock unless that
-            homeowner personally requested a quote from the contractor and gave
-            consent for quote-related text follow-up.
+            ReKnock then sends the follow-up from the contractor&apos;s texting
+            number and in the contractor&apos;s voice. A contact may be enrolled
+            only when the contractor has permission to send quote-related text
+            messages. A phone number alone is not SMS consent.
           </p>
-          <img
-            src="/compliance/verbal-consent-mockup.svg"
-            alt="Mockup showing a contractor asking a homeowner for verbal consent to text quote follow-ups"
-            className="mt-4 w-full rounded-lg border border-sky-line bg-white shadow-sm"
-          />
         </section>
 
         <section className="space-y-3">
-          <h2 className="display text-2xl text-ink">Verbal consent script</h2>
+          <h2 className="display text-2xl text-ink">The first message includes a required disclosure</h2>
           <p>
-            Contractors are instructed to ask for texting consent at the time
-            they collect the homeowner&apos;s mobile number:
+            Every new prospect receives the contractor&apos;s message first. ReKnock
+            then adds the following hardcoded disclosure on separate lines. It
+            cannot be edited or removed by the contractor.
           </p>
-          <div className="rounded-lg border border-sky-line bg-sky/60 p-5">
-            <p className="font-mono text-xs uppercase text-blue">Script</p>
-            <p className="mt-3 text-ink">&ldquo;{CONSENT_SCRIPT}&rdquo;</p>
+          <div className="whitespace-pre-line rounded-lg bg-sky/60 px-4 py-3 font-mono text-sm text-ink">
+            {"Message and data rates may apply.\nReply STOP to opt out."}
+          </div>
+          <p className="text-sm text-mist">
+            This disclosure is added automatically at the sending layer for
+            every customer and every first outbound message. It does not replace
+            the requirement that the contact already agreed to receive texts.
+          </p>
+          <div className="grid gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((example) => (
+              <img
+                key={example}
+                src={`/compliance/sms-exchange-${example}.svg`}
+                alt={`Sample ReKnock SMS exchange ${example} showing the first-message disclosure and reply handling`}
+                className="w-full rounded-lg border border-sky-line bg-white shadow-sm"
+              />
+            ))}
           </div>
         </section>
 

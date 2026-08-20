@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="640" viewBox="0 0 900 640" role="img" aria-labelledby="title desc">
+  <title id="title">Sample STOP exchange</title>
+  <desc id="desc">A homeowner replies STOP and receives the automatic unsubscribe confirmation.</desc>
+  <rect width="900" height="640" fill="#f6f9ff"/>
+  <text x="64" y="70" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#2563eb">EXAMPLE 03</text>
+  <text x="64" y="112" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700" fill="#0f172a">STOP is honored</text>
+  <text x="64" y="146" font-family="Inter, Arial, sans-serif" font-size="18" fill="#475569">The platform stops follow-ups and confirms the opt-out.</text>
+  <rect x="64" y="188" width="570" height="126" rx="18" fill="#e7efff"/>
+  <text x="96" y="224" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#1e3a8a">Mike - Apex Roofing</text>
+  <text x="96" y="260" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">Wanted to close the loop on that roof estimate.</text>
+  <text x="96" y="290" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">Reply STOP to opt out.</text>
+  <rect x="536" y="344" width="300" height="70" rx="18" fill="#dcfce7"/>
+  <text x="574" y="387" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#14532d">STOP</text>
+  <rect x="64" y="438" width="772" height="132" rx="18" fill="#fff7ed" stroke="#fed7aa" stroke-width="2"/>
+  <text x="96" y="488" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#9a3412">Automatic confirmation</text>
+  <text x="96" y="520" font-family="Inter, Arial, sans-serif" font-size="18" fill="#7c2d12">You have successfully been unsubscribed.</text>
+  <text x="96" y="546" font-family="Inter, Arial, sans-serif" font-size="18" fill="#7c2d12">You will not receive any more messages from this number.</text>
+  <text x="96" y="572" font-family="Inter, Arial, sans-serif" font-size="18" fill="#7c2d12">Reply START to resubscribe.</text>
+  <text x="64" y="614" font-family="Inter, Arial, sans-serif" font-size="17" fill="#64748b">The opt-out is recorded for this contractor and phone number.</text>
+</svg>

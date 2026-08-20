@@ -5,8 +5,8 @@ import { formatMoney } from "@/lib/format";
 // @2: founder tone directive - conversational, references the prior
 // conversation, one question, never leads with the raw price number.
 export const FOLLOWUP_DRAFTER_PROMPT_VERSION = "followup_drafter@2";
-export const STOP_LINE = "Reply STOP to opt out";
-export const FIRST_TOUCH_DISCLOSURE_LINE = "Msg & data rates may apply. Reply STOP to opt out";
+export const STOP_LINE = "Reply STOP to opt out.";
+export const FIRST_TOUCH_DISCLOSURE_LINE = "Message and data rates may apply.\nReply STOP to opt out.";
 
 export type FollowupContext = {
   businessName: string;
@@ -61,8 +61,8 @@ Write the single text now.`;
 
 // Standing disclosure rule: every homeowner-facing outbound message gets one
 // opt-out line, and the first homeowner-facing message also gets the carrier
-// fee disclosure. Any inline copy the model, a template, or the contractor
-// wrote is stripped first so it never doubles.
+// fee disclosure. These lines are hardcoded at the send boundary; any inline
+// copy from the model, a template, or the contractor is stripped first.
 export function appendStopLine(text: string, includeRates = false): string {
   const hadRates = /(?:msg|message)\s*(?:&|and)\s*data rates may apply\.?/i.test(text);
   const t = text

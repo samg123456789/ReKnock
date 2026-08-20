@@ -16,6 +16,7 @@ import {
   QUOTE_EXTRACTOR_PROMPT_VERSION,
   type QuoteExtraction,
 } from "@/lib/prompts/quote-extractor";
+import { monthlyQuoteLimitMessage, monthlyQuoteUsage, notifyQuoteUsage } from "@/lib/quote-usage";
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
@@ -178,6 +179,9 @@ export async function createQuote(input: {
 
   const { supabase, company, acting } = await requireCompany();
 
+  const usage = await monthlyQuoteUsage(supabase, company.id);
+  if (usage.remaining < 1) return { ok: false, error: monthlyQuoteLimitMessage() };
+
   // Opt-out block (hard, not bypassable by allow_duplicate). If this homeowner
   // texted STOP to this contractor, they stay suppressed across every quote
   // until they text the contractor first. Checked at intake so no new sequence
@@ -250,7 +254,12 @@ export async function createQuote(input: {
     .select("id")
     .single();
 
+  if (error?.message?.includes("monthly_quote_limit_reached")) {
+    return { ok: false, error: monthlyQuoteLimitMessage() };
+  }
   if (error || !prospect) return { ok: false, error: "Could not save the quote. Please try again." };
+
+  await notifyQuoteUsage(company.id);
 
   // Everything after the prospect insert is independent, so fan it out in
   // parallel (was a serial chain that delayed the "done" screen).

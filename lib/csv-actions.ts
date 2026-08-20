@@ -9,6 +9,7 @@ import { scheduleSequence, computeStartAt, findOptedOutPhones } from "@/lib/enro
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import { CSV_ROW_CAP } from "@/lib/csv";
 import { CONSENT_ATTESTATION_VERSION } from "@/lib/consent";
+import { monthlyQuoteLimitMessage, monthlyQuoteUsage, notifyQuoteUsage } from "@/lib/quote-usage";
 
 export type CsvProspectRow = {
   first_name: string;
@@ -134,6 +135,11 @@ export async function bulkCreateProspects(
   if (!fresh.length)
     return { ok: true, imported: 0, skippedDuplicates, skippedOptedOut, errors };
 
+  const usage = await monthlyQuoteUsage(supabase, companyId);
+  if (fresh.length > usage.remaining) {
+    return fail(`${monthlyQuoteLimitMessage()} This import has ${fresh.length} new quotes, but only ${usage.remaining} remain.`);
+  }
+
   const { data: campaign } = await supabase
     .from("campaigns")
     .select("id, steps")
@@ -169,8 +175,12 @@ export async function bulkCreateProspects(
     .from("prospects")
     .insert(inserts)
     .select("id, quote_date");
+  if (insertErr?.message?.includes("monthly_quote_limit_reached"))
+    return fail(monthlyQuoteLimitMessage());
   if (insertErr || !created)
     return fail("Could not save the customers. Nothing was imported. Please try again.");
+
+  await notifyQuoteUsage(companyId);
 
   // Enroll each new prospect in the default sequence. Batched in chunks of 10
   // so 200 rows do not fire 200 concurrent inserts. A scheduling hiccup never

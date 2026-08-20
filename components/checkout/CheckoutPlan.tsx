@@ -15,7 +15,7 @@ const starterFeatures: { lead: string; rest: string }[] = [
 ];
 const growthFeatures = [
   "Everything in Starter",
-  "Zapier + direct integrations (Jobber, Housecall Pro)",
+  "Direct integrations with the tools you already use",
   "Auto Google-review requests after won jobs",
   "Missed-call text-back",
 ];
@@ -89,7 +89,7 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
       {/* Starter card. No card-hover here: the hover lift shifts the buy button out from under the cursor. */}
       <div className="card relative mt-8 flex flex-col border-blue p-7 shadow-pop">
         <h2 className="display text-3xl">Starter</h2>
-        <p className="mt-1 text-slate">One contractor, unlimited chasing.</p>
+        <p className="mt-1 text-slate">One contractor, up to 100 new quotes a month.</p>
 
         <p className="mt-5">
           <span className="display text-6xl">${monthlyEquivalent}</span>
