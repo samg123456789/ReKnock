@@ -6,20 +6,43 @@ import { createAdminClient } from "@/lib/supabase/server";
 // the plan feel unpredictable.
 export const MONTHLY_QUOTE_LIMIT = 100;
 
-function currentPeriodStart(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
+function periodStartFromAnchor(anchorIso: string, now = new Date()): string {
+  const anchor = new Date(anchorIso);
+  const anchorDay = anchor.getUTCDate();
+  let monthOffset = (now.getUTCFullYear() - anchor.getUTCFullYear()) * 12
+    + now.getUTCMonth() - anchor.getUTCMonth();
+
+  const candidate = () => {
+    const target = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + monthOffset, 1));
+    const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+    return new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), Math.min(anchorDay, lastDay)));
+  };
+
+  let start = candidate();
+  if (start > now) {
+    monthOffset -= 1;
+    start = candidate();
+  }
+  return start.toISOString().slice(0, 10);
 }
 
 export async function monthlyQuoteUsage(
   supabase: SupabaseClient,
   companyId: string,
 ): Promise<{ used: number; remaining: number }> {
+  const { data: company, error: companyError } = await supabase
+    .from("companies")
+    .select("created_at")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (companyError || !company?.created_at) throw new Error("Could not check monthly quote usage.");
+
+  const periodStart = periodStartFromAnchor(company.created_at);
   const { data, error } = await supabase
     .from("company_monthly_quote_usage")
     .select("quote_count")
     .eq("company_id", companyId)
-    .eq("period_start", currentPeriodStart())
+    .eq("period_start", periodStart)
     .maybeSingle();
 
   if (error) throw new Error("Could not check monthly quote usage.");
@@ -74,7 +97,13 @@ ReKnock`,
 // performed in the database so repeated imports cannot send duplicate alerts.
 export async function notifyQuoteUsage(companyId: string): Promise<void> {
   const admin = createAdminClient();
-  const periodStart = currentPeriodStart();
+  const { data: company } = await admin
+    .from("companies")
+    .select("created_at")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (!company?.created_at) return;
+  const periodStart = periodStartFromAnchor(company.created_at);
   const { data: usage } = await admin
     .from("company_monthly_quote_usage")
     .select("quote_count, email_50_sent, email_75_sent, email_90_sent, email_100_sent")
