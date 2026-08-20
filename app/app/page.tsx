@@ -32,7 +32,7 @@ export default async function AppHome() {
             .eq("company_id", cid)
             .limit(5000),
           sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
-          sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
+          sb.from("users").select("cell_phone, cell_phone_verified_at").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
         ])
       : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: null }];
 
@@ -140,7 +140,7 @@ export default async function AppHome() {
       ) : null}
 
       <EducationCards
-        relayCell={owner?.cell_phone ?? null}
+        relayCell={owner?.cell_phone_verified_at ? owner.cell_phone : null}
         reknockNumber={phone?.e164 ? { e164: phone.e164, status: phone.status ?? "" } : null}
         forwardingEmail={forwardingEmail}
         hasEmailProspect={hasEmailProspect}
