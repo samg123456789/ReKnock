@@ -3,12 +3,10 @@
 // so the exact wording the contractor agreed to is recorded on the prospect's
 // event ledger and can be reproduced later for a dispute or A2P audit.
 //
-// >>> LEGAL REVIEW PENDING <<< the wording here is a draft for the same review
-// as /sms-terms. It is a contractor-side attestation (not homeowner-facing
-// copy), so it is safe to ship on dev; do not treat it as final consent
-// language until Sam's legal review signs off before the A2P resubmit.
+// Current A2P resubmission wording: explicit prior quote request, mobile
+// number consent, and no cold outreach / purchased-list use.
 
-export const CONSENT_ATTESTATION_VERSION = 1;
+export const CONSENT_ATTESTATION_VERSION = 2;
 
 // Linked reference points at /sms-terms - the "Text message program & consent"
 // page that lays out the opt-in call-to-action, message frequency, msg & data
@@ -19,6 +17,6 @@ export const CONSENT_LINK_HREF = "/sms-terms";
 export const CONSENT_LINK_LABEL = "SMS terms";
 
 export const CONSENT_ATTESTATION_SINGLE =
-  "I confirm this customer agreed to receive text messages about their quote.";
+  "I confirm this customer requested this quote from my business, gave me their mobile number, and agreed to receive text messages about this quote. I will not use ReKnock for cold outreach, purchased lists, scraped numbers, or prospects who did not consent.";
 export const CONSENT_ATTESTATION_BULK =
-  "I confirm these customers agreed to receive text messages about their quotes.";
+  "I confirm each customer in this import requested a quote from my business, gave me their mobile number, and agreed to receive text messages about their quote. I will not use ReKnock for cold outreach, purchased lists, scraped numbers, or prospects who did not consent.";

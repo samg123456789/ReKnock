@@ -3,10 +3,10 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { appendStopLine } from "@/lib/prompts/followup-drafter";
 
-// Kinds that reach a homeowner. Standing rule (founder, 2026-07-14, interim
-// pending legal review): every one of these carries the STOP line, applied
-// HERE at the send layer so no origin - engine draft, template, reminder,
-// composer, or relay - can forget it. Owner pings and system messages
+// Kinds that reach a homeowner. Standing rule: every one of these carries the
+// STOP line, applied here at the send layer so no origin - engine draft,
+// template, reminder, composer, or relay - can forget it. Owner pings and
+// system messages
 // (including the carrier-registered STOP/HELP confirmations, which must stay
 // byte-exact) are excluded. appendStopLine dedupes, so upstream callers that
 // already added it are unaffected.
@@ -17,7 +17,7 @@ const HOMEOWNER_KINDS = new Set(["sequence", "reminder", "manual", "relay"]);
 export const STOP_CONFIRMATION =
   "You have successfully been unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe.";
 export const HELP_REPLY =
-  "ReKnock quote follow-ups on behalf of your contractor. Reply STOP to unsubscribe. Msg & Data Rates May Apply.";
+  "ReKnock quote follow-ups on behalf of your contractor. Reply STOP to unsubscribe. Msg & data rates may apply.";
 
 const STOP_WORDS = new Set(["STOP", "OPTOUT", "CANCEL", "END", "QUIT", "UNSUBSCRIBE", "REVOKE", "STOPALL"]);
 const HELP_WORDS = new Set(["HELP", "INFO"]);

@@ -38,11 +38,14 @@ function isProd(): boolean {
   return process.env.VERCEL_ENV === "production";
 }
 
-// Every minute: fire due scheduled messages + due "remind me" pings.
+// Every 15 minutes: fire due scheduled messages + due "remind me" pings.
+// A 1-minute no-op cron alone can exhaust Inngest's free monthly execution
+// allowance; 15 minutes keeps the idle cost low while staying responsive
+// enough for MVP quote follow-ups.
 // Duplicate fan-out is harmless: the sender's atomic claim (scheduled ->
 // queued) makes the second event a no-op.
 export const scheduledSendDispatcher = inngest.createFunction(
-  { id: "scheduled-send-dispatcher", triggers: [{ cron: "* * * * *" }] },
+  { id: "scheduled-send-dispatcher", triggers: [{ cron: "*/15 * * * *" }] },
   async ({ step }) => {
     const now = new Date().toISOString();
     const due = await step.run("find-due", async () => {

@@ -15,11 +15,11 @@ export const metadata: Metadata = {
 
 export default function Privacy() {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
+    <main className="mx-auto max-w-3xl px-6 py-16">
       <p className="eyebrow mb-4">ReKnock</p>
       <h1 className="display text-5xl">Privacy &amp; texting policy</h1>
       <div className="mt-8 space-y-6 leading-relaxed text-slate">
-        <p className="font-mono text-sm text-mist">Last updated: July 2026</p>
+        <p className="font-mono text-sm text-mist">Last updated: August 2026</p>
 
         <h2 className="display pt-2 text-2xl text-ink">What ReKnock does</h2>
         <p>
@@ -32,13 +32,20 @@ export default function Privacy() {
         <h2 className="display pt-2 text-2xl text-ink">Consent</h2>
         <p>
           You receive texts because you gave your phone number to a contractor
-          when requesting an estimate and agreed to be contacted about it. How
-          consent is collected and the exact opt-in wording are described on our{" "}
+          when requesting an estimate and agreed to receive text follow-ups about
+          that specific quote. For the current A2P 10DLC campaign, consent is
+          collected verbally when the contractor collects your mobile number.
+          The opt-in workflow and exact consent language are described on our{" "}
           <Link href="/sms-terms" className="text-blue underline">
             text message program &amp; consent
           </Link>{" "}
           page.
         </p>
+        <img
+          src="/compliance/privacy-data-mockup.svg"
+          alt="Mockup showing how ReKnock limits mobile information to quote follow-up texting and consent records"
+          className="w-full rounded-lg border border-sky-line bg-white shadow-sm"
+        />
 
         <h2 className="display pt-2 text-2xl text-ink">Message frequency</h2>
         <p>

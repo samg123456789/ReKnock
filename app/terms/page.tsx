@@ -18,7 +18,7 @@ export default function Terms() {
       <p className="eyebrow mb-4">ReKnock</p>
       <h1 className="display text-5xl">Terms &amp; Conditions</h1>
       <div className="mt-8 space-y-6 leading-relaxed text-slate">
-        <p className="font-mono text-sm text-mist">Last updated: July 2026</p>
+        <p className="font-mono text-sm text-mist">Last updated: August 2026</p>
 
         <p>
           These terms govern your use of ReKnock (&quot;ReKnock,&quot;
@@ -61,11 +61,48 @@ export default function Terms() {
         </h2>
         <p>
           If you use ReKnock to text your customers, you confirm that each person
-          you add gave you their number and agreed to be contacted about their
-          quote. You are responsible for the content you approve and for
-          complying with applicable messaging laws (including the TCPA). Do not
-          use ReKnock for marketing blasts, purchased lists, or anyone who has
-          not asked you for a quote.
+          you add requested a quote or estimate from your business, gave you
+          their mobile number, and agreed to receive text messages about that
+          quote. You are responsible for the contacts you upload, the consent you
+          collect, the content you approve, and your compliance with applicable
+          messaging laws, including the TCPA.
+        </p>
+        <p>
+          ReKnock is not a cold outreach platform. Do not use ReKnock for
+          marketing blasts, purchased lists, scraped numbers, third-party lead
+          lists, trade show lists, unrelated promotions, or anyone who has not
+          directly requested a quote from your business and consented to
+          quote-related text follow-up.
+        </p>
+
+        <h2 className="display pt-2 text-2xl text-ink">Examples</h2>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+            <p className="font-semibold text-green-800">Allowed use</p>
+            <p className="mt-2 text-sm text-green-900">
+              A homeowner asks your roofing company for an estimate, gives you
+              their mobile number, and agrees that you can text follow-ups about
+              that estimate. You enter that quote into ReKnock.
+            </p>
+          </div>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="font-semibold text-red-800">Not allowed</p>
+            <p className="mt-2 text-sm text-red-900">
+              You buy or scrape a list of homeowners, upload old leads who never
+              consented to text follow-up, or message prospects who did not
+              request a quote from your business.
+            </p>
+          </div>
+        </div>
+
+        <h2 className="display pt-2 text-2xl text-ink">Consent records</h2>
+        <p>
+          Before you start a ReKnock follow-up sequence, you must actively
+          confirm the contact consent statement shown in the product. ReKnock may
+          record the attestation, timestamp, source, and consent wording version.
+          We may suspend or terminate accounts that cannot support the consent
+          they claim or that put carrier approval, deliverability, or other
+          customers at risk.
         </p>
 
         <h2 className="display pt-2 text-2xl text-ink">Billing</h2>
