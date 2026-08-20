@@ -69,6 +69,10 @@ const intake = [
     label: "Type",
     body: "Name, phone, amount. Done.",
   },
+  {
+    label: "Upload",
+    body: "Drop in a CSV. Chase the whole list.",
+  },
 ];
 
 const integrations = [
@@ -191,13 +195,13 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
           <p className="eyebrow mb-3">How it works</p>
           <h2 className="display max-w-3xl text-4xl md:text-5xl">
-            Add the quote however you have it.
+            Add quotes however you have them.
           </h2>
           <p className="mt-4 max-w-xl text-lg text-slate">
             Pick the follow-up timing, approve the wording, and ReKnock handles
             the chase until they reply.
           </p>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {intake.map((s, i) => (
               <Reveal
                 key={s.label}
