@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
      phase 1  ReKnock sends the follow-up (the quote chase goes out)
      phase 2  the homeowner is typing
      phase 3  their reply lands -> the sequence FREEZES (upcoming touches pause)
-     phase 4  ReKnock pings the contractor's phone and hands over the chat
+     phase 4  ReKnock emails the contractor and opens the inbox thread
    then it holds and advances to the next prospect, forever.
 
    This is decorative: the hero's headline and subhead carry the crawlable
@@ -31,7 +31,7 @@ type Example = {
   outMeta: string;
   upcoming: string[];
   reply: string;
-  relay: string;
+  handoff: string;
 };
 
 const examples: Example[] = [
@@ -44,7 +44,7 @@ const examples: Example[] = [
     outMeta: "Day 2 · sent by ReKnock",
     upcoming: ["Day 5 check-in", "Day 10 soft close"],
     reply: "Yes actually - can you do the week of the 15th?",
-    relay: "Sarah replied to your roof quote. Reply here and we'll pass it on.",
+    handoff: "Sarah replied to your roof quote. Reply to the email or answer from the inbox.",
   },
   {
     label: "Dan K. · Exterior paint $5,900",
@@ -55,7 +55,7 @@ const examples: Example[] = [
     outMeta: "Day 5 · sent by ReKnock",
     upcoming: ["Day 10 soft close", "Day 20 last call"],
     reply: "Good to know. One question about the trim color…",
-    relay: "Dan has a question on the paint quote. Reply here to answer him.",
+    handoff: "Dan has a question on the paint quote. Reply to the email or answer from the inbox.",
   },
   {
     label: "Priya R. · Cedar fence $4,200",
@@ -66,7 +66,7 @@ const examples: Example[] = [
     outMeta: "Day 10 · sent by ReKnock",
     upcoming: ["Day 20 last call"],
     reply: "Sorry for the silence! Let's do it. When can you start?",
-    relay: "Priya's ready to book the fence. Reply here and we'll text her back.",
+    handoff: "Priya's ready to book the fence. Reply to the email or answer from the inbox.",
   },
 ];
 
@@ -75,7 +75,7 @@ const timeline: [number, number][] = [
   [1, 900], // send goes out
   [2, 1400], // homeowner typing
   [3, 1500], // reply lands + freeze
-  [4, 3000], // relay ping, then hold
+  [4, 3000], // email/app handoff, then hold
 ];
 
 function StatusPill({ phase }: { phase: number }) {
@@ -200,15 +200,15 @@ export default function PhoneThread() {
           </>
         )}
 
-        {/* relay ping to the contractor's phone */}
+        {/* email/app handoff to the contractor */}
         {phase >= 4 && (
           <div className="pt-ping mt-auto flex items-start gap-2.5 rounded-2xl border border-sky-line bg-sky px-3.5 py-3">
-            <span aria-hidden className="text-lg leading-none">📲</span>
+            <span aria-hidden className="text-lg leading-none">✉</span>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-blue">
-                Texted {ex.owner}&apos;s phone
+                Emailed {ex.owner} + inbox updated
               </p>
-              <p className="mt-0.5 text-[13px] leading-snug text-slate">{ex.relay}</p>
+              <p className="mt-0.5 text-[13px] leading-snug text-slate">{ex.handoff}</p>
             </div>
           </div>
         )}

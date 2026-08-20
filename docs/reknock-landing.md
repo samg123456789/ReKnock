@@ -45,7 +45,7 @@ Forward the quote email, or type a name, number, and amount. That's it.
 Four short texts over three weeks, written in your voice - not robot-speak. Day 2, day 5, day 10, day 20. Polite every time.
 
 **3. They reply, you take over.**
-The instant a homeowner answers, the texts stop and you get pinged on your own phone. Reply like a normal text - we relay it. No app to babysit.
+The instant a homeowner answers, the texts stop. You get a clean email, the thread is waiting in the ReKnock inbox, and your reply goes back from your ReKnock number.
 
 ---
 

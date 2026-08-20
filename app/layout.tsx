@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s",
   },
   description:
-    "ReKnock texts homeowners after every quote - in your voice - and hands you the conversation the second they reply. For roofers, painters, and every quoted trade.",
+    "ReKnock texts homeowners after every quote - in your voice - then emails you and opens the inbox thread the second they reply. For roofers, painters, and every quoted trade.",
   openGraph: {
     title: "ReKnock - quotes that chase themselves",
     description:

@@ -147,7 +147,7 @@ export default function EducationCards({
               title="Verify where calls should ring"
               action={<Link href="/settings#relay-cell" className="text-sm font-semibold text-blue hover:underline">Verify your number →</Link>}
             >
-              <p>We use this for call forwarding and urgent lead alerts. A quick code keeps customer calls from routing to the wrong person.</p>
+              <p>Replies go to email and your inbox. We use this number for call forwarding and urgent fallbacks, so a quick code keeps customer calls from routing to the wrong person.</p>
             </Card>
           )}
           {!lineDone && (

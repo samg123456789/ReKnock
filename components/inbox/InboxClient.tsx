@@ -522,7 +522,7 @@ function ReminderModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
         <div className="mt-3 flex flex-col gap-2">
           <label className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 ${mode === "remind_me" ? "border-blue bg-sky/40" : "border-slate/20"}`}>
             <input type="radio" name="rem-mode" className="mt-0.5" checked={mode === "remind_me"} onChange={() => setMode("remind_me")} />
-            <span className="text-sm"><span className="font-semibold text-ink">Text me a reminder</span><br /><span className="text-slate">We ping your cell and you reply to text them through ReKnock.</span></span>
+            <span className="text-sm"><span className="font-semibold text-ink">Remind me</span><br /><span className="text-slate">We nudge you at that time so you can answer from email or the inbox.</span></span>
           </label>
           <label className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 ${mode === "auto_send" ? "border-blue bg-sky/40" : "border-slate/20"}`}>
             <input type="radio" name="rem-mode" className="mt-0.5" checked={mode === "auto_send"} onChange={() => setMode("auto_send")} />

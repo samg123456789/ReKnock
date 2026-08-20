@@ -9,7 +9,7 @@ const starterFeatures: { lead: string; rest: string }[] = [
   { lead: "Never chase a quote again.", rest: " Unlimited follow-up sequences, sent for you" },
   { lead: "Sounds like you, not a robot.", rest: " AI learns your voice from your real texts" },
   { lead: "Your own local number", rest: " homeowners recognize and reply to" },
-  { lead: "Reply = you take over.", rest: " Follow-ups stop instantly, pinged straight to your phone" },
+  { lead: "Reply = you take over.", rest: " Follow-ups stop instantly, emailed to you with an inbox thread" },
   { lead: "10-second intake.", rest: " Forward the email, snap a photo, done" },
   { lead: "See the money.", rest: " Quotes chased, jobs won, revenue recovered" },
 ];

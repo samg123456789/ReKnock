@@ -386,10 +386,11 @@ export const fireReminder = inngest.createFunction(
       const name = p.first_name ?? "your lead";
       const job = p.job_type ? `the ${p.job_type} quote` : "their quote";
       const notePart = rem.note ? ` You said: "${rem.note}".` : "";
+      const threadUrl = `${process.env.APP_URL ?? "https://getreknock.com"}/inbox?p=${rem.prospect_id}`;
       const body =
         p.status === "opted_out"
           ? `ReKnock reminder: circle back with ${name} about ${job}.${notePart} They opted out of texts, so give them a call: ${p.phone_e164 ?? "no number on file"}.`
-          : `ReKnock reminder: circle back with ${name} about ${job}.${notePart} Reply here and we will text them from your ReKnock number, or call ${p.phone_e164 ?? "them"}.`;
+          : `ReKnock reminder: circle back with ${name} about ${job}.${notePart} Open the inbox thread to answer from ReKnock: ${threadUrl}`;
 
       const res = await sendSms({
         companyId: rem.company_id,

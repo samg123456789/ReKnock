@@ -47,8 +47,9 @@ export default function PhoneVerificationPanel({
             <h3 className="display text-2xl text-blue-ink">Verify your real number.</h3>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate">
               Calls to your ReKnock line can forward here, and urgent lead
-              alerts have a safe fallback. We verify it so a typo never routes a
-              customer to the wrong phone.
+              alerts have a safe fallback. Replies still live in email and the
+              ReKnock inbox. We verify this number so a typo never routes a
+              customer call to the wrong phone.
             </p>
           </div>
           <span
@@ -156,11 +157,11 @@ export default function PhoneVerificationPanel({
             </p>
             <p>
               <span className="font-semibold text-ink">Safer alerts.</span>{" "}
-              Important lead events never route to an unverified phone.
+              Urgent fallbacks never route to an unverified phone.
             </p>
             <p>
               <span className="font-semibold text-ink">Clean handoff.</span>{" "}
-              Your inbox stays the source of truth.
+              Reply emails and the inbox stay the source of truth.
             </p>
           </div>
         </div>

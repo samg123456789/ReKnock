@@ -635,7 +635,8 @@ export default function OnboardingWizard({
           <p className="mt-3 text-slate">
             This is the local number your customers will see, so pick one in
             your area code. Follow-ups come from here, replies land in your
-            ReKnock inbox, and calls can forward to your verified phone.
+            email and ReKnock inbox, and calls can forward to your verified
+            phone.
           </p>
           <NumberPicker phone={null} defaultAreaCode={initialAreaCode} bare onClaimed={() => goTo(6)} />
           <div className="mt-8 flex items-center justify-between">

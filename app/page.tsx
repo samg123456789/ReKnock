@@ -7,7 +7,7 @@ import RoiCalculator from "@/components/RoiCalculator";
 export const metadata: Metadata = {
   title: "ReKnock - automatic follow-up texts for contractor quotes",
   description:
-    "You quoted it, they went quiet. ReKnock texts homeowners after every quote - in your voice - and hands you the conversation the second they reply. For roofers, painters, fencing and every quoted trade. $1 first week.",
+    "You quoted it, they went quiet. ReKnock texts homeowners after every quote - in your voice - then emails you and opens the inbox thread the second they reply. For roofers, painters, fencing and every quoted trade. $1 first week.",
   alternates: { canonical: "https://getreknock.com" },
 };
 
@@ -110,7 +110,7 @@ const integrations = [
 const faqs = [
   {
     q: "Do homeowners know it's automated?",
-    a: "The texts come from your dedicated business number and sound like you, because you approve every word before anything sends. When they reply, it IS you.",
+    a: "The texts come from your dedicated business number and sound like you, because you approve every word before anything sends. When they reply, automation stops and you answer from email or the ReKnock inbox.",
   },
   {
     q: "What if someone tells me to stop texting?",
@@ -259,8 +259,8 @@ export default function Home() {
                 The handoff
               </p>
               <p className="mt-2 text-sm font-semibold text-blue-ink">
-                The first reply pauses follow-up and puts the conversation back
-                in your hands.
+                The first reply pauses follow-up, emails you, and opens the
+                inbox thread.
               </p>
             </Reveal>
           </div>

@@ -29,10 +29,10 @@ export default function Terms() {
         <h2 className="display pt-2 text-2xl text-ink">The service</h2>
         <p>
           ReKnock helps contractors follow up on quotes by sending automated text
-          messages to the homeowners they quoted, and by relaying the
-          homeowner&apos;s replies back to the contractor. Follow-ups are sent
-          from a dedicated texting number and stop as soon as the homeowner
-          replies.
+          messages to the homeowners they quoted, and by routing homeowner
+          replies back to the contractor by email and in the ReKnock inbox.
+          Follow-ups are sent from a dedicated texting number and stop as soon
+          as the homeowner replies.
         </p>
 
         <h2 className="display pt-2 text-2xl text-ink">SMS program terms</h2>

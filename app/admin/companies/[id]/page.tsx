@@ -45,7 +45,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ id: 
         <div className="grid grid-cols-2 gap-2 text-slate">
           <span>Email</span><span className="text-ink">{owner?.email ?? "-"}</span>
           <span>Owner</span><span className="text-ink">{owner?.full_name ?? "-"}</span>
-          <span>Relay cell</span><span className="text-ink">{owner?.cell_phone ?? "not set"}</span>
+          <span>Owner phone</span><span className="text-ink">{owner?.cell_phone ?? "not set"}</span>
           <span>Trades</span><span className="text-ink">{Array.isArray(company.trades) ? company.trades.join(", ") : company.trade ?? "-"}</span>
           <span>Website</span><span className="text-ink">{company.website ?? "-"}</span>
           <span>Timezone</span><span className="text-ink">{company.timezone ?? "-"}</span>

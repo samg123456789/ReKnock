@@ -60,11 +60,11 @@ Sam`,
 This is the part that wins jobs, so here is exactly what happens when a homeowner texts back:
 
 1. All remaining follow-ups stop instantly. We never talk over a live conversation.
-2. Your cell gets a text with what they said. Reply to that text and we pass your words straight to them from your ReKnock number. No app needed, you are just texting.
-3. If we can draft an answer for you, the text includes a suggested reply. Text back "1" and it sends as-is. Or ignore it and write your own.
-4. If they say "not until spring" or "call me next month", text "1" and we schedule the circle-back for you. It goes out on the right day, in your voice, without you remembering anything.
+2. You get a clean email with what they said, and the conversation is waiting in your ReKnock inbox.
+3. Reply to the email and ReKnock sends your words back as a text from your ReKnock number. Or open the inbox thread and answer there.
+4. If they say "not until spring" or "call me next month", set a circle-back from the inbox. It goes out on the right day, in your voice, without you remembering anything.
 
-The whole point: you find out the second a lead warms up, and answering takes one text from wherever you are.
+The whole point: you find out the second a lead warms up, and answering fits the email/app workflow you already use.
 
 Sam`,
   },
