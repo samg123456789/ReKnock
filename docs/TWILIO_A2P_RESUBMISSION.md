@@ -18,6 +18,12 @@ a quote in person or by phone. Do not include contractor website forms in this
 campaign until there is a public, reviewable form or hosted screenshot for that
 exact path.
 
+Use the **Sole Proprietor** campaign use case for this submission. "Starter"
+is the Twilio profile type used during registration, not the campaign use case.
+Before submitting, confirm that the Messaging Service has the exact Twilio
+10DLC sender number attached to this campaign. Use that exact number in any
+Twilio field that asks which number originates the messages.
+
 Use `https://getreknock.com/sms-terms` as the public proof URL in the message
 flow field. It shows the verbal script, the unchecked ReKnock consent
 attestation, allowed/not-allowed examples, message frequency, rate disclosure,
