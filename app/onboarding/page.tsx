@@ -14,7 +14,7 @@ export default async function Onboarding() {
   if (!user) redirect("/login");
 
   // Independent queries run in parallel (was 3 serial round-trips).
-  const [{ data: company }, { data: voice }, { data: windows }, { data: phone }, { data: owner }] = await Promise.all([
+  const [{ data: company }, { data: voice }, { data: windows }, { data: phone }, { data: owner }, { data: legalAcceptance }] = await Promise.all([
     supabase
       .from("companies")
       .select("name, website, description, trades, trade, heard_about, avg_quote_amount, quotes_per_month, timezone")
@@ -30,6 +30,7 @@ export default async function Onboarding() {
       .order("day_of_week", { ascending: true }),
     supabase.from("phone_numbers").select("id").neq("status", "released").limit(1).maybeSingle(),
     supabase.from("users").select("cell_phone, cell_phone_verified_at").not("cell_phone", "is", null).limit(1).maybeSingle(),
+    supabase.from("events").select("id").eq("type", "legal_terms_accepted").limit(1).maybeSingle(),
   ]);
 
   const initialProfile: VoiceProfileResult | null = voice?.master_prompt
@@ -95,6 +96,7 @@ export default async function Onboarding() {
         initialRelayCell={owner?.cell_phone ?? ""}
         initialRelayVerified={hasVerifiedCell}
         initialAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3)}
+        initialLegalAccepted={Boolean(legalAcceptance)}
       />
     </main>
   );

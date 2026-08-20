@@ -277,8 +277,10 @@ export async function saveSchedule(
 // Finish: seed the default 4-touch campaign (if none) and mark onboarding complete.
 // heardAbout is the low-key optional question on the last screen.
 // TODO: optional "finish setting up" reminder email for accounts that stall mid-wizard.
-export async function finishOnboarding(heardAbout?: string): Promise<void> {
+export async function finishOnboarding(heardAbout?: string, legalAccepted = false): Promise<ActionResult> {
   const { supabase, company } = await requireCompany();
+
+  if (legalAccepted !== true) return { ok: false, error: "Please agree to the Terms and SMS Use Rules to finish setup." };
 
   // The number step is mandatory: nothing in the product can text without
   // one, so the dashboard is unreachable number-less no matter how this
@@ -295,6 +297,16 @@ export async function finishOnboarding(heardAbout?: string): Promise<void> {
   if (heardAbout?.trim()) {
     await supabase.from("companies").update({ heard_about: heardAbout.trim() }).eq("id", company.id);
   }
+
+  await supabase.from("events").insert({
+    company_id: company.id,
+    type: "legal_terms_accepted",
+    payload: {
+      terms_version: "2026-08",
+      source: "onboarding",
+      accepted_at: new Date().toISOString(),
+    },
+  });
 
   const { data: existing } = await supabase
     .from("campaigns")

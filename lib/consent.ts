@@ -6,7 +6,7 @@
 // Current A2P resubmission wording: explicit prior quote request, mobile
 // number consent, and no cold outreach / purchased-list use.
 
-export const CONSENT_ATTESTATION_VERSION = 2;
+export const CONSENT_ATTESTATION_VERSION = 3;
 
 // Linked reference points at /sms-terms - the "Text message program & consent"
 // page that lays out the opt-in call-to-action, message frequency, msg & data
@@ -17,6 +17,6 @@ export const CONSENT_LINK_HREF = "/sms-terms";
 export const CONSENT_LINK_LABEL = "SMS terms";
 
 export const CONSENT_ATTESTATION_SINGLE =
-  "I confirm this customer requested this quote from my business, gave me their mobile number, and agreed to receive text messages about this quote. I will not use ReKnock for cold outreach, purchased lists, scraped numbers, or prospects who did not consent.";
+  "I confirm this contact requested a quote from my business and agreed to receive quote-related text messages.";
 export const CONSENT_ATTESTATION_BULK =
-  "I confirm each customer in this import requested a quote from my business, gave me their mobile number, and agreed to receive text messages about their quote. I will not use ReKnock for cold outreach, purchased lists, scraped numbers, or prospects who did not consent.";
+  "I confirm each contact in this import requested a quote from my business and agreed to receive quote-related text messages.";
