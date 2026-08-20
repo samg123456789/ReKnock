@@ -29,7 +29,7 @@ export default async function Onboarding() {
       .select("day_of_week, start_time, end_time, enabled")
       .order("day_of_week", { ascending: true }),
     supabase.from("phone_numbers").select("id").neq("status", "released").limit(1).maybeSingle(),
-    supabase.from("users").select("cell_phone").not("cell_phone", "is", null).limit(1).maybeSingle(),
+    supabase.from("users").select("cell_phone, cell_phone_verified_at").not("cell_phone", "is", null).limit(1).maybeSingle(),
   ]);
 
   const initialProfile: VoiceProfileResult | null = voice?.master_prompt
@@ -49,19 +49,22 @@ export default async function Onboarding() {
 
   // Resume where they left off, derived from what is already saved (no extra
   // column needed). Steps: 0 business, 1 voice questions, 2 voice review,
-  // 3 hours, 4 number, 5 done (quote volume + heard-about live on the final
-  // screen now). A saved voice profile means the review step was approved,
-  // sending_windows rows only exist once the hours step saved, and a live
-  // phone_numbers row means the number step is done.
+  // 3 hours, 4 owner phone, 5 number, 6 done (quote volume + heard-about live
+  // on the final screen now). A saved voice profile means the review step was
+  // approved, sending_windows rows only exist once the hours step saved, a
+  // verified owner cell proves calls/urgent alerts route to the right person,
+  // and a live phone_numbers row means the number step is done.
   const hasBasics = Boolean(company?.name && initialTrades.length > 0 && (company?.description || company?.website));
   const hasVoice = Boolean(initialProfile);
   const hasWindows = Boolean(windows && windows.length);
+  const hasVerifiedCell = Boolean(owner?.cell_phone && owner.cell_phone_verified_at);
   const hasNumber = Boolean(phone);
   let initialStep = 0;
   if (hasBasics) initialStep = 1;
   if (hasBasics && hasVoice) initialStep = 3;
   if (hasBasics && hasVoice && hasWindows) initialStep = 4;
-  if (hasBasics && hasVoice && hasWindows && hasNumber) initialStep = 5;
+  if (hasBasics && hasVoice && hasWindows && hasVerifiedCell) initialStep = 5;
+  if (hasBasics && hasVoice && hasWindows && hasVerifiedCell && hasNumber) initialStep = 6;
 
   return (
     <main className="min-h-[70vh]">
@@ -89,6 +92,8 @@ export default async function Onboarding() {
         }
         initialTimezone={company?.timezone ?? ""}
         initialStep={initialStep}
+        initialRelayCell={owner?.cell_phone ?? ""}
+        initialRelayVerified={hasVerifiedCell}
         initialAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3)}
       />
     </main>

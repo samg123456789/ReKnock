@@ -5,7 +5,7 @@ import { getActingCompany } from "@/lib/acting-company";
 import DashboardTable, { type ProspectRow } from "@/components/app/DashboardTable";
 import EducationCards from "@/components/app/EducationCards";
 import NumberPicker from "@/components/app/NumberPicker";
-import { INTAKE_EMAIL } from "@/lib/intake-email";
+import { intakeEmailForSlug } from "@/lib/intake-email";
 
 export const metadata: Metadata = { title: "Dashboard - ReKnock" };
 
@@ -32,7 +32,7 @@ export default async function AppHome() {
             .eq("company_id", cid)
             .limit(5000),
           sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
-          sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
+          sb.from("users").select("cell_phone, cell_phone_verified_at").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
         ])
       : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: null }];
 
@@ -72,7 +72,7 @@ export default async function AppHome() {
     };
   });
 
-  const forwardingEmail = INTAKE_EMAIL;
+  const forwardingEmail = intakeEmailForSlug(company?.forwarding_slug);
   // Forwarding is "in use" once any prospect arrived by email (forward or BCC).
   const hasEmailProspect = (prospects ?? []).some((p) => p.source === "email_forward" || p.source === "bcc");
   // One-time feature tour: dashboard implies onboarded; show until the
@@ -140,7 +140,7 @@ export default async function AppHome() {
       ) : null}
 
       <EducationCards
-        relayCell={owner?.cell_phone ?? null}
+        relayCell={owner?.cell_phone_verified_at ? owner.cell_phone : null}
         reknockNumber={phone?.e164 ? { e164: phone.e164, status: phone.status ?? "" } : null}
         forwardingEmail={forwardingEmail}
         hasEmailProspect={hasEmailProspect}

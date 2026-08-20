@@ -13,3 +13,19 @@ export function bareEmail(raw: string | null | undefined): string | null {
   const m = raw.match(/<([^<>\s]+@[^<>\s]+)>/) ?? raw.match(/([^<>\s"',;]+@[^<>\s"',;]+)/);
   return m ? m[1].toLowerCase() : null;
 }
+
+export function intakeEmailForSlug(slug: string | null | undefined): string {
+  const clean = (slug ?? "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  return clean ? `quotes+${clean}@getreknock.com` : INTAKE_EMAIL;
+}
+
+export function intakeSlugFromEmail(raw: string | null | undefined): string | null {
+  const email = bareEmail(raw);
+  const match = email?.match(/^quotes\+([a-z0-9_-]+)@getreknock\.com$/);
+  return match?.[1] ?? null;
+}
+
+export function isIntakeAddress(raw: string | null | undefined): boolean {
+  const email = bareEmail(raw);
+  return email === INTAKE_EMAIL || /^quotes\+[a-z0-9_-]+@getreknock\.com$/.test(email ?? "");
+}

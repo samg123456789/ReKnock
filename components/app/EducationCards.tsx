@@ -109,8 +109,8 @@ export default function EducationCards({
             </DoneRow>
           )}
           {relayDone && (
-            <DoneRow title="Reply relay on">
-              <span className="min-w-0 truncate text-[13px] font-semibold text-blue-ink">Pinging {relayCell}</span>
+            <DoneRow title="Owner phone verified">
+              <span className="min-w-0 truncate text-[13px] font-semibold text-blue-ink">{relayCell}</span>
               <Link href="/settings#relay-cell" className="shrink-0 text-xs font-semibold text-blue hover:underline">Change</Link>
             </DoneRow>
           )}
@@ -143,11 +143,11 @@ export default function EducationCards({
           {!relayDone && (
             <Card
               className={introduce ? "rise rise-2" : ""}
-              badge="Reply relay"
-              title="Replies come straight to your phone"
-              action={<Link href="/settings#relay-cell" className="text-sm font-semibold text-blue hover:underline">Add your cell number →</Link>}
+              badge="Owner phone"
+              title="Verify where calls should ring"
+              action={<Link href="/settings#relay-cell" className="text-sm font-semibold text-blue hover:underline">Verify your number →</Link>}
             >
-              <p>The moment a homeowner texts back, we stop the follow-ups and ping your cell. Just text back and we pass it on.</p>
+              <p>We use this for call forwarding and urgent lead alerts. A quick code keeps customer calls from routing to the wrong person.</p>
             </Card>
           )}
           {!lineDone && (

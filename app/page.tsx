@@ -40,34 +40,65 @@ function CTA({ label = "Start for $1 →", big = false }: { label?: string; big?
 const benefits = [
   {
     title: "Texts get read. Emails get buried.",
-    body: "SMS gets seen in minutes, not days. Your follow-up lands on the homeowner's lock screen, from a local number, signed with your name.",
+    body: "Seen fast. Sent locally.",
   },
   {
     title: "Your voice, not robot-speak.",
-    body: "Pick your tone - friendly, professional, or straight-shooter - and approve every word once. From then on, every follow-up sounds like you wrote it at a red light, because effectively you did.",
+    body: "Approved once. Sounds like you.",
   },
   {
     title: "It stops the second they reply.",
-    body: "One reply freezes the sequence instantly and hands you the conversation: we ping your phone, you answer like a normal text. No app to babysit, no lead left hanging.",
+    body: "Reply comes in. Automation stops.",
   },
   {
-    title: "Proof it's working.",
-    body: "A monthly tally: quotes chased, replies earned, jobs closed. You'll know exactly which $8,000 roof this $39 tool recovered.",
+    title: "More quoting, less chasing.",
+    body: "ReKnock remembers every follow-up.",
   },
 ];
 
 const intake = [
   {
-    label: "Forward it",
-    body: "Forward the quote email (PDFs included) or text message to your ReKnock line. We pull the name, number, and amount, and text you back if anything's missing.",
+    label: "Forward",
+    body: "Send the quote email. We pull the details.",
   },
   {
-    label: "Snap a photo",
-    body: "Text a photo of the paper estimate or a screenshot of any chat, even Facebook Messenger, straight from the truck.",
+    label: "Snap",
+    body: "Photo, PDF, or screenshot. Cleaned up for you.",
   },
   {
-    label: "Type it (10 seconds)",
-    body: "Name, phone, amount, done. Built for thumbs, not office managers.",
+    label: "Type",
+    body: "Name, phone, amount. Done.",
+  },
+  {
+    label: "Upload",
+    body: "Drop in a CSV. Chase the whole list.",
+  },
+];
+
+const useCases = [
+  {
+    trade: "Roofing",
+    moment: "Roof repairs, replacements, storm estimates.",
+  },
+  {
+    trade: "Painting",
+    moment: "Interior, exterior, cabinet, and repaint quotes.",
+  },
+  {
+    trade: "Landscaping",
+    moment: "Design, cleanup, maintenance, and install bids.",
+  },
+  {
+    trade: "Fencing & decks",
+    moment: "Backyard projects that stall after the estimate.",
+  },
+  {
+    trade: "Remodeling",
+    moment: "Kitchen, bath, flooring, and punch-list work.",
+  },
+  {
+    trade: "Other quoted trades",
+    moment: "If you quote it and wait, ReKnock can chase it.",
   },
 ];
 
@@ -120,7 +151,7 @@ export default function Home() {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     description:
-      "Automatic SMS follow-up for contractor quotes. Four polite texts over three weeks, in the contractor's voice, stopping instantly when the homeowner replies.",
+      "Automatic SMS follow-up for contractor quotes. Contractors customize the follow-up timing and wording, and ReKnock stops instantly when the homeowner replies.",
     offers: { "@type": "Offer", price: "39", priceCurrency: "USD" },
     url: "https://getreknock.com",
   };
@@ -190,21 +221,78 @@ export default function Home() {
       <section id="how" className="scroll-mt-20">
         <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
           <p className="eyebrow mb-3">How it works</p>
-          <h2 className="display text-4xl md:text-5xl">
-            Get a quote in. We take it from there.
+          <h2 className="display max-w-3xl text-4xl md:text-5xl">
+            Add quotes however you have them.
           </h2>
-          <p className="mt-4 max-w-2xl text-lg text-slate">
-            Three ways to log a quote - pick whichever fits the moment. Then
-            ReKnock runs four polite texts over three weeks (day 2, 5, 10, 20)
-            and freezes the instant your homeowner answers.
+          <p className="mt-4 max-w-xl text-lg text-slate">
+            Pick the follow-up timing, approve the wording, and ReKnock handles
+            the chase until they reply.
           </p>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {intake.map((s, i) => (
-              <Reveal key={s.label} className="card card-hover p-6" delay={i * 90}>
-                <p className="font-mono text-xs uppercase tracking-wide text-blue">
-                  {s.label}
+              <Reveal
+                key={s.label}
+                className="card card-hover flex min-h-44 flex-col justify-between p-6 sm:min-h-52"
+                delay={i * 90}
+              >
+                <div>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky font-mono text-sm font-bold text-blue">
+                    0{i + 1}
+                  </span>
+                  <h3 className="display mt-8 text-2xl text-blue-ink xl:text-3xl">{s.label}</h3>
+                </div>
+                <p className="mt-5 text-base leading-relaxed text-slate">{s.body}</p>
+              </Reveal>
+            ))}
+          </div>
+          <div className="mt-5 grid gap-5 md:grid-cols-[1fr_2fr]">
+            <Reveal className="rounded-xl border border-sky-line bg-sky/50 p-5" delay={260}>
+              <p className="font-mono text-xs uppercase tracking-wide text-blue">
+                Your sequence
+              </p>
+              <p className="mt-2 text-sm font-semibold text-blue-ink">
+                Custom timing. Custom wording.
+              </p>
+            </Reveal>
+            <Reveal className="rounded-xl border border-sky-line bg-white p-5" delay={320}>
+              <p className="font-mono text-xs uppercase tracking-wide text-blue">
+                The handoff
+              </p>
+              <p className="mt-2 text-sm font-semibold text-blue-ink">
+                The first reply pauses follow-up and puts the conversation back
+                in your hands.
+              </p>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= USE CASES ================= */}
+      <section id="use-cases" className="scroll-mt-20 border-y border-sky-line bg-sky/40">
+        <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
+          <div className="flex flex-wrap items-end justify-between gap-5">
+            <div>
+              <p className="eyebrow mb-3">Use cases</p>
+              <h2 className="display max-w-2xl text-4xl md:text-5xl">
+                Built for the trades that quote and wait.
+              </h2>
+            </div>
+            <p className="max-w-sm text-slate">
+              Same workflow, tuned to the jobs your customers already asked
+              about.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {useCases.map((useCase, i) => (
+              <Reveal
+                key={useCase.trade}
+                className="rounded-xl border border-sky-line bg-white p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:border-blue/30 hover:shadow-pop"
+                delay={i * 70}
+              >
+                <h3 className="display text-2xl text-blue-ink">{useCase.trade}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate">
+                  {useCase.moment}
                 </p>
-                <p className="mt-3 leading-relaxed text-slate">{s.body}</p>
               </Reveal>
             ))}
           </div>

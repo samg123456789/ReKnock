@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import TradePicker from "@/components/onboarding/TradePicker";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import { saveCompanyBasics, saveSchedule, generateVoiceProfile, saveVoiceProfile } from "@/lib/onboarding-actions";
-import { requestRelayCellCode, verifyRelayCellCode, addSenderEmail, removeSenderEmail, logFeatureInterest } from "@/lib/settings-actions";
+import { addSenderEmail, removeSenderEmail, logFeatureInterest } from "@/lib/settings-actions";
 import { createBillingPortalSession } from "@/lib/billing-actions";
+import PhoneVerificationPanel from "@/components/app/PhoneVerificationPanel";
 
 type Basics = { name: string; website: string; description: string; heard_about: string; avg_quote_amount: string; quotes_per_month: string };
 type Window = { day_of_week: number; start_time: string; end_time: string; enabled: boolean };
@@ -55,6 +56,7 @@ export default function SettingsClient(props: {
   masterPrompt: string;
   samples: string[];
   relayCell: string;
+  relayCellVerified: boolean;
   forwardingAddress: string;
   senderEmails: { id: string; email: string; verified: boolean }[];
   numberStatus: string | null;
@@ -79,20 +81,14 @@ export default function SettingsClient(props: {
   const [voiceState, setVoiceState] = useState("");
   const [regenPending, setRegenPending] = useState(false);
 
-  const [cell, setCell] = useState(props.relayCell);
-  const [cellState, setCellState] = useState("");
-  const [cellStage, setCellStage] = useState<"idle" | "code_sent" | "verified">("idle");
-  const [cellCode, setCellCode] = useState("");
   const [senders, setSenders] = useState(props.senderEmails);
   const [newSender, setNewSender] = useState("");
   const [senderState, setSenderState] = useState("");
   // Deep link from the dashboard's "Add your cell number": land on the field,
   // not just the page.
-  const cellInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (window.location.hash === "#relay-cell") {
       document.getElementById("relay-cell")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      cellInputRef.current?.focus();
     }
   }, []);
   const [copied, setCopied] = useState(false);
@@ -109,13 +105,18 @@ export default function SettingsClient(props: {
   return (
     <div>
       <Card id="forwarding" title="Quote forwarding">
-        <p className="text-sm text-slate">Forward or BCC any quote email here and we start chasing it:</p>
+        <p className="text-sm text-slate">Forward or BCC quote emails to your ReKnock address and we start chasing them:</p>
         <div className="mt-1 flex items-center gap-2">
           <code className="rounded-lg bg-sky px-3 py-1.5 text-sm text-blue-ink">{props.forwardingAddress}</code>
           <button type="button" className="cursor-pointer text-sm text-blue underline" onClick={() => { navigator.clipboard.writeText(props.forwardingAddress); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
+        <p className="mt-3 rounded-xl border border-sky-line bg-sky/50 px-3 py-2 text-sm leading-relaxed text-slate">
+          Forward from one of the verified emails below. If you use a different
+          inbox, ReKnock will not match it to your account until you add and
+          confirm that email here.
+        </p>
         <p className="mt-4 text-sm font-semibold text-slate">We only accept mail from your verified emails:</p>
         <ul className="mt-2 flex flex-col gap-1.5">
           {senders.map((s) => (
@@ -169,67 +170,12 @@ export default function SettingsClient(props: {
         {senderState && senderState !== "saving" && senderState !== "saved" ? <p className="mt-2 text-sm text-red-600">{senderState}</p> : null}
       </Card>
 
-      <Card id="relay-cell" title="Reply relay number">
-        <p className="text-sm text-slate">When a homeowner replies, we text you here so you can take over. We verify it with a quick code so replies never go to the wrong phone.</p>
-        <input
-          ref={cellInputRef}
-          className={`${input} mt-2`}
-          type="tel"
-          value={cell}
-          onChange={(e) => { setCell(e.target.value); setCellStage("idle"); setCellState(""); }}
-          placeholder="(555) 123-4567"
+      <section id="relay-cell" className="mt-4 scroll-mt-24">
+        <PhoneVerificationPanel
+          initialPhone={props.relayCell}
+          initialVerified={props.relayCellVerified}
         />
-        {cellStage === "code_sent" ? (
-          <div className="mt-3">
-            <p className="text-sm font-semibold text-slate">Enter the 6-digit code we just texted to {cell}.</p>
-            <div className="mt-2 flex items-center gap-3">
-              <input
-                className={`${input} max-w-[10rem] text-center tracking-[0.3em]`}
-                inputMode="numeric"
-                maxLength={6}
-                value={cellCode}
-                onChange={(e) => setCellCode(e.target.value.replace(/\D/g, ""))}
-                placeholder="••••••"
-              />
-              <button
-                type="button"
-                disabled={cellState === "saving" || cellCode.length !== 6}
-                onClick={() => run(setCellState, async () => {
-                  const res = await verifyRelayCellCode(cellCode);
-                  if (res.ok) { setCellStage("verified"); setCellCode(""); }
-                  return res;
-                })}
-                className="btn btn-primary"
-              >
-                {cellState === "saving" ? "Checking..." : "Verify"}
-              </button>
-              <button type="button" className="cursor-pointer text-sm text-slate underline" onClick={() => run(setCellState, () => requestRelayCellCode(cell))}>
-                Resend code
-              </button>
-            </div>
-            {cellState && cellState !== "saving" && cellState !== "saved" ? <p className="mt-2 text-sm text-red-600">{cellState}</p> : null}
-          </div>
-        ) : (
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              type="button"
-              disabled={cellState === "saving" || !cell.trim() || (cellStage === "verified" ? false : cell === props.relayCell && !!props.relayCell)}
-              onClick={() => run(setCellState, async () => {
-                const res = await requestRelayCellCode(cell);
-                if (res.ok) setCellStage("code_sent");
-                return res;
-              })}
-              className="btn btn-primary"
-            >
-              {cellState === "saving" ? "Texting you a code..." : "Text me a code"}
-            </button>
-            {cellStage === "verified" || (props.relayCell && cell === props.relayCell) ? (
-              <span className="rounded-full bg-mint/15 px-2.5 py-1 text-xs font-semibold text-mint">Verified</span>
-            ) : null}
-            {cellState && cellState !== "saving" && cellState !== "saved" ? <p className="text-sm text-red-600">{cellState}</p> : null}
-          </div>
-        )}
-      </Card>
+      </section>
 
       <Card title="Sending hours">
         <label className="flex flex-col gap-1">

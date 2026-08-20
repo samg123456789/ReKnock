@@ -15,6 +15,7 @@ import {
   type ReplyIntent,
 } from "@/lib/prompts/reply-classifier";
 import { formatMoney } from "@/lib/format";
+import { sendReplyNotificationEmail } from "@/lib/reply-email";
 
 // "not until spring" / "call me in March" -> a concrete circle-back instant.
 // Coarse on purpose: the proposal shows the date and the owner confirms it.
@@ -466,43 +467,26 @@ export async function POST(request: NextRequest) {
       /* the proposal is a bonus; the plain relay ping still goes out */
     }
 
-    // Relay to the contractor's cell (quiet-hours exempt) and open a relay
-    // session so their reply routes back to this homeowner.
-    const { data: owner } = await admin.from("users").select("cell_phone").eq("company_id", companyId).not("cell_phone", "is", null).limit(1).maybeSingle();
-    if (owner?.cell_phone) {
-      const { count: openCount } = await admin
-        .from("relay_sessions")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_phone", owner.cell_phone)
-        .eq("company_id", companyId)
-        .gt("expires_at", nowIso);
-      const name = prospect.first_name ?? "Your lead";
-      const multi = (openCount ?? 0) > 0 ? ` You have ${(openCount ?? 0) + 1} open chats. Start your reply with "1)" for this one.` : "";
-      const pingKey = `relay:${messageSid || prospect.id}`;
-      const tail = proposal ? proposal.pingLine : ` Reply here and we will pass it on, or call them at ${from}.`;
-      const res = await sendSms({
-        companyId,
-        prospectId: prospect.id,
-        to: owner.cell_phone,
-        body: `${name} replied to your follow-up: "${body}".${tail}${multi}`,
-        idempotencyKey: pingKey,
-        kind: "owner_ping",
-        isRelay: true,
+    // Email-first takeover: the contractor gets a clean email notification
+    // with Reply-To: reply+token@getreknock.com. Hitting reply routes their
+    // email back to this homeowner as an SMS. The older SMS relay branch above
+    // remains for legacy open relay sessions, but new replies default to email
+    // + in-app.
+    const name = prospect.first_name ?? "A customer";
+    const emailRes = await sendReplyNotificationEmail({
+      companyId,
+      prospectId: prospect.id,
+      homeownerName: name,
+      homeownerPhone: from,
+      homeownerMessage: body,
+    });
+    if (!emailRes.sent) {
+      await admin.from("failed_jobs").insert({
+        company_id: companyId,
+        job_type: "reply_email_notification",
+        payload: { prospect_id: prospect.id, skipped: emailRes.skipped },
+        error: "Could not send reply notification email",
       });
-      await retryIfFailed(res, { idempotency_key: pingKey, company_id: companyId, to: owner.cell_phone, context: "reply_relay_ping" });
-      // Open the session on a pending retry too: if a later attempt delivers,
-      // the owner's reply must still route to this homeowner. An unused
-      // session just expires.
-      if (res.sent || res.skipped === "twilio_error") {
-        await admin.from("relay_sessions").insert({
-          company_id: companyId,
-          prospect_id: prospect.id,
-          owner_phone: owner.cell_phone,
-          suggested_kind: proposal?.kind ?? null,
-          suggested_body: proposal?.body ?? null,
-          suggested_meta: proposal?.meta ?? null,
-        });
-      }
     }
   }
 

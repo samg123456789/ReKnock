@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import SettingsClient from "@/components/settings/SettingsClient";
 import type { VoiceQuestionnaire } from "@/lib/prompts/voice-profile";
-import { INTAKE_EMAIL } from "@/lib/intake-email";
+import { intakeEmailForSlug } from "@/lib/intake-email";
 
 export const metadata: Metadata = { title: "Settings - ReKnock" };
 
@@ -33,7 +33,7 @@ export default async function Settings() {
         .select("day_of_week, start_time, end_time, enabled")
         .eq("company_id", cid)
         .order("day_of_week", { ascending: true }),
-      sb.from("users").select("cell_phone").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
+      sb.from("users").select("cell_phone, cell_phone_verified_at").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
       sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
       sb.from("company_sender_emails").select("id, email, verified_at").eq("company_id", cid).order("created_at", { ascending: true }),
       sb.from("events").select("payload").eq("company_id", cid).eq("type", "feature_interest"),
@@ -65,7 +65,8 @@ export default async function Settings() {
         masterPrompt={voice?.master_prompt ?? ""}
         samples={(voice?.sample_messages as string[]) ?? []}
         relayCell={owner?.cell_phone ?? ""}
-        forwardingAddress={INTAKE_EMAIL}
+        relayCellVerified={owner?.cell_phone_verified_at != null}
+        forwardingAddress={intakeEmailForSlug(company?.forwarding_slug)}
         senderEmails={(senders ?? []).map((s) => ({ id: s.id as string, email: s.email as string, verified: s.verified_at != null }))}
         numberStatus={phone?.status ?? null}
         numberE164={phone?.e164 ?? null}
