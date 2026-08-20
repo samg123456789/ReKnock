@@ -5,8 +5,8 @@ import { formatMoney } from "@/lib/format";
 // @2: founder tone directive - conversational, references the prior
 // conversation, one question, never leads with the raw price number.
 export const FOLLOWUP_DRAFTER_PROMPT_VERSION = "followup_drafter@2";
-export const STOP_LINE = "Reply STOP to opt out.";
-export const FIRST_TOUCH_DISCLOSURE_LINE = "Message and data rates may apply.\nReply STOP to opt out.";
+export const STOP_LINE = "Reply STOP to unsubscribe.";
+export const FIRST_TOUCH_DISCLOSURE_LINE = "Message and data rates may apply.\nReply STOP to unsubscribe.";
 
 export type FollowupContext = {
   businessName: string;

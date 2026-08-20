@@ -306,7 +306,7 @@ export const sendScheduledMessage = inngest.createFunction(
         return { skipped: "frozen_after_claim" };
       }
 
-      const res = await sendClaimedMessage({ messageId: msg.id, companyId: msg.company_id, to: p.phone_e164, body });
+      const res = await sendClaimedMessage({ messageId: msg.id, companyId: msg.company_id, prospectId: msg.prospect_id, to: p.phone_e164, body });
       if (res.sent) {
         const used = (co.trial_messages_used ?? 0) + 1;
         await admin.from("companies").update({ trial_messages_used: used }).eq("id", msg.company_id);

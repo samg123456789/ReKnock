@@ -54,7 +54,9 @@ contractor, the contractor's business, and ReKnock. Recipients are homeowners
 with an open requested quote or estimate. Messages ask whether the homeowner has
 questions, wants to move forward, or asked to be contacted later. This is not
 cold outreach, purchased-list messaging, third-party lead generation, or
-unrelated marketing. A typical sequence is 1 to 4 messages over about 20 days.
+unrelated marketing. A typical sequence is 1 to 4 messages over about 20 days,
+at the contractor&apos;s discretion. ReKnock blocks more than 7 unanswered
+outbound follow-up messages to the same contact within any rolling 7-day period.
 Automated follow-ups stop when the homeowner replies or texts STOP.
 
 ## How do end-users consent to receive messages?
@@ -64,7 +66,7 @@ number and agreed to receive quote-related text follow-up through the contractor
 lead flow. ReKnock records a required contractor attestation before scheduling
 messages. The first outbound message then includes this hardcoded disclosure on
 separate lines after the contractor's message: "Message and data rates may
-apply. Reply STOP to opt out." The disclosure does not create consent and cannot
+apply. Reply STOP to unsubscribe." The disclosure does not create consent and cannot
 be used to text a person who did not already agree to receive messages.
 
 Public proof of the first-message behavior, message examples, STOP handling, and
@@ -85,19 +87,19 @@ Sample message 1:
 Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock, following up on the [roof] quote we discussed. Any questions I can answer?
 
 Message and data rates may apply.
-Reply STOP to opt out.
+Reply STOP to unsubscribe.
 
 Sample message 2:
 
-Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Just checking in on that [roofing] estimate. Happy to walk it through whenever works for you. Reply STOP to opt out.
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Just checking in on that [roofing] estimate. Happy to walk it through whenever works for you. Reply STOP to unsubscribe.
 
 Sample message 3:
 
-Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. You asked me to circle back this month about the [roof] estimate. Still a good time to talk it through? Reply STOP to opt out.
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. You asked me to circle back this month about the [roof] estimate. Still a good time to talk it through? Reply STOP to unsubscribe.
 
 Sample message 4:
 
-Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Wanted to close the loop on that [roof] estimate. If now is not the right time, I can check back later. Reply STOP to opt out.
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Wanted to close the loop on that [roof] estimate. If now is not the right time, I can check back later. Reply STOP to unsubscribe.
 
 ## Content attributes
 

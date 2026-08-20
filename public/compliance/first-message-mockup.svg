@@ -15,8 +15,8 @@
   <text x="380" y="276" font-family="Inter, Arial, sans-serif" font-size="17" fill="#172033">ReKnock, following up on</text>
   <text x="380" y="304" font-family="Inter, Arial, sans-serif" font-size="17" fill="#172033">the roof quote we discussed.</text>
   <text x="380" y="332" font-family="Inter, Arial, sans-serif" font-size="17" fill="#172033">Any questions I can answer?</text>
-  <text x="380" y="364" font-family="Inter, Arial, sans-serif" font-size="15" fill="#475569">Msg &amp; data rates may apply.</text>
-  <text x="380" y="390" font-family="Inter, Arial, sans-serif" font-size="15" fill="#475569">Reply STOP to opt out</text>
+  <text x="380" y="364" font-family="Inter, Arial, sans-serif" font-size="15" fill="#475569">Message and data rates may apply.</text>
+  <text x="380" y="390" font-family="Inter, Arial, sans-serif" font-size="15" fill="#475569">Reply STOP to unsubscribe</text>
 
   <rect x="360" y="420" width="238" height="64" rx="18" fill="#f8fafc" stroke="#e2e8f0"/>
   <text x="382" y="459" font-family="Inter, Arial, sans-serif" font-size="17" fill="#64748b">Homeowner replies here...</text>

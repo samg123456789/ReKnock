@@ -145,7 +145,7 @@ export const posts: Post[] = [
         type: "list",
         items: [
           "Only text people who gave you their number for the estimate, and keep messages about that estimate.",
-          "Include opt-out language the first time you text a new number (\"Reply STOP to opt out\").",
+          "Include opt-out language in every homeowner-facing message (\"Reply STOP to unsubscribe\").",
           "Stop immediately when someone replies - nothing kills trust like an automated nudge landing after a real answer.",
           "No texts before 9am or after 8pm, their local time.",
         ],

@@ -19,6 +19,8 @@ export const STOP_CONFIRMATION =
 export const HELP_REPLY =
   "ReKnock quote follow-ups on behalf of your contractor. Reply STOP to unsubscribe. Message and data rates may apply.";
 
+export const UNANSWERED_FOLLOWUP_LIMIT = 7;
+
 const STOP_WORDS = new Set(["STOP", "OPTOUT", "CANCEL", "END", "QUIT", "UNSUBSCRIBE", "REVOKE", "STOPALL"]);
 const HELP_WORDS = new Set(["HELP", "INFO"]);
 const START_WORDS = new Set(["START", "UNSTOP", "YES"]);
@@ -98,6 +100,41 @@ export async function companyFromNumber(companyId: string): Promise<string | nul
 
 export type SendResult = { sent: boolean; skipped?: string };
 
+// Carrier-safe abuse guardrail: no more than seven active or delivered
+// homeowner-facing outbound messages to one prospect in a rolling seven-day
+// window without a homeowner reply. A reply resets the window. The query
+// includes scheduled rows so a contractor cannot queue around the limit.
+async function hasReachedUnansweredFollowupLimit(
+  admin: ReturnType<typeof createAdminClient>,
+  prospectId: string,
+  excludeMessageId?: string,
+): Promise<boolean> {
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const { data: inbound } = await admin
+    .from("messages")
+    .select("created_at")
+    .eq("prospect_id", prospectId)
+    .eq("direction", "inbound")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastReply = inbound?.created_at ? new Date(inbound.created_at).getTime() : 0;
+  const cutoff = Math.max(weekAgo, lastReply);
+  const { data: outbound } = await admin
+    .from("messages")
+    .select("id, created_at, scheduled_for, sent_at, status, kind")
+    .eq("prospect_id", prospectId)
+    .eq("direction", "outbound")
+    .in("kind", ["sequence", "reminder", "manual", "relay"])
+    .in("status", ["scheduled", "queued", "sent", "delivered"]);
+  const active = (outbound ?? []).filter((m) => {
+    if (excludeMessageId && m.id === excludeMessageId) return false;
+    const eventTime = new Date(m.sent_at ?? m.scheduled_for ?? m.created_at).getTime();
+    return eventTime >= cutoff && eventTime <= Date.now() + 7 * 24 * 60 * 60 * 1000;
+  });
+  return active.length >= UNANSWERED_FOLLOWUP_LIMIT;
+}
+
 // Low-level Twilio call. Throws on failure.
 async function deliverViaTwilio(to: string, body: string, from?: string | null): Promise<string> {
   const sid = env.twilioAccountSid();
@@ -140,6 +177,15 @@ export async function sendSms(opts: {
   const isProd = process.env.VERCEL_ENV === "production";
   const kind = opts.kind ?? (opts.isRelay ? "relay" : "manual");
   const body = HOMEOWNER_KINDS.has(kind) ? appendStopLine(opts.body) : opts.body;
+
+  if (HOMEOWNER_KINDS.has(kind) && opts.prospectId && await hasReachedUnansweredFollowupLimit(admin, opts.prospectId)) {
+    await admin.from("events").insert({
+      company_id: opts.companyId,
+      type: "unanswered_followup_limit_reached",
+      payload: { prospect_id: opts.prospectId, limit: UNANSWERED_FOLLOWUP_LIMIT, window_days: 7 },
+    });
+    return { sent: false, skipped: "unanswered_followup_limit" };
+  }
 
   if (!isProd && !env.devSmsAllowlist().includes(opts.to)) {
     await admin.from("events").insert({
@@ -235,6 +281,7 @@ export async function retrySmsTo(idempotencyKey: string, to: string): Promise<Se
 export async function sendClaimedMessage(opts: {
   messageId: string;
   companyId: string;
+  prospectId: string;
   to: string;
   body: string;
 }): Promise<SendResult> {
@@ -244,6 +291,20 @@ export async function sendClaimedMessage(opts: {
   // the every-message STOP rule applies unconditionally; deduped, so bodies
   // that came through enforceCompliance are unchanged.
   const body = appendStopLine(opts.body);
+
+  if (await hasReachedUnansweredFollowupLimit(admin, opts.prospectId, opts.messageId)) {
+    await admin
+      .from("messages")
+      .update({ status: "canceled", body, send_meta: { reason: "unanswered_followup_limit", limit: UNANSWERED_FOLLOWUP_LIMIT, window_days: 7 } })
+      .eq("id", opts.messageId)
+      .eq("status", "queued");
+    await admin.from("events").insert({
+      company_id: opts.companyId,
+      type: "unanswered_followup_limit_reached",
+      payload: { prospect_id: opts.prospectId, message_id: opts.messageId, limit: UNANSWERED_FOLLOWUP_LIMIT, window_days: 7 },
+    });
+    return { sent: false, skipped: "unanswered_followup_limit" };
+  }
 
   if (!isProd && !env.devSmsAllowlist().includes(opts.to)) {
     await admin

@@ -108,9 +108,11 @@ export default function Terms() {
         <h2 className="display pt-2 text-2xl text-ink">Billing</h2>
         <p>
           ReKnock starts with a $1 first week, then bills at your selected plan
-          rate. Billing is handled by Stripe. You can cancel anytime from the
-          billing portal; cancellation stops future charges and ends automated
-          sending.
+          rate. Billing is handled by Stripe. If you reach your plan&apos;s monthly
+          quote allowance, existing follow-up sequences continue, but new quotes
+          cannot be enrolled until the next usage period or an upgrade. You can
+          cancel anytime from the billing portal; cancellation stops future
+          charges and automated sending.
         </p>
 
         <h2 className="display pt-2 text-2xl text-ink">Acceptable use</h2>

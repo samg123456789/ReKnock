@@ -8,7 +8,7 @@
   <rect x="64" y="188" width="570" height="126" rx="18" fill="#e7efff"/>
   <text x="96" y="224" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#1e3a8a">Mike - Apex Roofing</text>
   <text x="96" y="260" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">Wanted to close the loop on that roof estimate.</text>
-  <text x="96" y="290" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">Reply STOP to opt out.</text>
+  <text x="96" y="290" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">Reply STOP to unsubscribe.</text>
   <rect x="536" y="344" width="300" height="70" rx="18" fill="#dcfce7"/>
   <text x="574" y="387" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#14532d">STOP</text>
   <rect x="64" y="438" width="772" height="132" rx="18" fill="#fff7ed" stroke="#fed7aa" stroke-width="2"/>

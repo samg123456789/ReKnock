@@ -49,8 +49,9 @@ export default function Privacy() {
 
         <h2 className="display pt-2 text-2xl text-ink">Message frequency</h2>
         <p>
-          Message frequency varies. A typical quote follow-up is about four
-          messages over three weeks, and it stops the moment you reply.{" "}
+          Message frequency varies based on the contractor&apos;s selected
+          sequence. A typical quote follow-up is 1 to 4 messages over about 20
+          days, and it stops the moment you reply.{" "}
           <strong className="text-ink">Message and data rates may apply.</strong>
         </p>
 

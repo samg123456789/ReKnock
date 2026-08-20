@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CONSENT_ATTESTATION_SINGLE } from "@/lib/consent";
+import SmsExchangeGallery from "@/components/SmsExchangeGallery";
 
 /* ============================================================================
    /sms-terms - public program and consent page for the 10DLC campaign.
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 const FIRST_MESSAGE =
-  "Hi [Homeowner], it's [Contractor] with [Business] through ReKnock, following up on the [job] quote we discussed. Any questions I can answer?\n\nMessage and data rates may apply.\nReply STOP to opt out.";
+  "Hi [Homeowner], it's [Contractor] with [Business] through ReKnock, following up on the [job] quote we discussed. Any questions I can answer?\n\nMessage and data rates may apply.\nReply STOP to unsubscribe.";
 
 export default function SmsTerms() {
   return (
@@ -41,10 +42,12 @@ export default function SmsTerms() {
             marketing, or unrelated promotions.
           </p>
           <p>
-            A typical follow-up sequence is 1 to 4 text messages over about 20
-            days. Automated follow-ups stop when the homeowner replies or texts
-            STOP. When a homeowner replies, the conversation continues directly
-            between the homeowner and the contractor on the same texting number.
+            Message frequency varies by contractor. ReKnock provides recommended
+            timing, but contractors can customize their sequence. A typical quote
+            follow-up is 1 to 4 text messages over about 20 days. Automated
+            follow-ups stop as soon as the homeowner replies. ReKnock also blocks
+            more than 7 unanswered outbound follow-up messages to the same contact
+            within any rolling 7-day period.
           </p>
         </section>
 
@@ -73,23 +76,16 @@ export default function SmsTerms() {
             cannot be edited or removed by the contractor.
           </p>
           <div className="whitespace-pre-line rounded-lg bg-sky/60 px-4 py-3 font-mono text-sm text-ink">
-            {"Message and data rates may apply.\nReply STOP to opt out."}
+            {"Message and data rates may apply.\nReply STOP to unsubscribe."}
           </div>
           <p className="text-sm text-mist">
-            This disclosure is added automatically at the sending layer for
-            every customer and every first outbound message. It does not replace
-            the requirement that the contact already agreed to receive texts.
+            The rate disclosure is added automatically to the first outbound
+            message. The STOP instruction remains on every homeowner-facing
+            message so the recipient can unsubscribe at any time. This does not
+            replace the requirement that the contact already agreed to receive
+            texts.
           </p>
-          <div className="grid gap-4 md:grid-cols-3">
-            {[1, 2, 3].map((example) => (
-              <img
-                key={example}
-                src={`/compliance/sms-exchange-${example}.svg`}
-                alt={`Sample ReKnock SMS exchange ${example} showing the first-message disclosure and reply handling`}
-                className="w-full rounded-lg border border-sky-line bg-white shadow-sm"
-              />
-            ))}
-          </div>
+          <SmsExchangeGallery />
         </section>
 
         <section className="space-y-3">
@@ -123,20 +119,14 @@ export default function SmsTerms() {
         </section>
 
         <section className="space-y-3">
-          <h2 className="display text-2xl text-ink">First message disclosure</h2>
+          <h2 className="display text-2xl text-ink">First message example</h2>
           <p>
             The first text identifies the contractor and business, references
-            the quote, includes the carrier fee disclosure, and gives opt-out
-            instructions.
+            the quote, and includes the required rate and unsubscribe disclosure.
           </p>
           <p className="whitespace-pre-line rounded-lg bg-sky/60 px-4 py-3 font-mono text-sm text-ink">
             {FIRST_MESSAGE}
           </p>
-          <img
-            src="/compliance/first-message-mockup.svg"
-            alt="Mockup of the first ReKnock SMS with contractor identification, quote context, rate disclosure, and STOP opt-out"
-            className="mt-4 w-full rounded-lg border border-sky-line bg-white shadow-sm"
-          />
         </section>
 
         <section className="space-y-3">
@@ -164,9 +154,12 @@ export default function SmsTerms() {
         <section className="space-y-3">
           <h2 className="display text-2xl text-ink">Message frequency</h2>
           <p>
-            Message frequency varies. A typical quote follow-up is 1 to 4 text
-            messages over about 20 days, and automated follow-ups stop as soon
-            as the homeowner replies.
+            Message frequency varies by contractor. ReKnock provides recommended
+            timing, but contractors can customize their sequence. A typical quote
+            follow-up is 1 to 4 text messages over about 20 days. Automated
+            follow-ups stop as soon as the homeowner replies. ReKnock also blocks
+            more than 7 unanswered outbound follow-up messages to the same
+            contact within any rolling 7-day period.
           </p>
         </section>
 
@@ -183,7 +176,7 @@ export default function SmsTerms() {
           </p>
           <p className="rounded-lg bg-sky/60 px-4 py-3 font-mono text-sm text-ink">
             ReKnock quote follow-ups on behalf of your contractor. Reply STOP to
-            unsubscribe. Msg &amp; data rates may apply.
+            unsubscribe. Message and data rates may apply.
           </p>
         </section>
 

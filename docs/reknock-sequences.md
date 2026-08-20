@@ -21,7 +21,7 @@ Rationale per touch:
 ## ROOFING
 
 **T1 - Day 2**
-Hi {first_name}, it's {owner_name} from {business_name}. Wanted to make sure the roof quote landed okay - happy to walk through any of it. Reply STOP to opt out.
+Hi {first_name}, it's {owner_name} from {business_name}. Wanted to make sure the roof quote landed okay - happy to walk through any of it. Reply STOP to unsubscribe.
 
 **T2 - Day 5**
 Hi {first_name}, {owner_name} here. If you're comparing bids, ask every roofer what underlayment they're using and how they handle flashing - it's where cheap quotes cut corners. Happy to explain what's in yours.
@@ -37,7 +37,7 @@ Hi {first_name}, last note from me on the roof quote - I'll assume the timing is
 ## PAINTING
 
 **T1 - Day 2**
-Hi {first_name}, it's {owner_name} from {business_name}. Just making sure the painting quote came through alright - any questions, I'm around. Reply STOP to opt out.
+Hi {first_name}, it's {owner_name} from {business_name}. Just making sure the painting quote came through alright - any questions, I'm around. Reply STOP to unsubscribe.
 
 **T2 - Day 5**
 Hi {first_name}, {owner_name} here. One thing worth asking any painter: what prep is included (sanding, patching, priming). That's usually the difference between quotes. Yours has it itemized - happy to go through it.
@@ -53,7 +53,7 @@ Hi {first_name}, closing the loop on the paint quote - I'll leave you be after t
 ## FENCING
 
 **T1 - Day 2**
-Hi {first_name}, it's {owner_name} from {business_name}. Wanted to confirm the fence quote reached you - glad to answer anything about materials or timeline. Reply STOP to opt out.
+Hi {first_name}, it's {owner_name} from {business_name}. Wanted to confirm the fence quote reached you - glad to answer anything about materials or timeline. Reply STOP to unsubscribe.
 
 **T2 - Day 5**
 Hi {first_name}, {owner_name} here. If you're weighing options: post depth and concrete footing are what make a fence last - worth asking whoever you go with. Happy to walk through how we spec'd yours.
@@ -69,7 +69,7 @@ Hi {first_name}, last one from me on the fence quote. No hard feelings if the ti
 ## GENERIC (fallback for any trade at onboarding, before voice interview)
 
 **T1 - Day 2**
-Hi {first_name}, it's {owner_name} from {business_name}. Making sure the quote for the {job_type} came through okay - questions welcome. Reply STOP to opt out.
+Hi {first_name}, it's {owner_name} from {business_name}. Making sure the quote for the {job_type} came through okay - questions welcome. Reply STOP to unsubscribe.
 
 **T2 - Day 5**
 Hi {first_name}, {owner_name} here. If you're comparing quotes, happy to walk through exactly what's included in ours so you're comparing apples to apples.

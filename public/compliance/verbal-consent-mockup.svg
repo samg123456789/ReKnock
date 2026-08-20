@@ -10,8 +10,8 @@
   <text x="136" y="244" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#0f172a">Contractor</text>
   <text x="136" y="278" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">Can I text you updates and</text>
   <text x="136" y="306" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">follow-ups about this quote?</text>
-  <text x="136" y="334" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">Msg &amp; data rates may apply.</text>
-  <text x="136" y="362" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">Reply STOP to opt out.</text>
+  <text x="136" y="334" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">Message and data rates may apply.</text>
+  <text x="136" y="362" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">Reply STOP to unsubscribe.</text>
 
   <rect x="516" y="206" width="332" height="132" rx="8" fill="#eaf8ef" stroke="#bde7ca"/>
   <text x="540" y="244" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#166534">Homeowner</text>
