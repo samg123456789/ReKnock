@@ -75,6 +75,33 @@ const intake = [
   },
 ];
 
+const useCases = [
+  {
+    trade: "Roofing",
+    moment: "Roof repairs, replacements, storm estimates.",
+  },
+  {
+    trade: "Painting",
+    moment: "Interior, exterior, cabinet, and repaint quotes.",
+  },
+  {
+    trade: "Landscaping",
+    moment: "Design, cleanup, maintenance, and install bids.",
+  },
+  {
+    trade: "Fencing & decks",
+    moment: "Backyard projects that stall after the estimate.",
+  },
+  {
+    trade: "Remodeling",
+    moment: "Kitchen, bath, flooring, and punch-list work.",
+  },
+  {
+    trade: "Other quoted trades",
+    moment: "If you quote it and wait, ReKnock can chase it.",
+  },
+];
+
 const integrations = [
   "Jobber", "Housecall Pro", "QuickBooks", "Zapier", "Joist", "Google Calendar",
   "Angi Leads", "Thumbtack", "ServiceTitan", "Invoice Simple",
@@ -236,6 +263,38 @@ export default function Home() {
                 in your hands.
               </p>
             </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= USE CASES ================= */}
+      <section id="use-cases" className="scroll-mt-20 border-y border-sky-line bg-sky/40">
+        <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
+          <div className="flex flex-wrap items-end justify-between gap-5">
+            <div>
+              <p className="eyebrow mb-3">Use cases</p>
+              <h2 className="display max-w-2xl text-4xl md:text-5xl">
+                Built for the trades that quote and wait.
+              </h2>
+            </div>
+            <p className="max-w-sm text-slate">
+              Same workflow, tuned to the jobs your customers already asked
+              about.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {useCases.map((useCase, i) => (
+              <Reveal
+                key={useCase.trade}
+                className="rounded-xl border border-sky-line bg-white p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:border-blue/30 hover:shadow-pop"
+                delay={i * 70}
+              >
+                <h3 className="display text-2xl text-blue-ink">{useCase.trade}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate">
+                  {useCase.moment}
+                </p>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>

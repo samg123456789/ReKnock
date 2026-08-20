@@ -2,9 +2,18 @@ import Link from "next/link";
 import { Logo } from "./Logo";
 
 export default function Footer() {
+  const useCases = [
+    "Roofing",
+    "Painting",
+    "Landscaping",
+    "Fencing & decks",
+    "Remodeling",
+    "Other quoted trades",
+  ];
+
   return (
     <footer className="border-t border-sky-line bg-blue-ink text-white">
-      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-3">
+      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-4">
         <div>
           <Logo mode="dark" />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/70">
@@ -22,6 +31,16 @@ export default function Footer() {
             <Link className="text-white/85 hover:text-white" href="/pricing">Pricing</Link>
             <Link className="text-white/85 hover:text-white" href="/#integrations">Integrations</Link>
             <Link className="text-white/85 hover:text-white" href="/signup">Start for $1</Link>
+          </div>
+        </div>
+        <div className="text-sm">
+          <p className="eyebrow mb-3 !text-white/60">Use cases</p>
+          <div className="flex flex-col gap-2">
+            {useCases.map((trade) => (
+              <Link key={trade} className="text-white/85 hover:text-white" href="/#use-cases">
+                {trade}
+              </Link>
+            ))}
           </div>
         </div>
         <div className="text-sm">
