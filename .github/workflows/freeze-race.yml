@@ -1,0 +1,33 @@
+# The product-killing bug is "homeowner replied but still got the day-10
+# nudge" (CLAUDE.md testing priority #1). This job keeps that regression
+# impossible to ship quietly: a static order check on the engine source plus
+# a live race of the claim/freeze SQL against the dev Supabase.
+name: freeze-race
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: freeze-race-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  freeze-race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # The script runs the static order tripwire first (no credentials
+      # needed), then requires SUPABASE_ACCESS_TOKEN for the live DB race and
+      # fails loudly if the repo secret is missing. No silent skips.
+      - name: Freeze-race test (static order check + live DB race)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/freeze-race-test.mjs

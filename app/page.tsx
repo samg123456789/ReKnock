@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import PhoneThread from "@/components/PhoneThread";
+import Reveal from "@/components/Reveal";
+import RoiCalculator from "@/components/RoiCalculator";
 
 export const metadata: Metadata = {
   title: "ReKnock - automatic follow-up texts for contractor quotes",
@@ -28,7 +30,7 @@ function CTA({ label = "Start for $1 →", big = false }: { label?: string; big?
   return (
     <Link
       href="/signup"
-      className={`inline-block rounded-xl bg-blue font-semibold text-white shadow-[0_8px_20px_-8px_rgba(29,95,219,0.6)] transition-all hover:-translate-y-0.5 hover:bg-blue-deep ${big ? "px-9 py-4 text-lg" : "px-6 py-3 text-base"}`}
+      className={`inline-block rounded-xl bg-blue font-semibold text-white shadow-pop transition-all hover:-translate-y-0.5 hover:bg-blue-deep ${big ? "px-9 py-4 text-lg" : "px-6 py-3 text-base"}`}
     >
       {label}
     </Link>
@@ -46,7 +48,7 @@ const benefits = [
   },
   {
     title: "It stops the second they reply.",
-    body: "One reply freezes the sequence instantly and pings your phone. You answer like a normal text. No app to babysit, no lead left hanging.",
+    body: "One reply freezes the sequence instantly and hands you the conversation: we ping your phone, you answer like a normal text. No app to babysit, no lead left hanging.",
   },
   {
     title: "Proof it's working.",
@@ -97,7 +99,7 @@ const faqs = [
   },
   {
     q: "What does the $1 trial include?",
-    a: "A full week of the Solo plan: your dedicated number, your voice-matched sequences, and your first 50 follow-up texts. The week starts the day your number goes live. Card up front, cancel with one tap.",
+    a: "A full week of the Starter plan: your dedicated number, your voice-matched sequences, and your first 50 follow-up texts. The week starts the day your number goes live. Card up front.",
   },
 ];
 
@@ -143,25 +145,22 @@ export default function Home() {
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-14 md:grid-cols-2 md:pb-24 md:pt-20">
           <div>
             <p className="eyebrow rise rise-1 mb-4">
-              For roofers, painters, landscapers &amp; every quoted trade
+              For every tradesperson who quotes a job
             </p>
-            <h1 className="display rise rise-1 text-6xl md:text-7xl">
+            <h1 className="display rise rise-1 text-5xl sm:text-6xl md:text-7xl">
               You quoted it.
               <br />
               Then&hellip; <span className="text-mist">nothing.</span>
             </h1>
             <p className="rise rise-2 mt-6 max-w-md text-lg leading-relaxed text-slate">
-              ReKnock texts your homeowners after every quote - politely, in
-              your own words - until they answer. The second they reply, it
-              stops and hands the conversation to you.
+              That unanswered quote is money walking out the door. ReKnock
+              keeps chasing it for you - in your own words.
             </p>
             <div className="rise rise-3 mt-8 flex flex-wrap items-center gap-4">
               <CTA big />
               <p className="font-mono text-sm text-mist">
                 $1 first week · $29/mo founding rate{" "}
                 <span className="text-mist/70 line-through">$39</span>
-                <br />
-                Cancel with one tap
               </p>
             </div>
           </div>
@@ -177,11 +176,11 @@ export default function Home() {
             The jobs go to the last contractor in the thread.
           </h2>
           <div className="mt-12 grid gap-5 sm:grid-cols-2">
-            {benefits.map((b) => (
-              <div key={b.title} className="card card-hover p-6">
+            {benefits.map((b, i) => (
+              <Reveal key={b.title} className="card card-hover p-6" delay={i * 90}>
                 <h3 className="display text-2xl text-blue-ink">{b.title}</h3>
                 <p className="mt-2 leading-relaxed text-slate">{b.body}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -200,13 +199,13 @@ export default function Home() {
             and freezes the instant your homeowner answers.
           </p>
           <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {intake.map((s) => (
-              <div key={s.label} className="card card-hover p-6">
+            {intake.map((s, i) => (
+              <Reveal key={s.label} className="card card-hover p-6" delay={i * 90}>
                 <p className="font-mono text-xs uppercase tracking-wide text-blue">
                   {s.label}
                 </p>
                 <p className="mt-3 leading-relaxed text-slate">{s.body}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -216,51 +215,27 @@ export default function Home() {
       <section className="bg-blue-ink text-white">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 md:grid-cols-2 md:py-24">
           <div>
+            <p className="eyebrow mb-3 !text-white">Do the math</p>
             <h2 className="display text-4xl md:text-5xl">
               One saved job pays for years of this.
             </h2>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-white/75">
-              Say you send 10 quotes a month and close 3. Following up 4 times
-              instead of 0 doesn&apos;t need to work miracles - it just needs
-              to turn <span className="font-semibold text-white">one</span>{" "}
-              dead quote into a job.
+              Following up 4 times instead of 0 doesn&apos;t need to work
+              miracles - it just needs to turn{" "}
+              <span className="font-semibold text-white">one</span> dead quote
+              into a job. One $4,000 fence. One $8,000 roof repair.
             </p>
             <p className="mt-4 max-w-md text-lg leading-relaxed text-white/75">
-              One $4,000 fence. One $8,000 roof repair. That&apos;s the whole
-              pitch.
+              Put in your own numbers and see what silence is costing you - no
+              signup, right here.
             </p>
           </div>
 
-          {/* receipt card - plan-agnostic, revenue framing */}
-          <div className="mx-auto w-full max-w-sm rotate-1 rounded-lg bg-white p-7 text-ink shadow-[0_24px_60px_-20px_rgba(0,0,0,0.5)]">
-            <p className="text-center font-mono text-xs tracking-[0.2em] text-mist">
-              ··· ONE QUOTE, TWO ENDINGS ···
-            </p>
-            <div className="mt-6 space-y-4 font-mono text-[15px]">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-slate">Quote ghosted</span>
-                <span className="flex-1 border-b border-dotted border-sky-line" />
-                <span className="font-semibold text-mist">$0</span>
-              </div>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-slate">Quote re-knocked</span>
-                <span className="flex-1 border-b border-dotted border-sky-line" />
-                <span className="font-semibold">+$4,000</span>
-              </div>
-            </div>
-            <div className="my-5 border-t-2 border-dashed border-sky-line" />
-            <div className="flex items-baseline justify-between font-mono">
-              <span className="font-semibold uppercase tracking-wide">
-                New revenue
-              </span>
-              <span className="display text-4xl text-mint">+$4,000</span>
-            </div>
-            <p className="mt-5 text-center text-sm text-mist">
-              One homeowner answering one follow-up covers years of ReKnock,
-              whatever plan you pick. Your margins are your business - the
-              revenue is new either way.
-            </p>
-          </div>
+          {/* live ROI calculator - the visitor types their own numbers here
+             (same component powers the standalone /roi-calculator page). */}
+          <Reveal className="text-ink">
+            <RoiCalculator className="card p-6 md:p-8" />
+          </Reveal>
         </div>
       </section>
 
@@ -276,7 +251,7 @@ export default function Home() {
             </div>
             <p className="max-w-sm text-slate">
               Zapier connection at launch. Direct integrations rolling out to
-              Pro plans - tell us which one you need first.
+              Growth plans - tell us which one you need first.
             </p>
           </div>
           <div className="mt-10 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
@@ -330,7 +305,7 @@ export default function Home() {
             One week of everything for a dollar - your dedicated number,
             voice-matched follow-ups, 50 texts. Then $29/month, locked for
             life for our first 20 founding contractors (list price $39). No
-            contracts, cancel with one tap.
+            contracts.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <CTA big />

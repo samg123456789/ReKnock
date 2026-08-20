@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" role="img" aria-labelledby="title desc">
+  <title id="title">ReKnock consent checkbox example</title>
+  <desc id="desc">The unchecked ReKnock consent attestation a contractor must check before starting quote follow-up messages.</desc>
+  <rect width="960" height="600" fill="#f6f9ff"/>
+  <rect x="80" y="54" width="800" height="492" rx="8" fill="#ffffff" stroke="#d7e4f5" stroke-width="2"/>
+  <text x="120" y="112" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#1d5fdb">Step 2: active attestation inside ReKnock</text>
+  <text x="120" y="148" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700" fill="#0f172a">Add quote confirmation</text>
+
+  <rect x="120" y="196" width="720" height="78" rx="8" fill="#ffffff" stroke="#d7e4f5"/>
+  <text x="144" y="228" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="700" fill="#64748b">CUSTOMER MOBILE NUMBER</text>
+  <text x="144" y="258" font-family="Inter, Arial, sans-serif" font-size="22" fill="#172033">(516) 555-0198</text>
+
+  <rect x="120" y="306" width="720" height="132" rx="8" fill="#eef4ff" stroke="#cfe0f8"/>
+  <rect x="148" y="338" width="28" height="28" rx="4" fill="#ffffff" stroke="#64748b" stroke-width="2"/>
+  <text x="194" y="348" font-family="Inter, Arial, sans-serif" font-size="18" fill="#172033">I confirm this customer requested this quote from my business, gave me</text>
+  <text x="194" y="376" font-family="Inter, Arial, sans-serif" font-size="18" fill="#172033">their mobile number, and agreed to receive text messages about this quote.</text>
+  <text x="194" y="404" font-family="Inter, Arial, sans-serif" font-size="18" fill="#172033">I will not use ReKnock for cold outreach or purchased lists.</text>
+
+  <rect x="120" y="468" width="250" height="48" rx="8" fill="#1d5fdb"/>
+  <text x="150" y="499" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#ffffff">Start chasing this quote</text>
+  <text x="394" y="498" font-family="Inter, Arial, sans-serif" font-size="16" fill="#64748b">Disabled until the unchecked box is actively selected.</text>
+</svg>

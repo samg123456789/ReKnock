@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" role="img" aria-labelledby="title desc">
+  <title id="title">Verbal quote consent example</title>
+  <desc id="desc">A contractor asking a homeowner for permission to send quote follow-up text messages before entering the phone number into ReKnock.</desc>
+  <rect width="960" height="560" fill="#f6f9ff"/>
+  <rect x="72" y="60" width="816" height="440" rx="8" fill="#ffffff" stroke="#d7e4f5" stroke-width="2"/>
+  <text x="112" y="118" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#1d5fdb">Step 1: ask before texting</text>
+  <text x="112" y="154" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700" fill="#0f172a">Verbal consent at quote time</text>
+
+  <rect x="112" y="206" width="332" height="172" rx="8" fill="#eef4ff" stroke="#cfe0f8"/>
+  <text x="136" y="244" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#0f172a">Contractor</text>
+  <text x="136" y="278" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">Can I text you updates and</text>
+  <text x="136" y="306" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">follow-ups about this quote?</text>
+  <text x="136" y="334" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">Msg &amp; data rates may apply.</text>
+  <text x="136" y="362" font-family="Inter, Arial, sans-serif" font-size="19" fill="#172033">Reply STOP to opt out.</text>
+
+  <rect x="516" y="206" width="332" height="132" rx="8" fill="#eaf8ef" stroke="#bde7ca"/>
+  <text x="540" y="244" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#166534">Homeowner</text>
+  <text x="540" y="278" font-family="Inter, Arial, sans-serif" font-size="20" fill="#14532d">Yes, you can text me about</text>
+  <text x="540" y="308" font-family="Inter, Arial, sans-serif" font-size="20" fill="#14532d">this estimate.</text>
+
+  <path d="M462 284h36" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M486 272l12 12-12 12" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="112" y="414" width="736" height="48" rx="8" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="136" y="445" font-family="Inter, Arial, sans-serif" font-size="17" fill="#7c2d12">Only after this consent can the contractor enter the mobile number into ReKnock.</text>
+</svg>
