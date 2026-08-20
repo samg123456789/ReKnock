@@ -13,10 +13,12 @@ are deployed to `https://getreknock.com`.
 
 ## Resubmission strategy
 
-Submit one opt-in path for now: verbal consent at the time a homeowner requests
-a quote in person or by phone. Do not include contractor website forms in this
-campaign until there is a public, reviewable form or hosted screenshot for that
-exact path.
+Do not resubmit the old verbal-only flow. The product's first-message disclosure
+is hardcoded and shown below, but that disclosure is not the opt-in itself. A
+contact must already have permission to receive quote-related SMS before the
+contractor enrolls them. If the contractor's website is the consent source, the
+exact public URL and an unchecked SMS consent checkbox must be supplied in the
+submission. Do not claim a web-form path until that form is live and reviewable.
 
 Use the **Sole Proprietor** campaign use case for this submission. "Starter"
 is the Twilio profile type used during registration, not the campaign use case.
@@ -25,18 +27,19 @@ Before submitting, confirm that the Messaging Service has the exact Twilio
 Twilio field that asks which number originates the messages.
 
 Use `https://getreknock.com/sms-terms` as the public proof URL in the message
-flow field. It shows the verbal script, the unchecked ReKnock consent
-attestation, allowed/not-allowed examples, message frequency, rate disclosure,
+flow field. It explains how contractors use ReKnock for existing quote
+inquiries, shows the required enrollment guardrail, documents the hardcoded
+first-message disclosure, and includes three reviewable message exchanges plus
 STOP/HELP, Privacy, and Terms.
 
 The public page also includes reviewable mockups for:
 
-- Verbal opt-in:
-  `https://getreknock.com/compliance/verbal-consent-mockup.svg`
 - Unchecked consent attestation:
   `https://getreknock.com/compliance/consent-checkbox-mockup.svg`
-- First message disclosure:
-  `https://getreknock.com/compliance/first-message-mockup.svg`
+- First-message and STOP exchange examples:
+  `https://getreknock.com/compliance/sms-exchange-1.svg`
+  `https://getreknock.com/compliance/sms-exchange-2.svg`
+  `https://getreknock.com/compliance/sms-exchange-3.svg`
 - Privacy and mobile-data handling:
   `https://getreknock.com/compliance/privacy-data-mockup.svg`
 
@@ -56,43 +59,45 @@ Automated follow-ups stop when the homeowner replies or texts STOP.
 
 ## How do end-users consent to receive messages?
 
-Homeowners opt in verbally when they request a quote from the contractor in
-person or by phone. At the time the contractor collects the homeowner's mobile
-number, the contractor asks: "Can I text you updates and follow-ups about this
-quote at this mobile number? Message frequency varies, message and data rates
-may apply, and you can reply STOP to opt out or HELP for help."
+The contractor enrolls an inquiry only after the homeowner has provided a mobile
+number and agreed to receive quote-related text follow-up through the contractor's
+lead flow. ReKnock records a required contractor attestation before scheduling
+messages. The first outbound message then includes this hardcoded disclosure on
+separate lines after the contractor's message: "Message and data rates may
+apply. Reply STOP to opt out." The disclosure does not create consent and cannot
+be used to text a person who did not already agree to receive messages.
 
-After the homeowner agrees, the contractor enters the quote into ReKnock. Before
-ReKnock allows follow-up texts to be scheduled, the contractor must actively
-check an unchecked consent attestation confirming that the homeowner requested
-the quote, gave their mobile number, and consented to quote-related text
-follow-up. Public proof of the opt-in workflow, script, and attestation is at
-https://getreknock.com/sms-terms. Privacy Policy:
+Public proof of the first-message behavior, message examples, STOP handling, and
+the enrollment guardrail is at https://getreknock.com/sms-terms. Privacy Policy:
 https://getreknock.com/privacy. Terms and Conditions:
 https://getreknock.com/terms.
 
-ReKnock does not use web-form opt-in for this campaign submission. Contractors
-may not upload purchased lists, scraped numbers, cold leads, third-party lead
-lists, trade show lists, or anyone who did not directly request a quote from
-that contractor and consent to quote-related text follow-up.
+Do not claim web-form opt-in until a live, reviewable contractor form with an
+unchecked SMS consent checkbox and exact public URL exists. Contractors may not
+upload purchased lists, scraped numbers, cold leads, third-party lead lists,
+trade show lists, or anyone who did not directly request a quote from that
+contractor and consent to quote-related text follow-up.
 
 ## Sample messages
 
 Sample message 1:
 
-Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock, following up on the [roof] quote we discussed. Any questions I can answer? Msg & data rates may apply. Reply STOP to opt out
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock, following up on the [roof] quote we discussed. Any questions I can answer?
+
+Message and data rates may apply.
+Reply STOP to opt out.
 
 Sample message 2:
 
-Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Just checking in on that [roofing] estimate. Happy to walk it through whenever works for you. Reply STOP to opt out
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Just checking in on that [roofing] estimate. Happy to walk it through whenever works for you. Reply STOP to opt out.
 
 Sample message 3:
 
-Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. You asked me to circle back this month about the [roof] estimate. Still a good time to talk it through? Reply STOP to opt out
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. You asked me to circle back this month about the [roof] estimate. Still a good time to talk it through? Reply STOP to opt out.
 
 Sample message 4:
 
-Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Wanted to close the loop on that [roof] estimate. If now is not the right time, I can check back later. Reply STOP to opt out
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Wanted to close the loop on that [roof] estimate. If now is not the right time, I can check back later. Reply STOP to opt out.
 
 ## Content attributes
 
@@ -104,7 +109,8 @@ Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Wanted to close the
 
 ## Keywords
 
-Opt-in keywords: leave blank. Initial opt-in is verbal, not by SMS keyword.
+Opt-in keywords: leave blank unless an actual SMS keyword opt-in flow is
+implemented. The product does not use an SMS keyword to create consent.
 
 Opt-out keywords:
 
@@ -122,7 +128,7 @@ HELP,INFO
 Help message:
 
 ReKnock quote follow-ups on behalf of your contractor. Reply STOP to
-unsubscribe. Msg & data rates may apply.
+unsubscribe. Message and data rates may apply.
 
 ## URLs
 

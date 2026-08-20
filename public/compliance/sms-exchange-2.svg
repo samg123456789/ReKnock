@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="640" viewBox="0 0 900 640" role="img" aria-labelledby="title desc">
+  <title id="title">Sample first message with no reply</title>
+  <desc id="desc">A first quote follow-up contains a separate required disclosure and remains quiet while the homeowner has not replied.</desc>
+  <rect width="900" height="640" fill="#f6f9ff"/>
+  <text x="64" y="70" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#2563eb">EXAMPLE 02</text>
+  <text x="64" y="112" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700" fill="#0f172a">No reply yet</text>
+  <text x="64" y="146" font-family="Inter, Arial, sans-serif" font-size="18" fill="#475569">A later follow-up is still sent with the opt-out line.</text>
+  <rect x="64" y="188" width="570" height="126" rx="18" fill="#e7efff"/>
+  <text x="96" y="224" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#1e3a8a">Mike - Apex Roofing</text>
+  <text x="96" y="260" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">Just checking in on that roofing estimate.</text>
+  <text x="96" y="290" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">Happy to walk it through when it works for you.</text>
+  <rect x="64" y="330" width="570" height="74" rx="18" fill="#eef4ff"/>
+  <text x="96" y="376" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#1e3a8a">Reply STOP to opt out.</text>
+  <rect x="64" y="450" width="772" height="82" rx="18" fill="#ffffff" stroke="#d7e4f5" stroke-width="2"/>
+  <circle cx="102" cy="491" r="10" fill="#94a3b8"/>
+  <text x="132" y="498" font-family="Inter, Arial, sans-serif" font-size="19" fill="#475569">No reply yet. The next follow-up remains scheduled.</text>
+  <text x="64" y="586" font-family="Inter, Arial, sans-serif" font-size="17" fill="#64748b">A reply or STOP always ends the automated sequence.</text>
+</svg>

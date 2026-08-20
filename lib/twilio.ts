@@ -17,7 +17,7 @@ const HOMEOWNER_KINDS = new Set(["sequence", "reminder", "manual", "relay"]);
 export const STOP_CONFIRMATION =
   "You have successfully been unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe.";
 export const HELP_REPLY =
-  "ReKnock quote follow-ups on behalf of your contractor. Reply STOP to unsubscribe. Msg & data rates may apply.";
+  "ReKnock quote follow-ups on behalf of your contractor. Reply STOP to unsubscribe. Message and data rates may apply.";
 
 const STOP_WORDS = new Set(["STOP", "OPTOUT", "CANCEL", "END", "QUIT", "UNSUBSCRIBE", "REVOKE", "STOPALL"]);
 const HELP_WORDS = new Set(["HELP", "INFO"]);

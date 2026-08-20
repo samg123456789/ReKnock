@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="640" viewBox="0 0 900 640" role="img" aria-labelledby="title desc">
+  <title id="title">Sample first message and homeowner reply</title>
+  <desc id="desc">A contractor's first quote follow-up is followed by the required message and data rates and STOP disclosure, then the homeowner replies.</desc>
+  <rect width="900" height="640" fill="#f6f9ff"/>
+  <text x="64" y="70" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3" fill="#2563eb">EXAMPLE 01</text>
+  <text x="64" y="112" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="700" fill="#0f172a">First follow-up</text>
+  <text x="64" y="146" font-family="Inter, Arial, sans-serif" font-size="18" fill="#475569">The disclosure is added below the contractor's words.</text>
+  <rect x="64" y="188" width="570" height="156" rx="18" fill="#e7efff"/>
+  <text x="96" y="224" font-family="Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#1e3a8a">Mike - Apex Roofing</text>
+  <text x="96" y="260" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">Hi Sarah, it's Mike with Apex Roofing through</text>
+  <text x="96" y="290" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">ReKnock, following up on the roof quote we</text>
+  <text x="96" y="320" font-family="Inter, Arial, sans-serif" font-size="19" fill="#0f172a">discussed. Any questions?</text>
+  <rect x="64" y="360" width="570" height="104" rx="18" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+  <text x="96" y="400" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#1e3a8a">Message and data rates may apply.</text>
+  <text x="96" y="434" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" fill="#1e3a8a">Reply STOP to opt out.</text>
+  <rect x="278" y="500" width="558" height="76" rx="18" fill="#dcfce7"/>
+  <text x="312" y="545" font-family="Inter, Arial, sans-serif" font-size="19" fill="#14532d">Yes - can you walk me through the estimate?</text>
+  <text x="64" y="610" font-family="Inter, Arial, sans-serif" font-size="17" fill="#64748b">Automation pauses when the homeowner replies.</text>
+</svg>
