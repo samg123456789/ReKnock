@@ -105,13 +105,18 @@ export default function SettingsClient(props: {
   return (
     <div>
       <Card id="forwarding" title="Quote forwarding">
-        <p className="text-sm text-slate">Forward or BCC any quote email here and we start chasing it:</p>
+        <p className="text-sm text-slate">Forward or BCC quote emails to your ReKnock address and we start chasing them:</p>
         <div className="mt-1 flex items-center gap-2">
           <code className="rounded-lg bg-sky px-3 py-1.5 text-sm text-blue-ink">{props.forwardingAddress}</code>
           <button type="button" className="cursor-pointer text-sm text-blue underline" onClick={() => { navigator.clipboard.writeText(props.forwardingAddress); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
+        <p className="mt-3 rounded-xl border border-sky-line bg-sky/50 px-3 py-2 text-sm leading-relaxed text-slate">
+          Forward from one of the verified emails below. If you use a different
+          inbox, ReKnock will not match it to your account until you add and
+          confirm that email here.
+        </p>
         <p className="mt-4 text-sm font-semibold text-slate">We only accept mail from your verified emails:</p>
         <ul className="mt-2 flex flex-col gap-1.5">
           {senders.map((s) => (

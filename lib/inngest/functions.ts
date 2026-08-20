@@ -7,12 +7,13 @@ import { sendSms, sendClaimedMessage, retrySmsTo, canSendNow, nextSendTime, type
 import { notifyAdmin } from "@/lib/notify-admin";
 import { emergencyDisableInboundWebhooks } from "@/lib/inbound-guard";
 import { env } from "@/lib/env";
-import { bareEmail, INTAKE_EMAIL } from "@/lib/intake-email";
+import { bareEmail, INTAKE_EMAIL, intakeEmailForSlug, intakeSlugFromEmail, isIntakeAddress } from "@/lib/intake-email";
 import { ONBOARDING_DRIP, DRIP_FROM } from "@/lib/emails/onboarding-drip";
 import { formatMoney } from "@/lib/format";
 import { normalizePhone as normalizeIntakePhone } from "@/lib/phone";
 import { computeStartAt, scheduleSequence } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
+import { extractReplyToken, stripQuotedEmail } from "@/lib/reply-email";
 
 // Scheduled-send engine. Every future send is a `messages` row with
 // status='scheduled'; the dispatcher cron finds due rows and fans out one
@@ -629,12 +630,74 @@ export const processInboundEmail = inngest.createFunction(
         return { text, headers };
       };
 
+      const replyToken = extractReplyToken(mail.to_addr);
+      if (replyToken) {
+        const sender = bareEmail(mail.from_addr);
+        const { data: session } = await admin
+          .from("email_reply_sessions")
+          .select("id, company_id, prospect_id, owner_email, expires_at")
+          .eq("token", replyToken)
+          .maybeSingle();
+
+        if (!session || new Date(session.expires_at) < new Date() || sender !== String(session.owner_email).toLowerCase()) {
+          await admin.from("inbound_emails").update({ resolution: "reply_blocked", company_id: session?.company_id ?? null }).eq("id", inboundId);
+          await admin.from("events").insert({
+            company_id: session?.company_id ?? null,
+            type: "email_reply_blocked",
+            payload: { inbound_email_id: inboundId, token: replyToken, from: mail.from_addr },
+          });
+          return { done: true as const };
+        }
+
+        const { text } = await fetchFull();
+        const clean = stripQuotedEmail(text).slice(0, 1200);
+        const { data: prospect } = await admin
+          .from("prospects")
+          .select("id, phone_e164, status")
+          .eq("id", session.prospect_id)
+          .maybeSingle();
+
+        if (!clean || !prospect?.phone_e164 || prospect.status === "opted_out") {
+          await admin.from("inbound_emails").update({ resolution: "reply_blocked", company_id: session.company_id, prospect_id: session.prospect_id }).eq("id", inboundId);
+          await admin.from("events").insert({
+            company_id: session.company_id,
+            type: "email_reply_blocked",
+            payload: { inbound_email_id: inboundId, prospect_id: session.prospect_id, reason: !clean ? "empty" : "not_sendable" },
+          });
+          return { done: true as const };
+        }
+
+        const idempotencyKey = `email-reply:${inboundId}`;
+        const res = await sendSms({
+          companyId: session.company_id,
+          prospectId: session.prospect_id,
+          to: prospect.phone_e164,
+          body: clean,
+          idempotencyKey,
+          kind: "relay",
+          isRelay: true,
+        });
+        if (!res.sent && res.skipped === "twilio_error") {
+          await inngest.send({
+            name: "sms/retry.requested",
+            data: { idempotency_key: idempotencyKey, company_id: session.company_id, to: prospect.phone_e164, context: "email_reply_to_homeowner" },
+          });
+        }
+        await admin.from("inbound_emails").update({ resolution: "reply_forwarded", company_id: session.company_id, prospect_id: session.prospect_id }).eq("id", inboundId);
+        await admin.from("events").insert({
+          company_id: session.company_id,
+          type: "email_reply_forwarded",
+          payload: { inbound_email_id: inboundId, prospect_id: session.prospect_id, sent: res.sent, skipped: res.skipped },
+        });
+        return { done: true as const };
+      }
+
       // Catch-all forward: the root MX moved from ImprovMX to Resend
       // (2026-07-13), so any mail NOT addressed to the intake address gets
       // re-sent to the platform admin's inbox. Covers every old alias without
       // needing an alias list; nothing addressed to the domain goes dark.
       const to = bareEmail(mail.to_addr);
-      if (to && to !== INTAKE_EMAIL.toLowerCase()) {
+      if (to && !isIntakeAddress(to)) {
         const ourDomain = INTAKE_EMAIL.split("@")[1];
         // Loop protection, four independent layers (a live loop on 2026-07-13
         // ran 60 iterations in 4 minutes and exhausted the day's send quota;
@@ -703,12 +766,32 @@ export const processInboundEmail = inngest.createFunction(
       }
 
       const sender = bareEmail(mail.from_addr);
-      const { data: match } = sender
-        ? await admin.from("company_sender_emails").select("company_id").eq("email", sender).not("verified_at", "is", null).maybeSingle()
-        : { data: null };
+      const intakeSlug = intakeSlugFromEmail(mail.to_addr);
+      let match: { company_id: string } | null = null;
+      if (sender && intakeSlug) {
+        const { data: co } = await admin.from("companies").select("id").eq("forwarding_slug", intakeSlug).maybeSingle();
+        if (co?.id) {
+          const { data } = await admin
+            .from("company_sender_emails")
+            .select("company_id")
+            .eq("company_id", co.id)
+            .eq("email", sender)
+            .not("verified_at", "is", null)
+            .maybeSingle();
+          match = data;
+        }
+      } else if (sender) {
+        const { data } = await admin
+          .from("company_sender_emails")
+          .select("company_id")
+          .eq("email", sender)
+          .not("verified_at", "is", null)
+          .maybeSingle();
+        match = data;
+      }
       if (!match) {
         await admin.from("inbound_emails").update({ resolution: "unmatched" }).eq("id", inboundId);
-        await admin.from("events").insert({ company_id: null, type: "inbound_email_unmatched", payload: { inbound_email_id: inboundId, from: mail.from_addr } });
+        await admin.from("events").insert({ company_id: null, type: "inbound_email_unmatched", payload: { inbound_email_id: inboundId, from: mail.from_addr, to: mail.to_addr } });
         return { done: true as const };
       }
       await admin.from("inbound_emails").update({ company_id: match.company_id }).eq("id", inboundId);
@@ -846,7 +929,7 @@ export const onboardingDrip = inngest.createFunction(
             from: DRIP_FROM,
             to: [user.email],
             subject: email.subject,
-            text: email.body({ firstName, intakeEmail: INTAKE_EMAIL }),
+            text: email.body({ firstName, intakeEmail: intakeEmailForSlug(co.forwarding_slug as string | null) }),
           }),
         });
         if (!resp.ok) throw new Error(`drip send failed: ${resp.status}`); // Inngest retries

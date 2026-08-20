@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import SettingsClient from "@/components/settings/SettingsClient";
 import type { VoiceQuestionnaire } from "@/lib/prompts/voice-profile";
-import { INTAKE_EMAIL } from "@/lib/intake-email";
+import { intakeEmailForSlug } from "@/lib/intake-email";
 
 export const metadata: Metadata = { title: "Settings - ReKnock" };
 
@@ -66,7 +66,7 @@ export default async function Settings() {
         samples={(voice?.sample_messages as string[]) ?? []}
         relayCell={owner?.cell_phone ?? ""}
         relayCellVerified={owner?.cell_phone_verified_at != null}
-        forwardingAddress={INTAKE_EMAIL}
+        forwardingAddress={intakeEmailForSlug(company?.forwarding_slug)}
         senderEmails={(senders ?? []).map((s) => ({ id: s.id as string, email: s.email as string, verified: s.verified_at != null }))}
         numberStatus={phone?.status ?? null}
         numberE164={phone?.e164 ?? null}

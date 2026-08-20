@@ -5,7 +5,7 @@ import { getActingCompany } from "@/lib/acting-company";
 import DashboardTable, { type ProspectRow } from "@/components/app/DashboardTable";
 import EducationCards from "@/components/app/EducationCards";
 import NumberPicker from "@/components/app/NumberPicker";
-import { INTAKE_EMAIL } from "@/lib/intake-email";
+import { intakeEmailForSlug } from "@/lib/intake-email";
 
 export const metadata: Metadata = { title: "Dashboard - ReKnock" };
 
@@ -72,7 +72,7 @@ export default async function AppHome() {
     };
   });
 
-  const forwardingEmail = INTAKE_EMAIL;
+  const forwardingEmail = intakeEmailForSlug(company?.forwarding_slug);
   // Forwarding is "in use" once any prospect arrived by email (forward or BCC).
   const hasEmailProspect = (prospects ?? []).some((p) => p.source === "email_forward" || p.source === "bcc");
   // One-time feature tour: dashboard implies onboarded; show until the
