@@ -84,19 +84,22 @@ contractor and consent to quote-related text follow-up.
 
 Sample message 1:
 
-Hi [Sarah], it’s [Mike] with [Apex Roofing] through ReKnock, following up on the [roof] quote we discussed. Any questions I can answer? Message and data rates may apply. Reply STOP to unsubscribe.
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock, following up on the [roof] quote we discussed. Any questions I can answer?
+
+Message and data rates may apply.
+Reply STOP to unsubscribe.
 
 Sample message 2:
 
-Hi [Sarah], it’s [Mike] with [Apex Roofing] through ReKnock. I’m checking in on the [roofing] estimate you requested. Happy to walk it through whenever works for you. Reply STOP to unsubscribe.
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Just checking in on that [roofing] estimate. Happy to walk it through whenever works for you. Reply STOP to unsubscribe.
 
 Sample message 3:
 
-Hi [Sarah], it’s [Mike] with [Apex Roofing] through ReKnock. You asked me to circle back this month about the [roof] estimate. Is now a good time to talk it through? Reply STOP to unsubscribe.
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. You asked me to circle back this month about the [roof] estimate. Still a good time to talk it through? Reply STOP to unsubscribe.
 
 Sample message 4:
 
-Hi [Sarah], it’s [Mike] with [Apex Roofing] through ReKnock. I’m closing the loop on the [roof] estimate you requested. If now is not the right time, I can check back later. Reply STOP to unsubscribe.
+Hi [Sarah], it's [Mike] with [Apex Roofing] through ReKnock. Wanted to close the loop on that [roof] estimate. If now is not the right time, I can check back later. Reply STOP to unsubscribe.
 
 ## Content attributes
 
