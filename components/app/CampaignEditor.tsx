@@ -64,7 +64,7 @@ export default function CampaignEditor({ initialSteps }: { initialSteps: Campaig
         const pv = previews[i];
         const on = s.enabled !== false;
         return (
-          <div key={i} className={`app-panel p-5 transition-opacity md:p-6 ${on ? "" : "opacity-70"}`}>
+          <div key={i} className={`app-panel p-6 transition-opacity ${on ? "" : "opacity-70"}`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="surface-label">Step {i + 1}</p>
@@ -100,7 +100,7 @@ export default function CampaignEditor({ initialSteps }: { initialSteps: Campaig
                 <button type="button" onClick={() => preview(i)} disabled={pv?.loading} className="cursor-pointer text-xs font-semibold text-blue hover:underline disabled:opacity-50">
                   {pv?.loading ? "Drafting a sample..." : "Preview this message"}
                 </button>
-                {pv?.text ? <div className="mt-2 max-w-[90%] rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{pv.text}</div> : null}
+                {pv?.text ? <div className="mt-3 max-w-[90%] rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{pv.text}</div> : null}
                 {pv?.error ? <p className="mt-2 text-xs text-red-700">{pv.error}</p> : null}
               </div>
             ) : null}

@@ -108,10 +108,10 @@ export default async function AppHome() {
               ["Won", String(wonCount), "Closed from followed-up quotes"],
               ["Number", numberState, numberLive ? "Texts and calls are live" : phone ? "Carrier activation in progress" : "Choose a local line"],
             ].map(([label, value, hint]) => (
-              <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div key={label} className="stat-card">
                 <p className="surface-label">{label}</p>
-                <p className="mt-2 text-2xl font-bold text-ink">{value}</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate">{hint}</p>
+                <p className="mt-2 text-3xl font-bold leading-none text-ink">{value}</p>
+                <p className="mt-2 text-xs leading-relaxed text-slate">{hint}</p>
               </div>
             ))}
           </div>
@@ -153,7 +153,7 @@ export default async function AppHome() {
             </p>
           </div>
         ) : (
-          <section className="app-panel mt-8 p-4 md:p-5">
+          <section className="app-panel mt-8 p-6">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="surface-label">Pipeline</p>

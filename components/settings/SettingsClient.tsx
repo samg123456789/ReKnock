@@ -28,9 +28,9 @@ const input = "rk-input text-base";
 
 function Card({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section id={id} className="app-panel mt-5 scroll-mt-24 p-5 md:p-6">
-      <h2 className="display text-lg">{title}</h2>
-      <div className="mt-3">{children}</div>
+    <section id={id} className="app-panel mt-5 scroll-mt-24 p-6 md:p-7">
+      <h2 className="display text-xl">{title}</h2>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -106,21 +106,21 @@ export default function SettingsClient(props: {
     <div>
       <Card id="forwarding" title="Quote forwarding">
         <p className="text-sm text-slate">Forward or BCC quote emails to your ReKnock address and we start chasing them:</p>
-        <div className="mt-1 flex items-center gap-2">
-          <code className="rounded-lg bg-sky px-3 py-1.5 text-sm text-blue-ink">{props.forwardingAddress}</code>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <code className="rounded-lg bg-sky px-3.5 py-2 text-sm text-blue-ink">{props.forwardingAddress}</code>
           <button type="button" className="cursor-pointer text-sm text-blue underline" onClick={() => { navigator.clipboard.writeText(props.forwardingAddress); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
-        <p className="mt-3 rounded-xl border border-sky-line bg-sky/50 px-3 py-2 text-sm leading-relaxed text-slate">
+        <p className="form-section mt-4 bg-sky/50 text-sm leading-relaxed text-slate">
           Forward from one of the verified emails below. If you use a different
           inbox, ReKnock will not match it to your account until you add and
           confirm that email here.
         </p>
         <p className="mt-4 text-sm font-semibold text-slate">We only accept mail from your verified emails:</p>
-        <ul className="mt-2 flex flex-col gap-1.5">
+        <ul className="mt-2 flex flex-col gap-2">
           {senders.map((s) => (
-            <li key={s.id} className="flex items-center gap-2 text-sm">
+            <li key={s.id} className="surface-card-compact flex items-center gap-2 text-sm">
               <span className="min-w-0 truncate text-ink">{s.email}</span>
               {s.verified ? (
                 <span className="shrink-0 rounded-full bg-mint/15 px-2 py-0.5 text-[11px] font-semibold text-mint">Verified</span>
@@ -143,7 +143,7 @@ export default function SettingsClient(props: {
             </li>
           ))}
         </ul>
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
             className={`${input} max-w-xs`}
             type="email"
@@ -184,20 +184,20 @@ export default function SettingsClient(props: {
             {US_MARKETS.map(([tz, label]) => <option key={tz} value={tz}>{label}</option>)}
           </select>
         </label>
-        <div className="mt-2 flex flex-col gap-1.5">
+        <div className="mt-4 flex flex-col gap-2">
           {windows.map((w, i) => (
-            <div key={w.day_of_week} className="flex flex-wrap items-center gap-2 text-sm">
+            <div key={w.day_of_week} className="surface-card-compact flex flex-wrap items-center gap-3 text-sm">
               <label className="flex w-20 items-center gap-2">
                 <input type="checkbox" checked={w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x)))} />
                 <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
               </label>
-              <input type="time" className="min-w-0 flex-1 rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
+              <input type="time" className="min-w-0 flex-1 rounded-lg border border-slate/20 px-3 py-2 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
               <span className="text-mist">to</span>
-              <input type="time" className="min-w-0 flex-1 rounded-lg border border-slate/20 px-2 py-1 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
+              <input type="time" className="min-w-0 flex-1 rounded-lg border border-slate/20 px-3 py-2 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
             </div>
           ))}
         </div>
-        <button type="button" className="mt-2 cursor-pointer text-sm text-blue underline" onClick={() => setWindows(windows.map((x) => (x.day_of_week >= 1 && x.day_of_week <= 5 ? { ...x, start_time: windows[1].start_time, end_time: windows[1].end_time } : x)))}>
+        <button type="button" className="mt-4 cursor-pointer text-sm text-blue underline" onClick={() => setWindows(windows.map((x) => (x.day_of_week >= 1 && x.day_of_week <= 5 ? { ...x, start_time: windows[1].start_time, end_time: windows[1].end_time } : x)))}>
           Use Monday&apos;s hours for all weekdays
         </button>
         <SaveBtn state={schedState} onClick={() => run(setSchedState, () => saveSchedule(windows, timezone))} />
@@ -261,7 +261,7 @@ export default function SettingsClient(props: {
           {COMING_SOON.map(([f, desc], i) => (
             <div
               key={f}
-              className={`flex flex-col rounded-xl border border-slate/15 p-5 opacity-90 ${i >= 3 ? "lg:col-span-3" : "lg:col-span-2"} ${i === 4 ? "sm:col-span-2" : ""}`}
+              className={`surface-card-compact flex flex-col opacity-90 ${i >= 3 ? "lg:col-span-3" : "lg:col-span-2"} ${i === 4 ? "sm:col-span-2" : ""}`}
             >
               <span className="font-semibold text-ink">{f}</span>
               <span className="mt-0.5 flex-1 text-sm text-slate">{desc}</span>

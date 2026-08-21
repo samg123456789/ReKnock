@@ -80,7 +80,7 @@ export default async function CompanyOsPage() {
         <h2 className="display text-xl">Product Changelog</h2>
         <div className="mt-3 grid gap-3">
           {((changelog ?? []) as ChangelogEntry[]).map((entry) => (
-            <article key={entry.id} className="rounded-lg border border-slate/15 bg-white p-4">
+            <article key={entry.id} className="surface-card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 className="font-semibold text-ink">{entry.title}</h3>
@@ -109,7 +109,7 @@ export default async function CompanyOsPage() {
         <h2 className="display text-xl">Agent Runs</h2>
         <div className="mt-3 grid gap-3">
           {((runs ?? []) as ProductRun[]).map((run) => (
-            <article key={run.id} className="rounded-lg border border-slate/15 bg-white p-4">
+            <article key={run.id} className="surface-card">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -143,7 +143,7 @@ export default async function CompanyOsPage() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-24 rounded-lg border border-slate/15 bg-white px-3 py-2">
+    <div className="stat-card min-w-24 min-h-0 px-3 py-3">
       <div className="text-xs text-mist">{label}</div>
       <div className="mt-1 text-sm font-bold text-ink">{value}</div>
     </div>
@@ -152,7 +152,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-snow px-3 py-2">
+    <div className="surface-card-compact bg-snow">
       <div className="text-xs font-semibold uppercase text-mist">{label}</div>
       <div className="mt-1 text-sm text-slate">{value}</div>
     </div>
@@ -177,7 +177,7 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
 }
 
 function Empty({ text }: { text: string }) {
-  return <div className="rounded-lg border border-dashed border-slate/20 bg-white p-5 text-sm text-mist">{text}</div>;
+  return <div className="surface-card border-dashed border-slate/20 text-sm text-mist">{text}</div>;
 }
 
 function toStrings(value: unknown): string[] {

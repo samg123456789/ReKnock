@@ -11,7 +11,7 @@ export default function Loading() {
             {[0, 1, 2, 3].map((i) => <div key={i} className="h-24 skeleton rounded-2xl bg-slate/5" />)}
           </div>
         </div>
-        <div className="app-panel mt-8 p-4">
+        <div className="app-panel mt-8 p-6">
           <div className="h-10 w-full skeleton rounded-xl bg-slate/5" />
           <div className="mt-3 flex flex-col gap-2">
             {[0, 1, 2, 3].map((i) => (

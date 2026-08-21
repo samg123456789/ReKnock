@@ -168,24 +168,24 @@ export default function CsvImport() {
           {result.imported > 0 ? `${result.imported} customer${result.imported === 1 ? "" : "s"} added.` : "Nothing new to add."}
         </h1>
         <div className="mt-6 flex flex-col gap-2">
-          <div className="flex items-center gap-3 rounded-xl border border-sky-line bg-white px-4 py-3">
+          <div className="surface-card-compact flex items-center gap-3">
             <span className="text-mint">✓</span>
             <span className="text-ink">{result.imported} imported{enroll && result.imported > 0 ? ", follow-ups scheduled" : ""}</span>
           </div>
           {result.skippedDuplicates > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-sky-line bg-white px-4 py-3">
+            <div className="surface-card-compact flex items-center gap-3">
               <span className="text-slate">-</span>
               <span className="text-slate">{result.skippedDuplicates} skipped, already in your quotes (matched by phone)</span>
             </div>
           )}
           {result.skippedOptedOut > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-amber/40 bg-amber/5 px-4 py-3">
+            <div className="surface-card-compact flex items-center gap-3 border-amber/40 bg-amber/5">
               <span className="text-amber">!</span>
               <span className="text-slate">{result.skippedOptedOut} skipped, opted out of your texts. They&apos;ll need to text you first before you can start a new sequence.</span>
             </div>
           )}
           {serverErrorLines.map((e, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-xl border border-amber/40 bg-amber/5 px-4 py-3">
+            <div key={i} className="surface-card-compact flex items-center gap-3 border-amber/40 bg-amber/5">
               <span className="text-amber">!</span>
               <span className="text-slate">Row {e.line}: {e.message}</span>
             </div>
@@ -225,27 +225,27 @@ export default function CsvImport() {
           </p>
         )}
 
-        <div className="card mt-6 overflow-x-auto">
+        <div className="table-shell mt-6 overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-sky-line text-left text-slate">
-                <th className="px-4 py-3 font-semibold">Name</th>
-                <th className="px-4 py-3 font-semibold">Phone</th>
-                <th className="px-4 py-3 font-semibold">Job</th>
-                <th className="px-4 py-3 font-semibold">Amount</th>
-                <th className="px-4 py-3 font-semibold">Quote date</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="table-head-cell text-left">Name</th>
+                <th className="table-head-cell text-left">Phone</th>
+                <th className="table-head-cell text-left">Job</th>
+                <th className="table-head-cell text-left">Amount</th>
+                <th className="table-head-cell text-left">Quote date</th>
+                <th className="table-head-cell text-left">Status</th>
               </tr>
             </thead>
             <tbody>
               {preview.map((r) => (
                 <tr key={r.line} className={`border-b border-sky-line/60 last:border-0 ${r.problems.length ? "opacity-50" : ""}`}>
-                  <td className="px-4 py-2.5 text-ink">{`${r.fields.first_name} ${r.fields.last_name}`.trim() || "-"}</td>
-                  <td className="px-4 py-2.5">{r.fields.phone || "-"}</td>
-                  <td className="px-4 py-2.5">{r.fields.job_type || "-"}</td>
-                  <td className="px-4 py-2.5">{formatMoney(Number((r.fields.quote_amount ?? "").replace(/[^0-9.]/g, "")) || null) || "-"}</td>
-                  <td className="px-4 py-2.5">{r.fields.quote_date || "today"}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="table-body-cell text-ink">{`${r.fields.first_name} ${r.fields.last_name}`.trim() || "-"}</td>
+                  <td className="table-body-cell">{r.fields.phone || "-"}</td>
+                  <td className="table-body-cell">{r.fields.job_type || "-"}</td>
+                  <td className="table-body-cell">{formatMoney(Number((r.fields.quote_amount ?? "").replace(/[^0-9.]/g, "")) || null) || "-"}</td>
+                  <td className="table-body-cell">{r.fields.quote_date || "today"}</td>
+                  <td className="table-body-cell">
                     {r.problems.length ? (
                       <span className="font-semibold text-red-600">{r.problems.join(", ")}</span>
                     ) : r.flags.length ? (
@@ -264,7 +264,7 @@ export default function CsvImport() {
         </div>
 
         <div className="mt-6 flex flex-col gap-3">
-          <label className="flex cursor-pointer items-start gap-3">
+          <label className="surface-card-compact flex cursor-pointer items-start gap-3">
             <input type="checkbox" className="mt-1 h-5 w-5 accent-blue" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span className="text-ink">
               {CONSENT_ATTESTATION_BULK}
@@ -276,7 +276,7 @@ export default function CsvImport() {
               </Link>
             </span>
           </label>
-          <label className="flex cursor-pointer items-start gap-3">
+          <label className="surface-card-compact flex cursor-pointer items-start gap-3">
             <input type="checkbox" className="mt-1 h-5 w-5 accent-blue" checked={enroll} onChange={(e) => setEnroll(e.target.checked)} />
             <span className="text-ink">
               Also start follow-ups now
@@ -313,7 +313,7 @@ export default function CsvImport() {
       </p>
 
       <label
-        className={`card mt-6 flex cursor-pointer flex-col items-center gap-2 p-7 text-center ${dragOver ? "border-blue bg-sky/40" : "border-blue hover:bg-sky/40"}`}
+        className={`surface-card mt-6 flex cursor-pointer flex-col items-center gap-2 border-blue p-7 text-center ${dragOver ? "bg-sky/40" : "hover:bg-sky/40"}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);

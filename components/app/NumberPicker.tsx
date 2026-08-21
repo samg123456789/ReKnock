@@ -18,7 +18,7 @@ function statusLabel(status: string): string {
 
 function FlowStep({ n, title, body, active = false, done = false }: { n: string; title: string; body: string; active?: boolean; done?: boolean }) {
   return (
-    <div className="flex gap-3">
+    <div className="surface-card-compact flex gap-3">
       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-mint/15 text-mint" : active ? "bg-blue text-white" : "bg-sky text-blue"}`}>
         {done ? "✓" : n}
       </span>
@@ -54,7 +54,7 @@ export default function NumberPicker({
   if (phone && !bare) {
     if (phone.status === "active") return null;
     return (
-      <div className="ai-panel mt-6 p-5">
+      <div className="ai-panel mt-6 p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <span className="ai-chip">Number setup</span>
@@ -95,7 +95,7 @@ export default function NumberPicker({
   }
 
   return (
-    <div className={bare ? "mt-6" : "ai-panel mt-6 p-5"}>
+    <div className={bare ? "mt-6" : "ai-panel mt-6 p-6"}>
       {!bare ? (
         <>
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -147,7 +147,7 @@ export default function NumberPicker({
               type="button"
               disabled={claiming !== null}
               onClick={() => claim(n.e164)}
-              className="cursor-pointer rounded-2xl border border-sky-line bg-white px-4 py-3 text-left transition-colors hover:border-blue hover:bg-sky/40 disabled:opacity-50"
+              className="surface-card-compact cursor-pointer text-left transition-colors hover:border-blue hover:bg-sky/40 disabled:opacity-50"
             >
               <span className="font-semibold text-ink">{prettyUs(n.e164)}</span>
               <span className="block text-xs text-mist">

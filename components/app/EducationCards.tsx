@@ -35,7 +35,7 @@ function CopyButton({ value }: { value: string }) {
 // at exactly the same vertical position as in its neighbors.
 function Card({ badge, title, children, action, className = "" }: { badge: string; title: string; children: React.ReactNode; action: React.ReactNode; className?: string }) {
   return (
-    <div className={`flex flex-col rounded-2xl border border-sky-line bg-white p-5 ${className}`}>
+    <div className={`surface-card flex flex-col ${className}`}>
       <p className="surface-label text-blue">{badge}</p>
       <h3 className="mt-1 font-semibold text-ink">{title}</h3>
       <div className="mt-2 flex-1 text-sm leading-relaxed text-slate">{children}</div>
@@ -48,7 +48,7 @@ function Card({ badge, title, children, action, className = "" }: { badge: strin
 // title, and its key info kept at hand (copy still works).
 function DoneRow({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-sky-line bg-white px-4 py-3">
+    <div className="surface-card-compact flex items-center gap-3">
       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mint/15 text-mint">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
       </span>

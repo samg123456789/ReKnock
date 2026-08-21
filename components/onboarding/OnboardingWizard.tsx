@@ -305,7 +305,7 @@ export default function OnboardingWizard({
   return (
     <div className="app-bg" onKeyDown={onKeyDown}>
       <div className="app-shell grid gap-6 lg:grid-cols-[280px_1fr] lg:items-start">
-        <aside className="app-panel p-5 lg:sticky lg:top-24">
+        <aside className="app-panel p-6 lg:sticky lg:top-24">
           <span className="ai-chip">AI setup</span>
           <h2 className="display mt-4 text-2xl">Build your follow-up agent</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate">
@@ -339,7 +339,7 @@ export default function OnboardingWizard({
           </div>
         </aside>
 
-        <section className="app-panel p-5 md:p-8">
+        <section className="app-panel p-6 md:p-8">
           {error ? <p className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
 
       {/* Step 1: basics */}
@@ -404,7 +404,7 @@ export default function OnboardingWizard({
                 ["friendly_chatty", "Friendly and chatty", "Hi Sarah! Just checking in on the roof estimate we talked about. Happy to walk through anything!"],
                 ["professional_brief", "Professional and brief", "Hello Sarah, following up regarding your roofing estimate. Please let me know if you have questions."],
               ] as const).map(([val, label, example]) => (
-                <label key={val} className={`flex cursor-pointer flex-col gap-1 rounded-xl border px-4 py-3 ${q.texting_style === val ? "border-blue bg-sky" : "border-slate/20"}`}>
+                <label key={val} className={`surface-card-compact flex cursor-pointer flex-col gap-2 transition-colors ${q.texting_style === val ? "border-blue bg-sky" : "hover:border-blue/40"}`}>
                   <span className="flex items-center gap-3">
                     <input type="radio" name="style" checked={q.texting_style === val} onChange={() => setQ({ ...q, texting_style: val })} />
                     <span className="font-semibold">{label}</span>
@@ -430,7 +430,7 @@ export default function OnboardingWizard({
                 ["uses_exclamation", "Use exclamation points"],
                 ["uses_emojis", "Use emojis"],
               ] as const).map(([key, label]) => (
-                <label key={key} className="flex cursor-pointer items-center justify-between rounded-2xl border border-sky-line bg-white px-4 py-3">
+                <label key={key} className="surface-card-compact flex cursor-pointer items-center justify-between gap-4 transition-colors hover:border-blue/40">
                   <span>{label}</span>
                   <input type="checkbox" checked={q[key]} onChange={(e) => setQ({ ...q, [key]: e.target.checked })} />
                 </label>
@@ -447,7 +447,7 @@ export default function OnboardingWizard({
               <div className="mt-1.5 max-w-[90%] rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{previewText()}</div>
             </div>
 
-            <div className="rounded-xl border border-sky-line bg-sky/40 p-4">
+            <div className="form-section bg-sky/40">
               <span className="text-sm font-semibold text-slate">Paste a few real texts you&apos;ve sent</span>
               <p className="mt-0.5 text-xs text-mist">This is what makes it sound like you. Even one helps.</p>
               <div className="mt-3 flex flex-col gap-2">
@@ -501,7 +501,7 @@ export default function OnboardingWizard({
               <p className="mt-3 text-slate">Three real follow-ups, written the way you text. Homeowners see these from your number.</p>
 
               {/* Phone-style reveal, same visual language as the landing page thread */}
-              <div className="card mx-auto mt-6 w-full max-w-sm p-4">
+              <div className="surface-card mx-auto mt-6 w-full max-w-sm">
                 <div className="mb-3 flex items-center justify-between px-1">
                   <p className="truncate text-xs font-medium text-mist">{basics.name.trim() || "Your company"} &middot; follow-ups</p>
                   <span className="shrink-0 rounded-full bg-sky px-2.5 py-1 text-[10px] font-semibold text-blue">
@@ -586,14 +586,14 @@ export default function OnboardingWizard({
           <div className="mt-4 flex flex-col gap-2">
             {windows.map((w, i) => (
               <div key={w.day_of_week}>
-                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-sky-line bg-white px-3 py-2.5">
+                <div className="surface-card-compact flex flex-wrap items-center gap-3">
                   <label className="flex w-24 items-center gap-2 sm:w-28">
                     <input type="checkbox" checked={w.enabled} onChange={(e) => { setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x))); if (!e.target.checked && copyFrom === w.day_of_week) setCopyFrom(null); }} />
                     <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
                   </label>
-                  <input type="time" className="min-w-0 rounded-lg border border-slate/20 px-2 py-1.5 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
+                  <input type="time" className="min-w-0 rounded-lg border border-slate/20 px-3 py-2 disabled:opacity-40" value={w.start_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, start_time: e.target.value } : x)))} />
                   <span className="text-mist">to</span>
-                  <input type="time" className="min-w-0 rounded-lg border border-slate/20 px-2 py-1.5 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
+                  <input type="time" className="min-w-0 rounded-lg border border-slate/20 px-3 py-2 disabled:opacity-40" value={w.end_time} disabled={!w.enabled} onChange={(e) => setWindows(windows.map((x, j) => (j === i ? { ...x, end_time: e.target.value } : x)))} />
                   {w.enabled ? (
                     <button
                       type="button"
@@ -606,7 +606,7 @@ export default function OnboardingWizard({
                   ) : null}
                 </div>
                 {copyFrom === w.day_of_week ? (
-                  <div className="mt-1 rounded-xl bg-sky/60 px-3 py-2.5">
+                  <div className="form-section mt-2 bg-sky/60">
                     <p className="text-xs font-semibold text-slate">Copy {DAY_LABELS[w.day_of_week]}&apos;s hours to:</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <button type="button" className="cursor-pointer rounded-full border border-sky-line bg-white px-3 py-1.5 text-xs font-semibold text-blue hover:border-blue" onClick={() => copyHours(w.day_of_week, [1, 2, 3, 4, 5])}>
@@ -678,7 +678,7 @@ export default function OnboardingWizard({
           <p className="eyebrow mb-3">You&apos;re set up</p>
           <h1 className="display text-3xl md:text-4xl">Your voice is ready.</h1>
           <p className="mt-3 text-slate">Add a quote and we&apos;ll show you exactly how we&apos;ll chase it. Your texting number activates in the background.</p>
-          <div className="card mt-6 p-5">
+          <div className="surface-card mt-6">
             <p className="text-sm font-semibold text-ink">One habit that doubles your results</p>
             <p className="mt-2 text-sm leading-relaxed text-slate">
               Ask every lead: &quot;What&apos;s the best number to text your quote to?&quot; A number you can text is a lead ReKnock can chase.
@@ -707,7 +707,7 @@ export default function OnboardingWizard({
               ))}
             </select>
           </label>
-          <label className="mt-6 flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-slate">
+          <label className="surface-card-compact mt-6 flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-slate">
             <input
               type="checkbox"
               className="mt-1 h-5 w-5 shrink-0 accent-blue"

@@ -84,7 +84,7 @@ export default function DashboardTable({ rows }: { rows: ProspectRow[] }) {
     setSort((s) => (s.key === key ? { key, dir: (s.dir * -1) as 1 | -1 } : { key, dir: key === "name" ? 1 : -1 }));
   }
   const arrow = (key: SortKey) => (sort.key === key ? (sort.dir === 1 ? "↑" : "↓") : "");
-  const th = "cursor-pointer select-none px-5 py-4 text-left text-[11px] font-bold uppercase text-mist hover:text-slate";
+  const th = "table-head-cell cursor-pointer select-none text-left hover:text-slate";
   const statusTone = (status: string) => STATUS_STYLE[status] ?? "bg-sky text-blue";
 
   return (
@@ -101,14 +101,14 @@ export default function DashboardTable({ rows }: { rows: ProspectRow[] }) {
 
       <div className="-mx-1 mt-4 flex snap-x gap-3 overflow-x-auto px-1 pb-3 md:hidden">
         {view.length === 0 ? (
-          <div className="w-full rounded-2xl border border-dashed border-sky-line bg-white p-8 text-center text-sm text-mist">No matches.</div>
+          <div className="surface-card w-full border-dashed text-center text-sm text-mist">No matches.</div>
         ) : (
           view.map((row) => (
             <button
               key={row.id}
               type="button"
               onClick={() => router.push(`/inbox?p=${row.id}`)}
-              className="min-w-[82%] snap-start rounded-2xl border border-sky-line bg-white p-4 text-left transition-colors hover:border-blue/40 hover:bg-sky/30"
+              className="surface-card min-w-[82%] snap-start text-left transition-colors hover:border-blue/40 hover:bg-sky/30"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -135,7 +135,7 @@ export default function DashboardTable({ rows }: { rows: ProspectRow[] }) {
         )}
       </div>
 
-      <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-sky-line bg-white md:block">
+      <div className="table-shell mt-4 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead className="sticky top-0 bg-[#fbfdff]">
             <tr className="border-b border-sky-line">
@@ -169,18 +169,18 @@ export default function DashboardTable({ rows }: { rows: ProspectRow[] }) {
                   onClick={() => router.push(`/inbox?p=${row.id}`)}
                   className="cursor-pointer border-b border-sky-line/60 transition-colors last:border-0 hover:bg-sky/35"
                 >
-                  <td className="px-5 py-4 font-semibold text-ink">
+                  <td className="table-body-cell font-semibold text-ink">
                     {row.name}
                   </td>
-                  <td className="px-5 py-4 text-slate">{row.jobType || "-"}</td>
-                  <td className="px-5 py-4 text-right tabular-nums text-slate">{money(row.amount) || "-"}</td>
-                  <td className="px-5 py-4">
+                  <td className="table-body-cell text-slate">{row.jobType || "-"}</td>
+                  <td className="table-body-cell text-right tabular-nums text-slate">{money(row.amount) || "-"}</td>
+                  <td className="table-body-cell">
                     <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
                       {STATUS_LABEL[row.status] ?? row.status}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-slate">{touchLabel(row.nextTouch) || "-"}</td>
-                  <td className="px-5 py-4 text-mist">{activityLabel(row.lastActivity)}</td>
+                  <td className="table-body-cell text-slate">{touchLabel(row.nextTouch) || "-"}</td>
+                  <td className="table-body-cell text-mist">{activityLabel(row.lastActivity)}</td>
                 </tr>
               ))
             )}
