@@ -65,12 +65,16 @@ Write the single text now.`;
 // copy from the model, a template, or the contractor is stripped first.
 export function appendStopLine(text: string, includeRates = false): string {
   const hadRates = /(?:msg|message)\s*(?:&|and)\s*data rates may apply\.?/i.test(text);
-  const t = text
+  const t = stripCompliance(text);
+  const line = includeRates || hadRates ? FIRST_TOUCH_DISCLOSURE_LINE : STOP_LINE;
+  return `${t}\n\n${line}`;
+}
+
+export function stripCompliance(text: string): string {
+  return text
     .replace(/\s*(?:msg|message)\s*(?:&|and)\s*data rates may apply\.?/gi, "")
     .replace(/\s*reply stop to (?:opt out|unsubscribe)\.?/gi, "")
     .trim();
-  const line = includeRates || hadRates ? FIRST_TOUCH_DISCLOSURE_LINE : STOP_LINE;
-  return `${t}\n\n${line}`;
 }
 
 // Enforce the non-negotiable compliance rules regardless of model output.
@@ -79,10 +83,7 @@ export function enforceCompliance(text: string, isFirstTouch: boolean, businessN
   let t = text.trim().replace(/^["']|["']$/g, "");
   t = t.replace(/https?:\/\/\S+/gi, "").replace(/\bwww\.\S+/gi, "").replace(/\s{2,}/g, " ").trim();
   t = t.replace(/—/g, " "); // strip em-dashes
-  t = t
-    .replace(/\s*(?:msg|message)\s*(?:&|and)\s*data rates may apply\.?/gi, "")
-    .replace(/\s*reply stop to (?:opt out|unsubscribe)\.?/gi, "")
-    .trim();
+  t = stripCompliance(t);
   if (isFirstTouch && businessName && !t.toLowerCase().includes(businessName.toLowerCase().slice(0, 12))) {
     t = `${businessName}: ${t}`;
   }
@@ -91,5 +92,5 @@ export function enforceCompliance(text: string, isFirstTouch: boolean, businessN
   }
   const maxBody = isFirstTouch ? 250 : 290;
   if (t.length > maxBody) t = t.slice(0, maxBody - 3).trimEnd() + "...";
-  return appendStopLine(t, isFirstTouch);
+  return isFirstTouch ? appendStopLine(t, true) : t;
 }

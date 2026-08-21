@@ -153,6 +153,7 @@ export async function createQuote(input: {
   extracted?: QuoteExtraction | null;
   start_choice?: StartChoice;
   start_custom_iso?: string;
+  campaign_id?: string;
   allow_duplicate?: boolean;
   consent_attested?: boolean;
 }): Promise<CreateQuoteResult> {
@@ -227,7 +228,7 @@ export async function createQuote(input: {
       .from("campaigns")
       .select("id, steps")
       .eq("company_id", company.id)
-      .eq("is_default", true)
+      .eq(input.campaign_id ? "id" : "is_default", input.campaign_id ?? true)
       .maybeSingle(),
     supabase.from("companies").select("timezone").eq("id", company.id).maybeSingle(),
     supabase.from("sending_windows").select("day_of_week, start_time, end_time, enabled").eq("company_id", company.id),
@@ -292,6 +293,7 @@ export async function createQuote(input: {
       steps,
       startAt,
       testMode,
+      timezone: co?.timezone ?? "America/New_York",
     });
     touches = scheduled.map((s) => ({ step: s.step, iso: s.scheduledFor, messageId: s.messageId }));
   } catch {

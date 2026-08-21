@@ -62,7 +62,7 @@ export default function AppHeader() {
           <div className="hidden items-center gap-5 text-sm font-medium md:flex">
             <Link href="/app" className={navClass("/app")}>Dashboard</Link>
             <Link href="/inbox" className={navClass("/inbox")}>Inbox</Link>
-            <Link href="/campaign" className={navClass("/campaign")}>Follow-ups</Link>
+            <Link href="/campaign" className={navClass("/campaign")}>Follow-up plans</Link>
             <span aria-disabled="true" title="Coming soon" className="inline-flex cursor-default select-none items-center gap-1.5 rounded-full px-3 py-1.5 text-mist/70">
               Analytics
               <span className="rounded-full bg-sky px-1.5 py-0.5 text-[10px] font-semibold text-mist">Soon</span>
@@ -100,7 +100,7 @@ export default function AppHeader() {
                   <div className="mb-1 border-b border-sky-line pb-1 md:hidden">
                     <Link href="/app" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-sky">Dashboard</Link>
                     <Link href="/inbox" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-sky">Inbox</Link>
-                    <Link href="/campaign" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-sky">Follow-ups</Link>
+                    <Link href="/campaign" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm font-medium text-ink hover:bg-sky">Follow-up plans</Link>
                   </div>
                 ) : null}
                 {me?.isAdmin ? (

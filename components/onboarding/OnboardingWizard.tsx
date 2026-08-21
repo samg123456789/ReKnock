@@ -444,7 +444,7 @@ export default function OnboardingWizard({
 
             <div>
               <span className="surface-label">Rough preview</span>
-              <div className="mt-1.5 max-w-[90%] rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{previewText()}</div>
+              <div className="mt-1.5 max-w-[90%] whitespace-pre-line break-words rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{previewText()}</div>
             </div>
 
             <div className="form-section bg-sky/40">
@@ -498,7 +498,7 @@ export default function OnboardingWizard({
             </div>
           ) : profile ? (
             <>
-              <p className="mt-3 text-slate">Three real follow-ups, written the way you text. Homeowners see these from your number.</p>
+              <p className="mt-3 text-slate">Three example touches, written the way you text. Homeowners see these from your number.</p>
 
               {/* Phone-style reveal, same visual language as the landing page thread */}
               <div className="surface-card mx-auto mt-6 w-full max-w-sm">

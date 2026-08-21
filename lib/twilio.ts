@@ -1,11 +1,10 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
-import { appendStopLine } from "@/lib/prompts/followup-drafter";
+import { enforceCompliance } from "@/lib/prompts/followup-drafter";
 
-// Kinds that reach a homeowner. Standing rule: every one of these carries the
-// STOP line, applied here at the send layer so no origin - engine draft,
-// template, reminder, composer, or relay - can forget it. Owner pings and
+// Kinds that reach a homeowner. The first homeowner-facing message carries
+// the full disclosure. Later messages are plain message copy. Owner pings and
 // system messages
 // (including the carrier-registered STOP/HELP confirmations, which must stay
 // byte-exact) are excluded. appendStopLine dedupes, so upstream callers that
@@ -176,7 +175,14 @@ export async function sendSms(opts: {
   const admin = createAdminClient();
   const isProd = process.env.VERCEL_ENV === "production";
   const kind = opts.kind ?? (opts.isRelay ? "relay" : "manual");
-  const body = HOMEOWNER_KINDS.has(kind) ? appendStopLine(opts.body) : opts.body;
+  let body = opts.body;
+  if (HOMEOWNER_KINDS.has(kind) && opts.prospectId) {
+    const [{ data: company }, { data: prior }] = await Promise.all([
+      admin.from("companies").select("name").eq("id", opts.companyId).maybeSingle(),
+      admin.from("messages").select("id").eq("prospect_id", opts.prospectId).eq("direction", "outbound").in("status", ["sent", "delivered"]).in("kind", ["sequence", "reminder", "manual", "relay"]).limit(1),
+    ]);
+    body = enforceCompliance(opts.body, !prior?.length, company?.name ?? "your business");
+  }
 
   if (HOMEOWNER_KINDS.has(kind) && opts.prospectId && await hasReachedUnansweredFollowupLimit(admin, opts.prospectId)) {
     await admin.from("events").insert({
@@ -287,10 +293,11 @@ export async function sendClaimedMessage(opts: {
 }): Promise<SendResult> {
   const admin = createAdminClient();
   const isProd = process.env.VERCEL_ENV === "production";
-  // Every scheduled row is homeowner-facing (sequence/reminder/manual), so
-  // the every-message STOP rule applies unconditionally; deduped, so bodies
-  // that came through enforceCompliance are unchanged.
-  const body = appendStopLine(opts.body);
+  const [{ data: company }, { data: prior }] = await Promise.all([
+    admin.from("companies").select("name").eq("id", opts.companyId).maybeSingle(),
+    admin.from("messages").select("id").eq("prospect_id", opts.prospectId).eq("direction", "outbound").neq("id", opts.messageId).in("status", ["sent", "delivered"]).in("kind", ["sequence", "reminder", "manual", "relay"]).limit(1),
+  ]);
+  const body = enforceCompliance(opts.body, !prior?.length, company?.name ?? "your business");
 
   if (await hasReachedUnansweredFollowupLimit(admin, opts.prospectId, opts.messageId)) {
     await admin

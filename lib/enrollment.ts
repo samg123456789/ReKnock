@@ -84,6 +84,23 @@ function gapTime(startAt: Date, gapDays: number, testMode: boolean): Date {
   return d;
 }
 
+// Convert a local clock preference into the UTC instant for the same local
+// calendar day. Sending-window checks still run at dispatch time.
+function preferredLocalTime(base: Date, tz: string | undefined, preferred: string | undefined): Date {
+  if (!tz || !preferred || !/^([01]\d|2[0-3]):[0-5]\d$/.test(preferred)) return base;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(base);
+    const value = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+    const [hour, minute] = preferred.split(":").map(Number);
+    const targetLocalAsUtc = Date.UTC(value("year"), value("month") - 1, value("day"), hour, minute);
+    const shownLocalAsUtc = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour") % 24, value("minute"));
+    const candidate = new Date(targetLocalAsUtc + (base.getTime() - shownLocalAsUtc));
+    return candidate >= base ? candidate : base;
+  } catch {
+    return base;
+  }
+}
+
 export type StartChoice = "now" | "tomorrow" | "recommended" | "custom";
 
 function tzDayKey(d: Date, tz: string): string {
@@ -167,6 +184,7 @@ export async function scheduleSequence(opts: {
   steps: CampaignStep[];
   startAt: Date;
   testMode: boolean;
+  timezone?: string;
 }): Promise<ScheduledStep[]> {
   const admin = createAdminClient();
   const { data: existing } = await admin
@@ -182,19 +200,23 @@ export async function scheduleSequence(opts: {
 
   const rows = enabled
     .filter(({ i }) => !have.has(i))
-    .map(({ s, i }) => ({
-      company_id: opts.companyId,
-      prospect_id: opts.prospectId,
-      direction: "outbound",
-      channel: "sms",
-      kind: "sequence",
-      status: "scheduled",
-      scheduled_for: gapTime(opts.startAt, (s.day_offset ?? 0) - firstOffset, opts.testMode).toISOString(),
-      sequence_step: i,
-      step_intent: s.intent ?? null,
-      step_template: s.template?.trim() || null,
-      idempotency_key: touchKey(opts.prospectId, i),
-    }));
+    .map(({ s, i }) => {
+      const base = gapTime(opts.startAt, (s.day_offset ?? 0) - firstOffset, opts.testMode);
+      const scheduled = opts.testMode ? base : preferredLocalTime(base, opts.timezone, s.preferred_time);
+      return {
+        company_id: opts.companyId,
+        prospect_id: opts.prospectId,
+        direction: "outbound",
+        channel: "sms",
+        kind: "sequence",
+        status: "scheduled",
+        scheduled_for: scheduled.toISOString(),
+        sequence_step: i,
+        step_intent: s.intent ?? null,
+        step_template: s.template?.trim() || null,
+        idempotency_key: touchKey(opts.prospectId, i),
+      };
+    });
   if (!rows.length) return [];
 
   const { error } = await admin.from("messages").insert(rows);

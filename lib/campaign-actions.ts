@@ -1,12 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getActingCompany } from "@/lib/acting-company";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 
 export type CampaignResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
+export type CampaignSummary = { id: string; name: string; is_default: boolean; steps: CampaignStep[] };
 
 async function acting() {
   const a = await getActingCompany();
@@ -22,6 +24,7 @@ function cleanSteps(raw: unknown): CampaignStep[] {
       const o = (s ?? {}) as Record<string, unknown>;
       return {
         day_offset: Math.max(0, Math.min(365, Math.round(Number(o.day_offset ?? 0)) || 0)),
+        preferred_time: typeof o.preferred_time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(o.preferred_time) ? o.preferred_time : undefined,
         intent: typeof o.intent === "string" ? o.intent.slice(0, 120) : "",
         template: typeof o.template === "string" ? o.template.slice(0, 320) : "",
         enabled: o.enabled !== false,
@@ -37,11 +40,28 @@ export async function getDefaultCampaign(): Promise<CampaignStep[]> {
   const sb = a.client;
   const { data: c } = await sb.from("campaigns").select("id, steps").eq("company_id", a.companyId!).eq("is_default", true).maybeSingle();
   if (c) return cleanSteps(c.steps);
-  await sb.from("campaigns").insert({ company_id: a.companyId!, name: "Default follow-up", is_default: true, steps: DEFAULT_CAMPAIGN_STEPS });
+  await sb.from("campaigns").insert({ company_id: a.companyId!, name: "Default follow-up plan", is_default: true, steps: DEFAULT_CAMPAIGN_STEPS });
   return DEFAULT_CAMPAIGN_STEPS;
 }
 
-export async function saveCampaignSteps(steps: CampaignStep[]): Promise<CampaignResult> {
+export async function getCampaigns(): Promise<CampaignSummary[]> {
+  const a = await acting();
+  const { data } = await a.client.from("campaigns").select("id, name, is_default, steps").eq("company_id", a.companyId!).order("is_default", { ascending: false }).order("created_at", { ascending: true });
+  if (data?.length) return data.map((c) => ({ id: c.id as string, name: c.name as string, is_default: Boolean(c.is_default), steps: cleanSteps(c.steps) }));
+  await getDefaultCampaign();
+  const { data: seeded } = await a.client.from("campaigns").select("id, name, is_default, steps").eq("company_id", a.companyId!).order("is_default", { ascending: false });
+  return (seeded ?? []).map((c) => ({ id: c.id as string, name: c.name as string, is_default: Boolean(c.is_default), steps: cleanSteps(c.steps) }));
+}
+
+export async function createCampaign(formData: FormData): Promise<void> {
+  const a = await acting();
+  const name = String(formData.get("name") ?? "").trim().slice(0, 80);
+  if (!name) return;
+  await a.client.from("campaigns").insert({ company_id: a.companyId!, name, is_default: false, steps: DEFAULT_CAMPAIGN_STEPS });
+  revalidatePath("/campaign");
+}
+
+export async function saveCampaignSteps(campaignId: string, steps: CampaignStep[]): Promise<CampaignResult> {
   const a = await acting();
   const clean = cleanSteps(steps);
   if (!clean.some((s) => s.enabled !== false)) return { ok: false, error: "Keep at least one follow-up turned on." };
@@ -49,7 +69,7 @@ export async function saveCampaignSteps(steps: CampaignStep[]): Promise<Campaign
     .from("campaigns")
     .update({ steps: clean, updated_at: new Date().toISOString() })
     .eq("company_id", a.companyId!)
-    .eq("is_default", true);
+    .eq("id", campaignId);
   if (error) return { ok: false, error: "Could not save your campaign." };
   return { ok: true, data: undefined };
 }
