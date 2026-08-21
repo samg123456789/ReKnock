@@ -258,10 +258,10 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
             const d = drafts[t.messageId];
             const isOpen = openStep === t.step;
             return (
-              <li key={t.step} className="rounded-2xl border border-sky-line bg-white">
+              <li key={t.step} className="surface-card-compact p-0">
                 <button
                   type="button"
-                  className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left"
+                  className="flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left"
                   onClick={() => toggleDraft(t)}
                 >
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky text-sm font-bold text-blue">{t.step}</span>
@@ -273,7 +273,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
                     no snap, no JS measuring. */}
                 <div className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }} aria-hidden={!isOpen}>
                   <div className="overflow-hidden">
-                    <div className="border-t border-sky-line px-4 py-3">
+                    <div className="border-t border-sky-line px-4 py-3.5">
                       {d?.text ? (
                         <p className="whitespace-pre-line rounded-xl bg-sky/50 px-3 py-2 text-sm leading-relaxed text-blue-ink">{d.text}</p>
                       ) : d?.error ? (
@@ -359,7 +359,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
             <input className={isLow("address") ? lowConf : input} value={fields.address} onChange={(e) => set("address", e.target.value)} placeholder="123 Main St" />
           </label>
         </div>
-        <div className="mt-7 rounded-2xl border border-sky-line bg-sky/30 p-4">
+        <div className="form-section mt-7 bg-sky/30">
           <p className="text-sm font-semibold text-slate">When should the first text go out?</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {START_OPTIONS.map((o) => (
@@ -367,10 +367,10 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
                 key={o.key}
                 type="button"
                 onClick={() => setStart(o.key)}
-                className={`cursor-pointer rounded-2xl border bg-white p-3 text-left transition-colors ${
+                className={`surface-card-compact cursor-pointer text-left transition-colors ${
                   start === o.key
                     ? "border-blue bg-sky/50 shadow-pop"
-                    : "border-slate/20 hover:border-blue/50"
+                    : "hover:border-blue/50"
                 } ${o.key === "recommended" ? "sm:order-first ring-1 ring-blue/20" : ""}`}
               >
                 <span className={`block font-semibold ${start === o.key ? "text-blue" : "text-ink"}`}>
@@ -400,7 +400,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
           </div>
         </div>
 
-        <label className="mt-7 flex cursor-pointer items-start gap-3 rounded-2xl border border-sky-line bg-white p-4">
+        <label className="surface-card-compact mt-7 flex cursor-pointer items-start gap-3">
           <input type="checkbox" className="mt-1 h-5 w-5 accent-blue" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
           <span className="text-ink">
             {CONSENT_ATTESTATION_SINGLE}
@@ -448,7 +448,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
       <p className="mt-3 max-w-xl leading-relaxed text-slate">Upload, paste, or type the quote. ReKnock extracts the customer, job, amount, and timing, then drafts the first follow-ups in your voice.</p>
 
       <label
-        className={`mt-6 flex cursor-pointer flex-col items-center gap-3 rounded-3xl border border-dashed border-blue/45 bg-sky/35 p-8 text-center transition-colors ${dragOver ? "bg-sky/70 ring-2 ring-blue" : "hover:bg-sky/55"}`}
+        className={`form-section mt-6 flex cursor-pointer flex-col items-center gap-3 border-dashed border-blue/45 bg-sky/35 p-8 text-center transition-colors ${dragOver ? "bg-sky/70 ring-2 ring-blue" : "hover:bg-sky/55"}`}
         onDragOver={(e) => { e.preventDefault(); if (!pending) setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => { e.preventDefault(); setDragOver(false); if (!pending) void onUpload(e.dataTransfer.files); }}

@@ -186,7 +186,7 @@ export default function InboxClient({
             <p className="p-4 text-sm text-mist">No conversations.{" "}<Link href="/app/quotes/new" className="text-blue underline">Add a quote</Link>.</p>
           ) : (
             list.map((c) => (
-              <Link key={c.id} href={`/inbox?p=${c.id}`} className={`block border-b border-sky-line px-4 py-3 transition-colors hover:bg-sky/40 ${c.id === selectedId ? "bg-sky/70" : ""}`}>
+              <Link key={c.id} href={`/inbox?p=${c.id}`} className={`block border-b border-sky-line px-4 py-3.5 transition-colors hover:bg-sky/40 ${c.id === selectedId ? "bg-sky/70" : ""}`}>
                 <div className="flex items-center gap-2">
                   {c.needsAttention ? <span className="h-2 w-2 shrink-0 rounded-full bg-blue" /> : null}
                   <span className="truncate font-semibold text-ink">{c.name}</span>
@@ -445,8 +445,8 @@ function ProspectPanel({ prospect, quoteAssets, showFiles, onToggleFiles, onSave
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-sky-line bg-sky/20 p-3">
-      <div className="grid grid-cols-2 gap-2">
+    <div className="form-section mt-4 bg-sky/20">
+      <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">First name</span><input className={panelInput} value={f.first_name} onChange={(e) => set("first_name", e.target.value)} /></label>
         <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Last name</span><input className={panelInput} value={f.last_name} onChange={(e) => set("last_name", e.target.value)} /></label>
         <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Mobile</span><input className={panelInput} value={f.phone} onChange={(e) => set("phone", e.target.value)} /></label>
@@ -478,7 +478,7 @@ function ProspectPanel({ prospect, quoteAssets, showFiles, onToggleFiles, onSave
         ) : null}
       </div>
       {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mt-4 flex items-center gap-3">
         <button type="button" disabled={saving} onClick={save} className="btn btn-primary btn-sm">
           {saving ? "Saving..." : "Save details"}
         </button>
@@ -574,17 +574,17 @@ function ReminderModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
         <h3 className="font-semibold text-ink">Circle back with {prospect.firstName || "this lead"}</h3>
         <p className="mt-1 text-xs text-mist">Pick when. You can go months out ("not until spring" works).</p>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Date</span><input type="date" className={panelInput} value={date} onChange={(e) => setDate(e.target.value)} /></label>
           <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Time</span><input type="time" className={panelInput} value={time} onChange={(e) => setTime(e.target.value)} /></label>
         </div>
 
         <div className="mt-3 flex flex-col gap-2">
-          <label className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 ${mode === "remind_me" ? "border-blue bg-sky/40" : "border-slate/20"}`}>
+          <label className={`surface-card-compact flex cursor-pointer items-start gap-3 transition-colors ${mode === "remind_me" ? "border-blue bg-sky/40" : "hover:border-blue/40"}`}>
             <input type="radio" name="rem-mode" className="mt-0.5" checked={mode === "remind_me"} onChange={() => setMode("remind_me")} />
             <span className="text-sm"><span className="font-semibold text-ink">Remind me</span><br /><span className="text-slate">We nudge you at that time so you can answer from email or the inbox.</span></span>
           </label>
-          <label className={`flex cursor-pointer items-start gap-2 rounded-xl border p-3 ${mode === "auto_send" ? "border-blue bg-sky/40" : "border-slate/20"}`}>
+          <label className={`surface-card-compact flex cursor-pointer items-start gap-3 transition-colors ${mode === "auto_send" ? "border-blue bg-sky/40" : "hover:border-blue/40"}`}>
             <input type="radio" name="rem-mode" className="mt-0.5" checked={mode === "auto_send"} onChange={() => setMode("auto_send")} />
             <span className="text-sm"><span className="font-semibold text-ink">Send it for me</span><br /><span className="text-slate">We text them then, in your voice, referencing this quote. Only inside your sending hours.</span></span>
           </label>
@@ -707,7 +707,7 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
           </div>
         ) : null}
 
-        <div className="mt-4 rounded-xl border border-sky-line bg-sky/20 p-3">
+        <div className="form-section mt-4 bg-sky/20">
           <p className="text-[11px] font-semibold text-mist">Send it on</p>
           <div className="mt-1.5 flex flex-wrap items-end gap-2">
             <input type="date" className={panelInput + " max-w-[10.5rem]"} value={moveDate} onChange={(e) => setMoveDate(e.target.value)} />
@@ -785,7 +785,7 @@ function AddTouchModal({ prospect, onClose, onSaved }: { prospect: ProspectDetai
         <h3 className="font-semibold text-ink">Add a follow-up for {prospect.firstName || "this lead"}</h3>
         <p className="mt-1 text-xs text-mist">Pick any date and time inside your sending hours.</p>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Date</span><input type="date" className={panelInput} value={date} onChange={(e) => setDate(e.target.value)} /></label>
           <label className="flex flex-col gap-1"><span className="text-[11px] font-semibold text-mist">Time</span><input type="time" className={panelInput} value={time} onChange={(e) => setTime(e.target.value)} /></label>
         </div>

@@ -40,7 +40,7 @@ export default function PhoneVerificationPanel({
 
   return (
     <div className="app-panel overflow-hidden">
-      <div className="border-b border-sky-line bg-sky/50 p-5">
+      <div className="border-b border-sky-line bg-sky/50 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="ai-chip">Owner handoff</span>
@@ -62,7 +62,7 @@ export default function PhoneVerificationPanel({
         </div>
       </div>
 
-      <div className="grid gap-4 p-5 md:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-5 p-6 md:grid-cols-[1.2fr_0.8fr]">
         <div>
           <label className="block text-sm font-semibold text-slate">
             Mobile number
@@ -81,7 +81,7 @@ export default function PhoneVerificationPanel({
           </label>
 
           {stage === "code_sent" ? (
-            <div className="mt-4 rounded-xl border border-sky-line bg-sky/40 p-4">
+            <div className="form-section mt-4 bg-sky/40">
               <p className="text-sm font-semibold text-blue-ink">
                 Enter the 6-digit code we texted to {phone}.
               </p>
@@ -146,7 +146,7 @@ export default function PhoneVerificationPanel({
           ) : null}
         </div>
 
-        <div className="rounded-xl border border-sky-line bg-[#f8fbff] p-4">
+        <div className="surface-card-compact bg-[#f8fbff]">
           <p className="surface-label text-blue">
             What this unlocks
           </p>

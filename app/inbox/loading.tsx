@@ -2,7 +2,7 @@
 export default function Loading() {
   return (
     <main className="app-bg grid min-h-[calc(100dvh-4rem)] md:grid-cols-[360px_1fr]">
-      <div className="border-r border-sky-line bg-white/82 p-3">
+      <div className="border-r border-sky-line bg-white/82 p-4">
         <div className="h-8 w-32 skeleton rounded-lg bg-slate/10" />
         <div className="mt-4 flex flex-col gap-2">
           {[0, 1, 2, 3, 4, 5].map((i) => (

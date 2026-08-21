@@ -65,17 +65,17 @@ export default function AdminCustomersTable({ rows }: { rows: CustomerRow[] }) {
   return (
     <div className="mt-4">
       <input
-        className="w-full max-w-sm rounded-xl border border-slate/20 px-4 py-2.5 text-base outline-none focus:border-blue"
+        className="rk-input w-full max-w-sm text-base"
         placeholder="Search company, email, trade"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <div className="mt-4 overflow-x-auto rounded-xl border border-sky-line">
+      <div className="table-shell mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-sky-line bg-sky/40 text-left">
               {COLS.map((c) => (
-                <th key={c.key} className="px-3 py-2.5">
+                <th key={c.key} className="table-head-cell">
                   <button type="button" className="cursor-pointer font-semibold text-slate hover:text-ink" onClick={() => toggleSort(c.key)}>
                     {c.label}
                     {sortKey === c.key ? (dir === "asc" ? " ↑" : " ↓") : ""}
@@ -87,26 +87,26 @@ export default function AdminCustomersTable({ rows }: { rows: CustomerRow[] }) {
           <tbody>
             {view.map((r) => (
               <tr key={r.id} className="border-b border-sky-line last:border-0 hover:bg-sky/30">
-                <td className="px-3 py-2.5">
+                <td className="table-body-cell">
                   <Link href={`/admin/companies/${r.id}`} className="cursor-pointer font-semibold text-blue hover:underline">
                     {r.company}
                   </Link>
                   <div className="text-xs text-mist">{r.email}{r.trade ? ` · ${r.trade}` : ""}</div>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="table-body-cell">
                   <span className="rounded-full bg-sky px-2 py-0.5 text-xs font-semibold text-blue">{r.subStatus}</span>
                   {!r.onboarded ? <span className="ml-1 text-xs text-mist">setup</span> : null}
                 </td>
-                <td className="px-3 py-2.5 tabular-nums">{r.trialUsed}</td>
-                <td className="px-3 py-2.5 tabular-nums">{r.prospects}</td>
-                <td className="px-3 py-2.5 tabular-nums">{r.sent}</td>
-                <td className="px-3 py-2.5 text-slate">{fmt(r.lastActivity)}</td>
-                <td className="px-3 py-2.5 text-slate">{fmt(r.createdAt)}</td>
+                <td className="table-body-cell tabular-nums">{r.trialUsed}</td>
+                <td className="table-body-cell tabular-nums">{r.prospects}</td>
+                <td className="table-body-cell tabular-nums">{r.sent}</td>
+                <td className="table-body-cell text-slate">{fmt(r.lastActivity)}</td>
+                <td className="table-body-cell text-slate">{fmt(r.createdAt)}</td>
               </tr>
             ))}
             {view.length === 0 ? (
               <tr>
-                <td colSpan={COLS.length} className="px-3 py-8 text-center text-mist">No customers match.</td>
+                <td colSpan={COLS.length} className="px-5 py-12 text-center text-mist">No customers match.</td>
               </tr>
             ) : null}
           </tbody>

@@ -28,7 +28,7 @@ export default async function CompanyDetail({ params }: { params: Promise<{ id: 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <section className="mt-6">
       <h2 className="display text-lg">{title}</h2>
-      <div className="mt-2 rounded-xl border border-sky-line p-4 text-sm">{children}</div>
+      <div className="surface-card mt-3 text-sm">{children}</div>
     </section>
   );
 
@@ -68,9 +68,9 @@ export default async function CompanyDetail({ params }: { params: Promise<{ id: 
 
       <Section title={`Prospects (${prospects?.length ?? 0})`}>
         {prospects?.length ? (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             {prospects.map((p) => (
-              <div key={p.id} className="flex items-center gap-2">
+              <div key={p.id} className="surface-card-compact flex items-center gap-2">
                 <span className="font-semibold text-ink">{p.first_name} {p.last_name ?? ""}</span>
                 <span className="text-mist">{p.job_type ?? ""}</span>
                 <span className="ml-auto rounded-full bg-sky px-2 py-0.5 text-xs font-semibold text-blue">{p.status}</span>
