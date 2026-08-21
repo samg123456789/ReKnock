@@ -17,15 +17,18 @@ export default function StatusFilter({
   className?: string;
 }) {
   return (
-    <select
-      aria-label="Filter by status"
-      className={`rk-select cursor-pointer text-sm font-semibold text-slate ${className}`}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {options.map((o) => (
-        <option key={o.key} value={o.key}>{o.label}</option>
-      ))}
-    </select>
+    <span className={`relative inline-flex ${className}`}>
+      <select
+        aria-label="Filter by status"
+        className="rk-select w-full appearance-none cursor-pointer pr-10 text-sm font-semibold text-slate"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((o) => (
+          <option key={o.key} value={o.key}>{o.label}</option>
+        ))}
+      </select>
+      <svg aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+    </span>
   );
 }
