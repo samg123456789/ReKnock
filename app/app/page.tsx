@@ -108,7 +108,7 @@ export default async function AppHome() {
               ["Won", String(wonCount), "Closed from followed-up quotes"],
               ["Number", numberState, numberLive ? "Texts and calls are live" : phone ? "Carrier activation in progress" : "Choose a local line"],
             ].map(([label, value, hint]) => (
-              <div key={label} className="rounded-2xl border border-white/70 bg-white/78 p-4">
+              <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <p className="surface-label">{label}</p>
                 <p className="mt-2 text-2xl font-bold text-ink">{value}</p>
                 <p className="mt-1 text-xs leading-relaxed text-slate">{hint}</p>
