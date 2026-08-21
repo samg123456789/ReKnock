@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import { appendStopLine, enforceCompliance } from "@/lib/prompts/followup-drafter";
-import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ReminderItem, type ProspectDetail, type PendingSend } from "@/components/inbox/InboxClient";
+import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ReminderItem, type ProspectDetail, type PendingSend, type QuoteAsset } from "@/components/inbox/InboxClient";
 
 export const metadata: Metadata = { title: "Inbox - ReKnock" };
 
@@ -67,6 +67,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
   let reminders: ReminderItem[] = [];
   let pending: PendingSend[] = [];
   let prospect: ProspectDetail | null = null;
+  let quoteAssets: QuoteAsset[] = [];
 
   if (selected) {
     thread = (messages ?? [])
@@ -119,14 +120,34 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
         iso: m.scheduled_for ?? m.created_at,
       }));
 
-    const { data: rems } = await sb
-      .from("reminders")
-      .select("id, remind_at, mode, note")
-      .eq("prospect_id", selected.id)
-      .eq("status", "pending")
-      .order("remind_at", { ascending: true });
+    const [{ data: rems }, { data: files }] = await Promise.all([
+      sb
+        .from("reminders")
+        .select("id, remind_at, mode, note")
+        .eq("prospect_id", selected.id)
+        .eq("status", "pending")
+        .order("remind_at", { ascending: true }),
+      sb
+        .from("quotes")
+        .select("id, raw_source, storage_path, created_at")
+        .eq("prospect_id", selected.id)
+        .eq("company_id", cid)
+        .order("created_at", { ascending: false }),
+    ]);
     reminders = (rems ?? []).map((r) => ({ id: r.id, remindAt: r.remind_at, mode: r.mode as "remind_me" | "auto_send", note: r.note }));
+    quoteAssets = await Promise.all((files ?? []).map(async (file) => {
+      const signed = file.storage_path
+        ? await sb.storage.from("quotes").createSignedUrl(file.storage_path, 60 * 60)
+        : { data: null };
+      return {
+        id: file.id as string,
+        kind: file.raw_source === "pdf" ? "pdf" as const : "image" as const,
+        name: file.storage_path?.split("/").pop() ?? `${file.raw_source ?? "quote"} upload`,
+        url: signed.data?.signedUrl ?? null,
+        createdAt: file.created_at as string,
+      };
+    }));
   }
 
-  return <InboxClient conversations={conversations} selectedId={selectedId ?? null} thread={thread} scheduled={scheduled} reminders={reminders} prospect={prospect} pending={pending} />;
+  return <InboxClient conversations={conversations} selectedId={selectedId ?? null} thread={thread} scheduled={scheduled} reminders={reminders} prospect={prospect} pending={pending} quoteAssets={quoteAssets} />;
 }
