@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import AdminCustomersTable, { type CustomerRow } from "@/components/admin/AdminCustomersTable";
 import { tradeLabel } from "@/lib/trades";
+import Link from "next/link";
 
 export const metadata = { title: "Admin - ReKnock" };
 
@@ -51,7 +52,12 @@ export default async function AdminHome() {
 
   return (
     <div>
-      <h1 className="display text-2xl">Customers ({rows.length})</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="display text-2xl">Customers ({rows.length})</h1>
+        <Link href="/admin/company-os" className="btn btn-ghost btn-sm">
+          Company OS
+        </Link>
+      </div>
       <AdminCustomersTable rows={rows} />
     </div>
   );
