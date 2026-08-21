@@ -210,6 +210,7 @@ export async function bulkCreateProspects(
             steps,
             startAt,
             testMode,
+            timezone: co?.timezone ?? "America/New_York",
           })
             .then(() => {
               enrolled++;

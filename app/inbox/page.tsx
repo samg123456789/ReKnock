@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
-import { appendStopLine, enforceCompliance } from "@/lib/prompts/followup-drafter";
+import { enforceCompliance } from "@/lib/prompts/followup-drafter";
 import InboxClient, { type Conversation, type ThreadMessage, type ScheduledBubble, type ReminderItem, type ProspectDetail, type PendingSend, type QuoteAsset } from "@/components/inbox/InboxClient";
 
 export const metadata: Metadata = { title: "Inbox - ReKnock" };
@@ -116,7 +116,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
       .map((m) => ({
         id: m.id as string,
-        body: hasPriorSend ? appendStopLine(m.body ?? "") : enforceCompliance(m.body ?? "", true, company?.name ?? ""),
+        body: enforceCompliance(m.body ?? "", !hasPriorSend, company?.name ?? ""),
         iso: m.scheduled_for ?? m.created_at,
       }));
 

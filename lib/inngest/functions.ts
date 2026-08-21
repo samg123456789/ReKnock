@@ -905,7 +905,7 @@ export const processInboundEmail = inngest.createFunction(
       const steps = ((campaign?.steps as CampaignStep[] | null) ?? []).length ? (campaign!.steps as CampaignStep[]) : DEFAULT_CAMPAIGN_STEPS;
       const testMode = !isProd();
       const startAt = computeStartAt({ choice: "recommended", customIso: null, tz: co?.timezone ?? "America/New_York", windows: (windows ?? []) as Window[], testMode });
-      const scheduled = await scheduleSequence({ companyId, prospectId: prospect.id, steps, startAt, testMode });
+      const scheduled = await scheduleSequence({ companyId, prospectId: prospect.id, steps, startAt, testMode, timezone: co?.timezone ?? "America/New_York" });
 
       await admin.from("inbound_emails").update({ resolution: "new_prospect", prospect_id: prospect.id }).eq("id", inboundId);
       await admin.from("events").insert({ company_id: companyId, type: "inbound_email_enrolled", payload: { inbound_email_id: inboundId, prospect_id: prospect.id, touches: scheduled.length } });

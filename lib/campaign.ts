@@ -4,16 +4,17 @@
 
 export type CampaignStep = {
   day_offset: number;
+  preferred_time?: string; // HH:MM in the company's timezone; blank = best time
   intent?: string; // guidance for the AI drafter
   template?: string; // fixed copy; when set, used verbatim instead of AI draft
   enabled?: boolean; // toggled off = step skipped
 };
 
 export const DEFAULT_CAMPAIGN_STEPS: CampaignStep[] = [
-  { day_offset: 2, intent: "gentle check-in", enabled: true },
-  { day_offset: 5, intent: "value nudge", enabled: true },
-  { day_offset: 10, intent: "still interested", enabled: true },
-  { day_offset: 20, intent: "final courteous close", enabled: true },
+  { day_offset: 2, preferred_time: "10:00", intent: "gentle check-in", enabled: true },
+  { day_offset: 5, preferred_time: "10:00", intent: "value nudge", enabled: true },
+  { day_offset: 10, preferred_time: "10:00", intent: "still interested", enabled: true },
+  { day_offset: 20, preferred_time: "10:00", intent: "final courteous close", enabled: true },
 ];
 
 // Preset intents offered in the editor. The stored intent value doubles as

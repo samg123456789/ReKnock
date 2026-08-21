@@ -77,7 +77,7 @@ function fieldsFromExtraction(e: QuoteExtraction): Fields {
   };
 }
 
-export default function AddQuoteForm({ numberLive = false }: { numberLive?: boolean }) {
+export default function AddQuoteForm({ numberLive = false, campaigns = [] }: { numberLive?: boolean; campaigns?: { id: string; name: string; isDefault: boolean }[] }) {
   const router = useRouter();
   const [view, setView] = useState<"intake" | "confirm" | "done">("intake");
   const [fields, setFields] = useState<Fields>(EMPTY);
@@ -95,6 +95,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
   const [done, setDone] = useState<CreatedQuote | null>(null);
   const [start, setStart] = useState<StartChoice>("recommended");
   const [startCustom, setStartCustom] = useState("");
+  const [campaignId, setCampaignId] = useState(campaigns.find((c) => c.isDefault)?.id ?? campaigns[0]?.id ?? "");
   const [dup, setDup] = useState<DuplicateProspect | null>(null);
   const [dragOver, setDragOver] = useState(false);
   // Required consent attestation on the confirm screen (proof of opt-in for
@@ -235,6 +236,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
       extracted: extraction,
       start_choice: start,
       start_custom_iso: start === "custom" && startCustom ? new Date(startCustom).toISOString() : undefined,
+      campaign_id: campaignId || undefined,
       allow_duplicate: allowDuplicate,
       consent_attested: consent,
     });
@@ -265,7 +267,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
                   onClick={() => toggleDraft(t)}
                 >
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky text-sm font-bold text-blue">{t.step}</span>
-                  <span className="text-ink">Follow-up {t.step}</span>
+                  <span className="text-ink">Touch {t.step}</span>
                   <span className="ml-auto text-sm font-semibold text-slate">{prettyDateTime(t.iso)}</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={`shrink-0 text-mist transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></svg>
                 </button>
@@ -399,6 +401,15 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
             )}
           </div>
         </div>
+        {campaigns.length > 0 ? (
+          <label className="mt-5 flex flex-col gap-1">
+            <span className="text-sm font-semibold text-slate">Follow-up plan</span>
+            <select className={input} value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
+              {campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}{campaign.isDefault ? " · Default" : ""}</option>)}
+            </select>
+            <span className="text-xs text-mist">Choose the tone and timing for this quote. You can change it later from the inbox.</span>
+          </label>
+        ) : null}
 
         <label className="surface-card-compact mt-7 flex cursor-pointer items-start gap-3">
           <input type="checkbox" className="mt-1 h-5 w-5 accent-blue" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
