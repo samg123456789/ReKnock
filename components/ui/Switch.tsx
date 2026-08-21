@@ -22,7 +22,7 @@ export default function Switch({
           onChange={(e) => onChange(e.target.checked)}
         />
         <span className="absolute inset-0 rounded-full bg-slate/25 transition-colors duration-150 peer-checked:bg-blue peer-focus-visible:ring-2 peer-focus-visible:ring-blue/40" />
-        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.25)] transition-transform duration-150 peer-checked:translate-x-4" />
+        <span className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full border border-slate/10 bg-white transition-transform duration-150 peer-checked:translate-x-4" />
       </span>
     </label>
   );

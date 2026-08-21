@@ -4,7 +4,7 @@ import { useState } from "react";
 import { requestRelayCellCode, verifyRelayCellCode } from "@/lib/settings-actions";
 
 const input =
-  "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
+  "rk-input text-base";
 
 export default function PhoneVerificationPanel({
   initialPhone,
@@ -39,11 +39,11 @@ export default function PhoneVerificationPanel({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-sky-line bg-white shadow-soft">
+    <div className="app-panel overflow-hidden">
       <div className="border-b border-sky-line bg-sky/50 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="eyebrow mb-2">Owner phone</p>
+            <span className="ai-chip">Owner handoff</span>
             <h3 className="display text-2xl text-blue-ink">Verify your real number.</h3>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate">
               Calls to your ReKnock line can forward here, and urgent lead
@@ -67,7 +67,7 @@ export default function PhoneVerificationPanel({
           <label className="block text-sm font-semibold text-slate">
             Mobile number
             <input
-              className="mt-2 w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue"
+              className="rk-input mt-2 text-base"
               type="tel"
               value={phone}
               onChange={(e) => {
@@ -87,7 +87,7 @@ export default function PhoneVerificationPanel({
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <input
-                  className={`${input} max-w-[11rem] text-center font-mono tracking-[0.35em]`}
+                  className={`${input} max-w-[11rem] text-center font-mono`}
                   inputMode="numeric"
                   maxLength={6}
                   value={code}
@@ -147,7 +147,7 @@ export default function PhoneVerificationPanel({
         </div>
 
         <div className="rounded-xl border border-sky-line bg-[#f8fbff] p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-blue">
+          <p className="surface-label text-blue">
             What this unlocks
           </p>
           <div className="mt-4 space-y-3 text-sm text-slate">

@@ -10,8 +10,8 @@ import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_FILES, IMAGE_MAX_EDGE } from "@/lib
 import type { QuoteExtraction, QuoteFields } from "@/lib/prompts/quote-extractor";
 import { CONSENT_ATTESTATION_SINGLE, CONSENT_LINK_HREF, CONSENT_LINK_LABEL } from "@/lib/consent";
 
-const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
-const lowConf = "w-full rounded-xl border-2 border-amber/70 bg-amber/5 px-4 py-3 text-base outline-none focus:border-blue";
+const input = "rk-input text-base";
+const lowConf = "rk-input border-amber bg-amber/5 text-base";
 const primaryBtn = "btn btn-primary btn-lg";
 const ghostBtn = "btn btn-ghost btn-lg";
 
@@ -249,16 +249,16 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
 
   if (view === "done" && done) {
     return (
-      <div>
-        <p className="eyebrow mb-3">You&apos;re chasing it</p>
-        <h1 className="display text-3xl md:text-4xl">We&apos;ll follow up with {done.firstName} for you.</h1>
-        <p className="mt-3 text-slate">Here&apos;s the plan, in your voice. It stops the second they reply.</p>
+      <div className="app-panel p-5 md:p-8">
+        <span className="ai-chip">Chase created</span>
+        <h1 className="display mt-4 text-3xl md:text-4xl">We&apos;ll follow up with {done.firstName} for you.</h1>
+        <p className="mt-3 max-w-xl leading-relaxed text-slate">Here&apos;s the plan, in your voice. It stops the second they reply and hands the conversation to email and the inbox.</p>
         <ol className="mt-6 flex flex-col gap-2">
           {done.touches.map((t) => {
             const d = drafts[t.messageId];
             const isOpen = openStep === t.step;
             return (
-              <li key={t.step} className="rounded-xl border border-sky-line bg-white">
+              <li key={t.step} className="rounded-2xl border border-sky-line bg-white">
                 <button
                   type="button"
                   className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left"
@@ -275,7 +275,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
                   <div className="overflow-hidden">
                     <div className="border-t border-sky-line px-4 py-3">
                       {d?.text ? (
-                        <p className="whitespace-pre-line rounded-lg bg-sky/50 px-3 py-2 text-sm leading-relaxed text-blue-ink">{d.text}</p>
+                        <p className="whitespace-pre-line rounded-xl bg-sky/50 px-3 py-2 text-sm leading-relaxed text-blue-ink">{d.text}</p>
                       ) : d?.error ? (
                         <p className="text-sm text-red-600">{d.error}</p>
                       ) : (
@@ -313,13 +313,14 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
     // wrong slipping through just because of which field it landed in.
     const anyLow = (["first_name", "last_name", "phone", "email", "address", "job_type", "quote_amount", "quote_date"] as (keyof QuoteFields)[]).some(isLow);
     return (
-      <div>
+      <div className="app-panel p-5 md:p-8">
         <div className="flex items-start justify-between">
-          <p className="eyebrow mb-3">Check this looks right</p>
+          <span className="ai-chip">AI extracted details</span>
           <CloseButton onClose={() => router.push("/app")} />
         </div>
-        <h1 className="display text-3xl md:text-4xl">Confirm the details.</h1>
-        {anyLow && <p className="mt-3 rounded-lg bg-amber/10 px-4 py-2 text-sm text-amber">The highlighted fields were unclear. Please double-check them.</p>}
+        <h1 className="display mt-4 text-3xl md:text-4xl">Confirm the details.</h1>
+        <p className="mt-3 text-slate">ReKnock read the quote. Check the fields, confirm SMS consent, then the follow-up schedule is built in your voice.</p>
+        {anyLow && <p className="mt-4 rounded-xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm text-amber">The highlighted fields were unclear. Please double-check them.</p>}
         <div className="mt-6 flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row">
             <label className="flex flex-1 flex-col gap-1">
@@ -358,7 +359,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
             <input className={isLow("address") ? lowConf : input} value={fields.address} onChange={(e) => set("address", e.target.value)} placeholder="123 Main St" />
           </label>
         </div>
-        <div className="mt-7">
+        <div className="mt-7 rounded-2xl border border-sky-line bg-sky/30 p-4">
           <p className="text-sm font-semibold text-slate">When should the first text go out?</p>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {START_OPTIONS.map((o) => (
@@ -366,7 +367,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
                 key={o.key}
                 type="button"
                 onClick={() => setStart(o.key)}
-                className={`cursor-pointer rounded-xl border p-3 text-left transition-colors ${
+                className={`cursor-pointer rounded-2xl border bg-white p-3 text-left transition-colors ${
                   start === o.key
                     ? "border-blue bg-sky/50 shadow-pop"
                     : "border-slate/20 hover:border-blue/50"
@@ -399,7 +400,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
           </div>
         </div>
 
-        <label className="mt-7 flex cursor-pointer items-start gap-3">
+        <label className="mt-7 flex cursor-pointer items-start gap-3 rounded-2xl border border-sky-line bg-white p-4">
           <input type="checkbox" className="mt-1 h-5 w-5 accent-blue" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
           <span className="text-ink">
             {CONSENT_ATTESTATION_SINGLE}
@@ -438,20 +439,21 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
 
   // intake
   return (
-    <div>
-      <div className="flex items-start justify-between">
-        <p className="eyebrow mb-3">New quote</p>
+      <div className="app-panel p-5 md:p-8">
+        <div className="flex items-start justify-between">
+        <span className="ai-chip">Quote reader</span>
         <CloseButton onClose={() => router.push("/app")} />
       </div>
-      <h1 className="display text-3xl md:text-4xl">Add a quote to chase.</h1>
-      <p className="mt-3 text-slate">Snap it, paste it, or type it. We pull out the details.</p>
+      <h1 className="display mt-4 text-3xl md:text-4xl">Add a quote to chase.</h1>
+      <p className="mt-3 max-w-xl leading-relaxed text-slate">Upload, paste, or type the quote. ReKnock extracts the customer, job, amount, and timing, then drafts the first follow-ups in your voice.</p>
 
       <label
-        className={`card mt-6 flex cursor-pointer flex-col items-center gap-2 border-blue p-7 text-center transition-colors ${dragOver ? "bg-sky/60 ring-2 ring-blue" : "hover:bg-sky/40"}`}
+        className={`mt-6 flex cursor-pointer flex-col items-center gap-3 rounded-3xl border border-dashed border-blue/45 bg-sky/35 p-8 text-center transition-colors ${dragOver ? "bg-sky/70 ring-2 ring-blue" : "hover:bg-sky/55"}`}
         onDragOver={(e) => { e.preventDefault(); if (!pending) setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => { e.preventDefault(); setDragOver(false); if (!pending) void onUpload(e.dataTransfer.files); }}
       >
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl text-blue">{pending ? "..." : "AI"}</span>
         <span className="text-lg font-semibold text-ink">{pending ? stageLabel : dragOver ? "Drop it here" : "Upload a photo or PDF"}</span>
         <span className="text-sm text-slate">Drag it here, or tap to browse. A photo of the estimate, a screenshot of a text, or the quote PDF.</span>
         <span className="text-xs text-mist">
@@ -467,7 +469,7 @@ export default function AddQuoteForm({ numberLive = false }: { numberLive?: bool
 
       <div className="mt-4">
         <p className="text-sm font-semibold text-slate">Or paste the details</p>
-        <textarea className={`${input} mt-2`} rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a quote email, a text thread, anything with the customer's name and number." />
+        <textarea className={`${input} mt-2 min-h-28`} rows={3} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a quote email, a text thread, anything with the customer's name and number." />
         <button className={`${ghostBtn} mt-2`} disabled={pending || !paste.trim()} onClick={() => runExtract({ text: paste }, "manual")}>
           {pending ? stageLabel : "Read the details"}
         </button>

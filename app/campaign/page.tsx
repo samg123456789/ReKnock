@@ -7,14 +7,15 @@ export const metadata: Metadata = { title: "Campaign - ReKnock" };
 export default async function CampaignPage() {
   const steps = await getDefaultCampaign();
   return (
-    <main className="mx-auto max-w-2xl px-5 py-10">
-      <p className="eyebrow mb-2">Follow-up campaign</p>
-      <h1 className="display text-3xl">How we chase every quote.</h1>
-      <p className="mt-3 text-slate">
-        This is the sequence we run for each new quote, in your voice. Edit the timing, write your own words, preview any
-        message, or turn a step off.
-      </p>
-      <CampaignEditor initialSteps={steps} />
+    <main className="app-bg">
+      <div className="app-shell max-w-3xl">
+        <span className="ai-chip">Follow-up brain</span>
+        <h1 className="display mt-4 text-3xl md:text-4xl">How we chase every quote.</h1>
+        <p className="mt-3 max-w-2xl leading-relaxed text-slate">
+          This is the sequence ReKnock uses for each new quote, in your voice. Edit the timing, choose each message purpose, preview any draft, or turn a step off.
+        </p>
+        <CampaignEditor initialSteps={steps} />
+      </div>
     </main>
   );
 }

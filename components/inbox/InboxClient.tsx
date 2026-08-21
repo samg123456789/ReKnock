@@ -144,7 +144,7 @@ export default function InboxClient({
   let lastDay = "";
 
   return (
-    <div ref={rootRef} className="grid h-[calc(100dvh-4rem)] md:grid-cols-[340px_1fr]">
+    <div ref={rootRef} className="app-bg grid h-[calc(100dvh-4rem)] md:grid-cols-[360px_1fr]">
       {toast ? (
         <div className="toast-pop fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-ink px-4 py-3 text-sm text-white shadow-overlay">
           <span>{toast.text}</span>
@@ -157,10 +157,17 @@ export default function InboxClient({
         </div>
       ) : null}
       {/* Conversation list */}
-      <aside className={`flex flex-col border-r border-sky-line ${selectedId ? "hidden md:flex" : "flex"}`}>
+      <aside className={`flex flex-col border-r border-sky-line bg-white/82 backdrop-blur ${selectedId ? "hidden md:flex" : "flex"}`}>
         <div className="border-b border-sky-line p-3">
+          <div className="mb-3 flex items-end justify-between">
+            <div>
+              <p className="surface-label">Inbox</p>
+              <h1 className="display text-2xl">Replies</h1>
+            </div>
+            <Link href="/app/quotes/new" className="btn btn-primary btn-sm">New quote</Link>
+          </div>
           <div className="flex gap-2">
-            <input className="min-w-0 flex-1 rounded-xl border border-slate/20 px-3 py-2 text-sm outline-none focus:border-blue" placeholder="Search name or job" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input className="rk-input min-w-0 flex-1 text-sm" placeholder="Search name or job" value={query} onChange={(e) => setQuery(e.target.value)} />
             <StatusFilter value={filter} onChange={(k) => setFilter(k as (typeof FILTERS)[number]["key"])} options={FILTERS} className="shrink-0" />
           </div>
         </div>
@@ -169,7 +176,7 @@ export default function InboxClient({
             <p className="p-4 text-sm text-mist">No conversations.{" "}<Link href="/app/quotes/new" className="text-blue underline">Add a quote</Link>.</p>
           ) : (
             list.map((c) => (
-              <Link key={c.id} href={`/inbox?p=${c.id}`} className={`block border-b border-sky-line px-4 py-3 hover:bg-sky/40 ${c.id === selectedId ? "bg-sky/60" : ""}`}>
+              <Link key={c.id} href={`/inbox?p=${c.id}`} className={`block border-b border-sky-line px-4 py-3 transition-colors hover:bg-sky/40 ${c.id === selectedId ? "bg-sky/70" : ""}`}>
                 <div className="flex items-center gap-2">
                   {c.needsAttention ? <span className="h-2 w-2 shrink-0 rounded-full bg-blue" /> : null}
                   <span className="truncate font-semibold text-ink">{c.name}</span>
@@ -188,11 +195,16 @@ export default function InboxClient({
       {/* Thread */}
       <section className={`flex flex-col ${selectedId ? "flex" : "hidden md:flex"}`}>
         {!prospect ? (
-          <div className="flex flex-1 items-center justify-center text-mist">Select a conversation</div>
+          <div className="flex flex-1 items-center justify-center p-6 text-center text-mist">
+            <div className="app-panel max-w-sm p-8">
+              <span className="ai-chip">Email + app handoff</span>
+              <p className="mt-4 text-sm leading-relaxed text-slate">Select a conversation to review the homeowner reply, edit follow-ups, or answer from your ReKnock number.</p>
+            </div>
+          </div>
         ) : (
           <>
             {/* detail + status controls */}
-            <div className="border-b border-sky-line p-3">
+            <div className="border-b border-sky-line bg-white/90 p-3 backdrop-blur">
               <div className="flex items-center gap-2">
                 <Link href="/inbox" className="text-blue md:hidden">←</Link>
                 <div className="min-w-0">
@@ -222,7 +234,7 @@ export default function InboxClient({
             </div>
 
             {/* messages */}
-            <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto bg-white p-4">
+            <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto bg-white/68 p-4">
               {thread.map((m, i) => {
                 const day = dayLabel(m.createdAt);
                 const sep = day !== lastDay ? ((lastDay = day), day) : null;
@@ -314,14 +326,14 @@ export default function InboxClient({
             </div>
 
             {/* composer */}
-            <div className="border-t border-sky-line p-3">
+            <div className="border-t border-sky-line bg-white/92 p-3 backdrop-blur">
               {error ? <p className="mb-2 text-sm text-red-700">{error}</p> : null}
               {prospect.status === "opted_out" ? (
                 <p className="text-center text-sm text-mist">This contact opted out. You cannot text them.</p>
               ) : (
                 <div className="flex items-end gap-2">
                   <textarea
-                    className="max-h-32 flex-1 resize-none rounded-xl border border-slate/20 px-3 py-2 text-base outline-none focus:border-blue"
+                    className="rk-textarea max-h-32 flex-1 resize-none text-base"
                     rows={1}
                     placeholder="Type a message"
                     value={body}
@@ -374,7 +386,7 @@ export default function InboxClient({
   );
 }
 
-const panelInput = "w-full rounded-xl border border-slate/20 px-3 py-2 text-sm outline-none focus:border-blue";
+const panelInput = "rk-input text-sm";
 
 // Editable prospect details + notes. Notes feed the AI when drafting future
 // follow-ups for this prospect.
@@ -621,7 +633,7 @@ function TouchEditor({ prospect, bubble, onClose, onSaved }: { prospect: Prospec
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{draft.error}</p>
           ) : (
             <textarea
-              className="w-full rounded-xl border border-slate/20 px-3 py-2 text-[15px] outline-none focus:border-blue"
+              className="rk-input text-[15px]"
               rows={4}
               maxLength={320}
               value={text}

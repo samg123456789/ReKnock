@@ -78,74 +78,113 @@ export default async function AppHome() {
   // One-time feature tour: dashboard implies onboarded; show until the
   // durable company flag is set (written when the tour is closed any way).
   const showTour = cid != null && company != null && !company.feature_tour_done_at;
+  const chasingCount = rows.filter((r) => r.status === "sequencing").length;
+  const replyCount = rows.filter((r) => r.status === "replied").length;
+  const wonCount = rows.filter((r) => r.status === "won").length;
+  const nextTouchCount = rows.filter((r) => Boolean(r.nextTouch)).length;
+  const numberState = numberLive ? "Live" : phone ? "Activating" : "Not chosen";
 
   return (
-    <main className="mx-auto max-w-4xl px-5 py-10">
-      <p className="eyebrow mb-2">Dashboard</p>
-      <h1 className="display text-3xl md:text-4xl">{company?.name ? `Welcome, ${company.name}.` : "Welcome."}</h1>
-
-      {/* Setup chrome earns its place only while setup is incomplete; a
-          day-30 dashboard leads with the work. */}
-      {!numberLive ? (
-        <div className="mt-5 flex flex-wrap gap-2 text-sm">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky px-3 py-1 text-blue-ink">
-            <span className="text-mint">✓</span> Your voice is ready
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-line px-3 py-1 text-slate">
-            {phone ? <>Texting number activating</> : <>Pick your number below</>}
-          </span>
-        </div>
-      ) : null}
-
-      {!hasQuotes ? (
-        <NumberPicker
-          phone={phone ? { e164: phone.e164, status: phone.status ?? "" } : null}
-          defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
-        />
-      ) : null}
-
-      {!hasQuotes ? (
-        <div className="card mt-8 border-blue p-7 text-center shadow-pop">
-          <h2 className="display text-2xl">Add your first quote</h2>
-          <p className="mx-auto mt-2 max-w-sm text-slate">
-            Drop in a job you just quoted. We&apos;ll show you exactly how and when we&apos;ll chase it, in your voice.
-          </p>
-          <Link href="/app/quotes/new" className="mt-6 inline-block btn btn-primary btn-lg">
-            Add your first quote
-          </Link>
-          <p className="mt-4 text-sm text-slate">
-            Wondering what we&apos;ll actually say?{" "}
-            <a href="https://getreknock.com/blog/follow-up-text-templates-for-contractors" className="text-blue underline" target="_blank" rel="noreferrer">
-              See the follow-up playbook
-            </a>
-          </p>
-        </div>
-      ) : (
-        <div className="mt-8">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="display text-xl">Your quotes</h2>
-            <Link href="/app/quotes/new" className="btn btn-primary btn-sm">
+    <main className="app-bg">
+      <div className="app-shell">
+        <section className="ai-panel overflow-hidden p-5 md:p-7">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <span className="ai-chip">AI follow-up engine</span>
+              <h1 className="display mt-4 text-3xl md:text-5xl">{company?.name ? `Welcome, ${company.name}.` : "Welcome."}</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate md:text-base">
+                ReKnock turns quiet quotes into managed conversations: follow-ups draft in your voice, replies route to email and the inbox, and the chase stops the moment a customer answers.
+              </p>
+            </div>
+            <Link href="/app/quotes/new" className="btn btn-primary btn-lg shrink-0">
               Add a quote
             </Link>
           </div>
-          <DashboardTable rows={rows} />
-        </div>
-      )}
 
-      {hasQuotes ? (
-        <NumberPicker
-          phone={phone ? { e164: phone.e164, status: phone.status ?? "" } : null}
-          defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Quotes", String(rows.length), hasQuotes ? `${chasingCount} actively chasing` : "Add the first one"],
+              ["Replies", String(replyCount), "Ready for email/app takeover"],
+              ["Won", String(wonCount), "Closed from followed-up quotes"],
+              ["Number", numberState, numberLive ? "Texts and calls are live" : phone ? "Carrier activation in progress" : "Choose a local line"],
+            ].map(([label, value, hint]) => (
+              <div key={label} className="rounded-2xl border border-white/70 bg-white/78 p-4">
+                <p className="surface-label">{label}</p>
+                <p className="mt-2 text-2xl font-bold text-ink">{value}</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate">{hint}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Setup chrome earns its place only while setup is incomplete; a
+            day-30 dashboard leads with the work. */}
+        {!numberLive ? (
+          <div className="mt-5 flex flex-wrap gap-2 text-sm">
+            <span className="ai-chip">Voice ready</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-line bg-white px-3 py-1 font-semibold text-slate">
+              {phone ? <>Number activating</> : <>Pick your number below</>}
+            </span>
+          </div>
+        ) : null}
+
+        {!hasQuotes ? (
+          <NumberPicker
+            phone={phone ? { e164: phone.e164, status: phone.status ?? "" } : null}
+            defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
+          />
+        ) : null}
+
+        {!hasQuotes ? (
+          <div className="app-panel mt-8 border-blue/30 p-7 text-center">
+            <span className="ai-chip">Next best action</span>
+            <h2 className="display mt-4 text-3xl">Add your first quote</h2>
+            <p className="mx-auto mt-3 max-w-md leading-relaxed text-slate">
+              Drop in a job you just quoted. ReKnock will read the quote, draft the chase in your voice, and show every scheduled touch before anything sends.
+            </p>
+            <Link href="/app/quotes/new" className="mt-6 inline-flex btn btn-primary btn-lg">
+              Add your first quote
+            </Link>
+            <p className="mt-4 text-sm text-slate">
+              Want to see the tone first?{" "}
+              <a href="https://getreknock.com/blog/follow-up-text-templates-for-contractors" className="font-semibold text-blue underline" target="_blank" rel="noreferrer">
+                Open the follow-up playbook
+              </a>
+            </p>
+          </div>
+        ) : (
+          <section className="app-panel mt-8 p-4 md:p-5">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="surface-label">Pipeline</p>
+                <h2 className="display mt-1 text-2xl">Your quotes</h2>
+                <p className="mt-1 text-sm text-slate">
+                  {nextTouchCount ? `${nextTouchCount} scheduled follow-up${nextTouchCount === 1 ? "" : "s"} coming up.` : "No scheduled follow-ups need attention right now."}
+                </p>
+              </div>
+              <Link href="/app/quotes/new" className="btn btn-primary btn-sm">
+                Add a quote
+              </Link>
+            </div>
+            <DashboardTable rows={rows} />
+          </section>
+        )}
+
+        {hasQuotes ? (
+          <NumberPicker
+            phone={phone ? { e164: phone.e164, status: phone.status ?? "" } : null}
+            defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
+          />
+        ) : null}
+
+        <EducationCards
+          relayCell={owner?.cell_phone_verified_at ? owner.cell_phone : null}
+          reknockNumber={phone?.e164 ? { e164: phone.e164, status: phone.status ?? "" } : null}
+          forwardingEmail={forwardingEmail}
+          hasEmailProspect={hasEmailProspect}
+          introduce={showTour}
         />
-      ) : null}
-
-      <EducationCards
-        relayCell={owner?.cell_phone_verified_at ? owner.cell_phone : null}
-        reknockNumber={phone?.e164 ? { e164: phone.e164, status: phone.status ?? "" } : null}
-        forwardingEmail={forwardingEmail}
-        hasEmailProspect={hasEmailProspect}
-        introduce={showTour}
-      />
+      </div>
     </main>
   );
 }

@@ -24,11 +24,11 @@ const COMING_SOON: [string, string][] = [
   ["Team seats", "Add teammates to your account."],
 ];
 
-const input = "w-full rounded-xl border border-slate/20 px-4 py-2.5 text-base outline-none focus:border-blue";
+const input = "rk-input text-base";
 
 function Card({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section id={id} className="card mt-4 scroll-mt-24 p-6">
+    <section id={id} className="app-panel mt-5 scroll-mt-24 p-5 md:p-6">
       <h2 className="display text-lg">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>

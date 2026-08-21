@@ -36,7 +36,7 @@ function CopyButton({ value }: { value: string }) {
 function Card({ badge, title, children, action, className = "" }: { badge: string; title: string; children: React.ReactNode; action: React.ReactNode; className?: string }) {
   return (
     <div className={`flex flex-col rounded-2xl border border-sky-line bg-white p-5 ${className}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-blue">{badge}</p>
+      <p className="surface-label text-blue">{badge}</p>
       <h3 className="mt-1 font-semibold text-ink">{title}</h3>
       <div className="mt-2 flex-1 text-sm leading-relaxed text-slate">{children}</div>
       <div className="mt-3 flex h-12 items-center">{action}</div>
@@ -48,7 +48,7 @@ function Card({ badge, title, children, action, className = "" }: { badge: strin
 // title, and its key info kept at hand (copy still works).
 function DoneRow({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-sky-line bg-white px-4 py-2.5">
+    <div className="flex items-center gap-3 rounded-2xl border border-sky-line bg-white px-4 py-3">
       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mint/15 text-mint">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
       </span>
@@ -96,9 +96,14 @@ export default function EducationCards({
   const gridCols = fullCount >= 3 ? "md:grid-cols-3" : "md:grid-cols-2";
 
   return (
-    <section className="mt-12">
-      <h2 className="display text-xl">Get more from ReKnock</h2>
-      <p className="mt-1 text-sm text-slate">A few things that make the whole system work harder for you.</p>
+    <section className="mt-10">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="surface-label">Launch checklist</p>
+          <h2 className="display mt-1 text-2xl">Make the system work harder</h2>
+        </div>
+        <p className="max-w-sm text-sm leading-relaxed text-slate">These settings improve intake, handoff, and number reliability without slowing down your quoting flow.</p>
+      </div>
 
       {(emailDone || relayDone || lineDone) && (
         <div className="mt-4 flex flex-col gap-2">

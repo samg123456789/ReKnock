@@ -83,14 +83,15 @@ export default function DashboardTable({ rows }: { rows: ProspectRow[] }) {
   function toggleSort(key: SortKey) {
     setSort((s) => (s.key === key ? { key, dir: (s.dir * -1) as 1 | -1 } : { key, dir: key === "name" ? 1 : -1 }));
   }
-  const arrow = (key: SortKey) => (sort.key === key ? (sort.dir === 1 ? " ↑" : " ↓") : "");
-  const th = "cursor-pointer select-none px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-mist hover:text-slate";
+  const arrow = (key: SortKey) => (sort.key === key ? (sort.dir === 1 ? "↑" : "↓") : "");
+  const th = "cursor-pointer select-none px-5 py-4 text-left text-[11px] font-bold uppercase text-mist hover:text-slate";
+  const statusTone = (status: string) => STATUS_STYLE[status] ?? "bg-sky text-blue";
 
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input
-          className="w-full rounded-xl border border-slate/20 px-4 py-2.5 text-sm outline-none focus:border-blue sm:max-w-xs"
+          className="rk-input text-sm sm:max-w-xs"
           placeholder="Search name or job"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -98,43 +99,88 @@ export default function DashboardTable({ rows }: { rows: ProspectRow[] }) {
         <StatusFilter value={filter} onChange={(k) => setFilter(k as (typeof FILTERS)[number]["key"])} options={FILTERS} />
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-sky-line">
-        <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 bg-white">
+      <div className="-mx-1 mt-4 flex snap-x gap-3 overflow-x-auto px-1 pb-3 md:hidden">
+        {view.length === 0 ? (
+          <div className="w-full rounded-2xl border border-dashed border-sky-line bg-white p-8 text-center text-sm text-mist">No matches.</div>
+        ) : (
+          view.map((row) => (
+            <button
+              key={row.id}
+              type="button"
+              onClick={() => router.push(`/inbox?p=${row.id}`)}
+              className="min-w-[82%] snap-start rounded-2xl border border-sky-line bg-white p-4 text-left transition-colors hover:border-blue/40 hover:bg-sky/30"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-base font-bold text-ink">{row.name}</p>
+                  <p className="mt-1 truncate text-sm text-slate">{row.jobType || "Quote"}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
+                  {STATUS_LABEL[row.status] ?? row.status}
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="surface-label">Amount</p>
+                  <p className="mt-1 font-semibold text-ink">{money(row.amount) || "-"}</p>
+                </div>
+                <div>
+                  <p className="surface-label">Next touch</p>
+                  <p className="mt-1 font-semibold text-ink">{touchLabel(row.nextTouch) || "-"}</p>
+                </div>
+              </div>
+              <p className="mt-4 text-xs text-mist">Last activity {activityLabel(row.lastActivity)}</p>
+            </button>
+          ))
+        )}
+      </div>
+
+      <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-sky-line bg-white md:block">
+        <table className="w-full min-w-[760px] border-collapse text-sm">
+          <thead className="sticky top-0 bg-[#fbfdff]">
             <tr className="border-b border-sky-line">
-              <th className={th} onClick={() => toggleSort("name")}>Name{arrow("name")}</th>
-              <th className={`${th} hidden md:table-cell`} onClick={() => toggleSort("status")}>Job</th>
-              <th className={`${th} hidden text-right md:table-cell`} onClick={() => toggleSort("amount")}>Amount{arrow("amount")}</th>
-              <th className={th} onClick={() => toggleSort("status")}>Status{arrow("status")}</th>
-              <th className={th} onClick={() => toggleSort("nextTouch")}>Next touch{arrow("nextTouch")}</th>
-              <th className={`${th} hidden md:table-cell`} onClick={() => toggleSort("lastActivity")}>Last activity{arrow("lastActivity")}</th>
+              <th className={th} onClick={() => toggleSort("name")}>
+                <span className="inline-flex items-center gap-1.5">Name <span>{arrow("name")}</span></span>
+              </th>
+              <th className={th} onClick={() => toggleSort("status")}>Job</th>
+              <th className={`${th} text-right`} onClick={() => toggleSort("amount")}>
+                <span className="inline-flex w-full items-center justify-end gap-1.5">Amount <span>{arrow("amount")}</span></span>
+              </th>
+              <th className={th} onClick={() => toggleSort("status")}>
+                <span className="inline-flex items-center gap-1.5">Status <span>{arrow("status")}</span></span>
+              </th>
+              <th className={th} onClick={() => toggleSort("nextTouch")}>
+                <span className="inline-flex items-center gap-1.5">Next touch <span>{arrow("nextTouch")}</span></span>
+              </th>
+              <th className={th} onClick={() => toggleSort("lastActivity")}>
+                <span className="inline-flex items-center gap-1.5">Last activity <span>{arrow("lastActivity")}</span></span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {view.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-10 text-center text-mist">No matches.</td>
+                <td colSpan={6} className="px-5 py-12 text-center text-mist">No matches.</td>
               </tr>
             ) : (
               view.map((row) => (
                 <tr
                   key={row.id}
                   onClick={() => router.push(`/inbox?p=${row.id}`)}
-                  className="cursor-pointer border-b border-sky-line/60 transition-colors last:border-0 hover:bg-sky/40"
+                  className="cursor-pointer border-b border-sky-line/60 transition-colors last:border-0 hover:bg-sky/35"
                 >
-                  <td className="px-3 py-3 font-semibold text-ink">
+                  <td className="px-5 py-4 font-semibold text-ink">
                     {row.name}
-                    <span className="block text-xs font-normal text-mist md:hidden">{row.jobType}</span>
                   </td>
-                  <td className="hidden px-3 py-3 text-slate md:table-cell">{row.jobType || "—"}</td>
-                  <td className="hidden px-3 py-3 text-right tabular-nums text-slate md:table-cell">{money(row.amount) || "—"}</td>
-                  <td className="px-3 py-3">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[row.status] ?? "bg-sky text-blue"}`}>
+                  <td className="px-5 py-4 text-slate">{row.jobType || "-"}</td>
+                  <td className="px-5 py-4 text-right tabular-nums text-slate">{money(row.amount) || "-"}</td>
+                  <td className="px-5 py-4">
+                    <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
                       {STATUS_LABEL[row.status] ?? row.status}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-slate">{touchLabel(row.nextTouch) || "—"}</td>
-                  <td className="hidden px-3 py-3 text-mist md:table-cell">{activityLabel(row.lastActivity)}</td>
+                  <td className="px-5 py-4 text-slate">{touchLabel(row.nextTouch) || "-"}</td>
+                  <td className="px-5 py-4 text-mist">{activityLabel(row.lastActivity)}</td>
                 </tr>
               ))
             )}

@@ -16,8 +16,10 @@ export default async function NewQuote() {
     : { data: null };
 
   return (
-    <main className="mx-auto max-w-lg px-5 py-12">
-      <AddQuoteForm numberLive={phone?.status === "active"} />
+    <main className="app-bg">
+      <div className="app-shell max-w-3xl">
+        <AddQuoteForm numberLive={phone?.status === "active"} />
+      </div>
     </main>
   );
 }

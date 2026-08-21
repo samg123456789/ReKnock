@@ -42,42 +42,47 @@ export default async function Settings() {
   const rawQ = voice?.questionnaire as Record<string, unknown> | null;
 
   return (
-    <main className="mx-auto max-w-2xl px-5 py-10">
-      <p className="eyebrow mb-2">Settings</p>
-      <h1 className="display text-3xl">Your account</h1>
-      <SettingsClient
-        initialBasics={{
-          name: company?.name ?? "",
-          website: company?.website ?? "",
-          description: company?.description ?? "",
-          heard_about: "",
-          avg_quote_amount: company?.avg_quote_amount != null ? String(company.avg_quote_amount) : "",
-          quotes_per_month: company?.quotes_per_month != null ? String(company.quotes_per_month) : "",
-        }}
-        initialTrades={Array.isArray(company?.trades) ? (company!.trades as string[]) : company?.trade ? [company.trade] : []}
-        initialTimezone={company?.timezone ?? "America/New_York"}
-        initialWindows={
-          windows && windows.length
-            ? windows.map((w) => ({ day_of_week: w.day_of_week, start_time: (w.start_time as string).slice(0, 5), end_time: (w.end_time as string).slice(0, 5), enabled: w.enabled }))
-            : null
-        }
-        questionnaire={rawQ && Array.isArray(rawQ.samples) ? (rawQ as unknown as VoiceQuestionnaire) : null}
-        masterPrompt={voice?.master_prompt ?? ""}
-        samples={(voice?.sample_messages as string[]) ?? []}
-        relayCell={owner?.cell_phone ?? ""}
-        relayCellVerified={owner?.cell_phone_verified_at != null}
-        forwardingAddress={intakeEmailForSlug(company?.forwarding_slug)}
-        senderEmails={(senders ?? []).map((s) => ({ id: s.id as string, email: s.email as string, verified: s.verified_at != null }))}
-        numberStatus={phone?.status ?? null}
-        numberE164={phone?.e164 ?? null}
-        initialNotified={Array.from(
-          new Set(
-            (interests ?? [])
-              .map((e) => ((e.payload as Record<string, unknown> | null)?.feature as string) ?? "")
-              .filter(Boolean),
-          ),
-        )}
-      />
+    <main className="app-bg">
+      <div className="app-shell max-w-3xl">
+        <span className="ai-chip">Workspace settings</span>
+        <h1 className="display mt-4 text-3xl md:text-4xl">Your account</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate">
+          Tune the pieces that shape the AI follow-up engine: quote intake, owner handoff, sending hours, and voice.
+        </p>
+        <SettingsClient
+          initialBasics={{
+            name: company?.name ?? "",
+            website: company?.website ?? "",
+            description: company?.description ?? "",
+            heard_about: "",
+            avg_quote_amount: company?.avg_quote_amount != null ? String(company.avg_quote_amount) : "",
+            quotes_per_month: company?.quotes_per_month != null ? String(company.quotes_per_month) : "",
+          }}
+          initialTrades={Array.isArray(company?.trades) ? (company!.trades as string[]) : company?.trade ? [company.trade] : []}
+          initialTimezone={company?.timezone ?? "America/New_York"}
+          initialWindows={
+            windows && windows.length
+              ? windows.map((w) => ({ day_of_week: w.day_of_week, start_time: (w.start_time as string).slice(0, 5), end_time: (w.end_time as string).slice(0, 5), enabled: w.enabled }))
+              : null
+          }
+          questionnaire={rawQ && Array.isArray(rawQ.samples) ? (rawQ as unknown as VoiceQuestionnaire) : null}
+          masterPrompt={voice?.master_prompt ?? ""}
+          samples={(voice?.sample_messages as string[]) ?? []}
+          relayCell={owner?.cell_phone ?? ""}
+          relayCellVerified={owner?.cell_phone_verified_at != null}
+          forwardingAddress={intakeEmailForSlug(company?.forwarding_slug)}
+          senderEmails={(senders ?? []).map((s) => ({ id: s.id as string, email: s.email as string, verified: s.verified_at != null }))}
+          numberStatus={phone?.status ?? null}
+          numberE164={phone?.e164 ?? null}
+          initialNotified={Array.from(
+            new Set(
+              (interests ?? [])
+                .map((e) => ((e.payload as Record<string, unknown> | null)?.feature as string) ?? "")
+                .filter(Boolean),
+            ),
+          )}
+        />
+      </div>
     </main>
   );
 }

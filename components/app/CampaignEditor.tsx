@@ -5,7 +5,7 @@ import { saveCampaignSteps, previewStepMessage } from "@/lib/campaign-actions";
 import { STEP_INTENT_OPTIONS, MANUAL_STEP_VALUE, MANUAL_STEP_LABEL, type CampaignStep } from "@/lib/campaign";
 import Switch from "@/components/ui/Switch";
 
-const input = "w-full rounded-xl border border-slate/20 px-4 py-2.5 text-sm outline-none focus:border-blue";
+const input = "rk-input text-sm";
 
 // Editor-local step: `mode` is the dropdown value - one of the preset intent
 // values, a legacy free-typed intent (kept selectable so old campaigns load
@@ -64,9 +64,12 @@ export default function CampaignEditor({ initialSteps }: { initialSteps: Campaig
         const pv = previews[i];
         const on = s.enabled !== false;
         return (
-          <div key={i} className={`rounded-2xl border p-6 transition-opacity ${on ? "border-sky-line bg-white" : "border-slate/15 bg-slate/5 opacity-70"}`}>
+          <div key={i} className={`app-panel p-5 transition-opacity md:p-6 ${on ? "" : "opacity-70"}`}>
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-ink">Follow-up {i + 1}</h3>
+              <div>
+                <p className="surface-label">Step {i + 1}</p>
+                <h3 className="mt-1 font-semibold text-ink">Follow-up {i + 1}</h3>
+              </div>
               <Switch checked={on} onChange={(v) => update(i, { enabled: v })} label={on ? "On" : "Off"} />
             </div>
 

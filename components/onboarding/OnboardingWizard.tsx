@@ -57,7 +57,7 @@ function defaultWindows(): Window[] {
 }
 
 const TOTAL_STEPS = 7;
-const input = "w-full rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
+const input = "rk-input text-base";
 const primaryBtn =
   "btn btn-primary btn-lg";
 const ghostBtn =
@@ -303,17 +303,44 @@ export default function OnboardingWizard({
   const heardInOptions = !basics.heard_about || HEARD_OPTIONS.includes(basics.heard_about);
 
   return (
-    <div className="mx-auto max-w-lg px-5 py-12" onKeyDown={onKeyDown}>
-      <div className="mb-8">
-        <p className="font-mono text-xs text-mist">Step {step + 1} of {TOTAL_STEPS}</p>
-        <div className="mt-2 flex gap-1.5" aria-hidden>
-          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-            <span key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i <= step ? "#1d5fdb" : "#e2e8f0" }} />
-          ))}
-        </div>
-      </div>
+    <div className="app-bg" onKeyDown={onKeyDown}>
+      <div className="app-shell grid gap-6 lg:grid-cols-[280px_1fr] lg:items-start">
+        <aside className="app-panel p-5 lg:sticky lg:top-24">
+          <span className="ai-chip">AI setup</span>
+          <h2 className="display mt-4 text-2xl">Build your follow-up agent</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate">
+            Seven focused steps. Each answer teaches ReKnock how to chase quotes without sounding generic.
+          </p>
+          <div className="mt-6 space-y-3">
+            {[
+              "Business",
+              "Voice",
+              "Review",
+              "Hours",
+              "Owner phone",
+              "Number",
+              "Launch",
+            ].map((label, i) => (
+              <div key={label} className="flex items-center gap-3">
+                <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i < step ? "bg-mint/15 text-mint" : i === step ? "bg-blue text-white" : "bg-sky text-blue"}`}>
+                  {i < step ? "✓" : i + 1}
+                </span>
+                <span className={`text-sm font-semibold ${i === step ? "text-ink" : "text-slate"}`}>{label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6">
+            <p className="font-mono text-xs text-mist">Step {step + 1} of {TOTAL_STEPS}</p>
+            <div className="mt-2 flex gap-1.5" aria-hidden>
+              {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+                <span key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i <= step ? "#1d5fdb" : "#e2e8f0" }} />
+              ))}
+            </div>
+          </div>
+        </aside>
 
-      {error ? <p className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+        <section className="app-panel p-5 md:p-8">
+          {error ? <p className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
 
       {/* Step 1: basics */}
       {step === 0 && (
@@ -403,7 +430,7 @@ export default function OnboardingWizard({
                 ["uses_exclamation", "Use exclamation points"],
                 ["uses_emojis", "Use emojis"],
               ] as const).map(([key, label]) => (
-                <label key={key} className="flex cursor-pointer items-center justify-between rounded-xl border border-slate/20 px-4 py-3">
+                <label key={key} className="flex cursor-pointer items-center justify-between rounded-2xl border border-sky-line bg-white px-4 py-3">
                   <span>{label}</span>
                   <input type="checkbox" checked={q[key]} onChange={(e) => setQ({ ...q, [key]: e.target.checked })} />
                 </label>
@@ -416,7 +443,7 @@ export default function OnboardingWizard({
             </label>
 
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wide text-mist">Rough preview</span>
+              <span className="surface-label">Rough preview</span>
               <div className="mt-1.5 max-w-[90%] rounded-2xl rounded-bl-sm bg-sky px-4 py-3 text-[15px] leading-snug text-ink">{previewText()}</div>
             </div>
 
@@ -477,7 +504,7 @@ export default function OnboardingWizard({
               <div className="card mx-auto mt-6 w-full max-w-sm p-4">
                 <div className="mb-3 flex items-center justify-between px-1">
                   <p className="truncate text-xs font-medium text-mist">{basics.name.trim() || "Your company"} &middot; follow-ups</p>
-                  <span className="shrink-0 rounded-full bg-sky px-2.5 py-1 text-[10px] font-semibold tracking-wide text-blue">
+                  <span className="shrink-0 rounded-full bg-sky px-2.5 py-1 text-[10px] font-semibold text-blue">
                     YOUR VOICE
                   </span>
                 </div>
@@ -559,7 +586,7 @@ export default function OnboardingWizard({
           <div className="mt-4 flex flex-col gap-2">
             {windows.map((w, i) => (
               <div key={w.day_of_week}>
-                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate/20 px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-sky-line bg-white px-3 py-2.5">
                   <label className="flex w-24 items-center gap-2 sm:w-28">
                     <input type="checkbox" checked={w.enabled} onChange={(e) => { setWindows(windows.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x))); if (!e.target.checked && copyFrom === w.day_of_week) setCopyFrom(null); }} />
                     <span className={w.enabled ? "font-semibold" : "text-mist"}>{DAY_LABELS[w.day_of_week]}</span>
@@ -706,6 +733,8 @@ export default function OnboardingWizard({
           </div>
         </div>
       )}
+        </section>
+      </div>
     </div>
   );
 }

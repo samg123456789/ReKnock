@@ -63,7 +63,7 @@ export default function NotificationsBell() {
         <>
           <button type="button" aria-label="Close notifications" className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
           <div role="menu" className="overlay-panel absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-sky-line bg-white p-1.5 shadow-overlay">
-            <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-mist">Notifications</p>
+            <p className="surface-label px-3 py-2">Notifications</p>
             {items.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-mist">You are all caught up.</p>
             ) : (

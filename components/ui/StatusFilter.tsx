@@ -19,7 +19,7 @@ export default function StatusFilter({
   return (
     <select
       aria-label="Filter by status"
-      className={`cursor-pointer rounded-xl border border-slate/20 bg-white px-3 py-2 text-sm font-semibold text-slate outline-none focus:border-blue ${className}`}
+      className={`rk-select cursor-pointer text-sm font-semibold text-slate ${className}`}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >

@@ -25,11 +25,11 @@ export default function TradePicker({
   }
 
   return (
-    <div className="rounded-xl border border-slate/20 p-2 focus-within:border-blue">
+    <div className="rounded-2xl border border-slate/20 bg-white p-2 transition-colors focus-within:border-blue">
       {value.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {value.map((v) => (
-            <span key={v} className="inline-flex items-center gap-1 rounded-full bg-sky px-3 py-1 text-sm font-semibold text-blue">
+            <span key={v} className="inline-flex items-center gap-1 rounded-full bg-sky px-3 py-1 text-sm font-semibold text-blue-ink">
               {tradeLabel(v)}
               <button type="button" aria-label={`Remove ${tradeLabel(v)}`} className="cursor-pointer text-blue/70 hover:text-blue" onClick={() => toggle(v)}>
                 ×
@@ -39,18 +39,18 @@ export default function TradePicker({
         </div>
       )}
       <input
-        className="w-full px-2 py-1.5 text-base outline-none"
+        className="w-full rounded-xl px-2 py-2 text-base outline-none"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={value.length ? "Add another trade" : "Search your trade (roofing, HVAC, GC...)"}
       />
       {query.trim() && matches.length > 0 && (
-        <div className="mt-1 max-h-52 overflow-y-auto rounded-lg border border-sky-line">
+        <div className="overlay-panel mt-2 max-h-56 overflow-y-auto rounded-xl border border-sky-line bg-white p-1">
           {matches.map((t) => (
             <button
               key={t.value}
               type="button"
-              className="block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-sky"
+              className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-sky"
               onClick={() => {
                 toggle(t.value);
                 setQuery("");

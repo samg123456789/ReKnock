@@ -44,9 +44,15 @@ export default function AppHeader() {
   const initials = me?.initials ?? "";
   const email = me?.email ?? "";
   const inAdmin = pathname.startsWith("/admin");
+  const navClass = (href: string) =>
+    `rounded-full px-3 py-1.5 transition-colors ${
+      pathname === href || (href !== "/app" && pathname.startsWith(href))
+        ? "bg-sky text-blue-ink"
+        : "text-slate hover:bg-sky/60 hover:text-ink"
+    }`;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-sky-line bg-white/85 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-sky-line bg-white/90 backdrop-blur-xl">
       <nav className="relative flex h-16 w-full items-center justify-between px-5 md:px-8">
         <Link href="/app" aria-label="ReKnock home">
           <Logo />
@@ -54,10 +60,10 @@ export default function AppHeader() {
 
         {!inAdmin && me ? (
           <div className="hidden items-center gap-5 text-sm font-medium md:flex">
-            <Link href="/app" className="text-slate hover:text-ink">Dashboard</Link>
-            <Link href="/inbox" className="text-slate hover:text-ink">Inbox</Link>
-            <Link href="/campaign" className="text-slate hover:text-ink">Follow-ups</Link>
-            <span aria-disabled="true" title="Coming soon" className="cursor-default select-none items-center gap-1.5 text-mist/70 inline-flex">
+            <Link href="/app" className={navClass("/app")}>Dashboard</Link>
+            <Link href="/inbox" className={navClass("/inbox")}>Inbox</Link>
+            <Link href="/campaign" className={navClass("/campaign")}>Follow-ups</Link>
+            <span aria-disabled="true" title="Coming soon" className="inline-flex cursor-default select-none items-center gap-1.5 rounded-full px-3 py-1.5 text-mist/70">
               Analytics
               <span className="rounded-full bg-sky px-1.5 py-0.5 text-[10px] font-semibold text-mist">Soon</span>
             </span>
@@ -72,7 +78,7 @@ export default function AppHeader() {
             onClick={() => setOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={open}
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-blue text-sm font-bold text-white transition-transform hover:scale-105"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-blue text-sm font-bold text-white transition-transform hover:scale-105"
           >
             {initials}
           </button>
