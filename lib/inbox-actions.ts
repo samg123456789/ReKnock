@@ -180,6 +180,29 @@ export async function updateProspect(prospectId: string, fields: Record<string, 
   return { ok: true };
 }
 
+// Remove an uploaded source quote from the prospect workspace. Both the
+// database row and its private Storage object are scoped to the company.
+export async function deleteQuoteAsset(assetId: string): Promise<InboxResult> {
+  const a = await acting();
+  const { data: asset, error: readError } = await a.client
+    .from("quotes")
+    .select("id, storage_path")
+    .eq("id", assetId)
+    .eq("company_id", a.companyId!)
+    .maybeSingle();
+  if (readError || !asset) return { ok: false, error: "That file could not be found." };
+  if (asset.storage_path) {
+    const { error: storageError } = await a.client.storage.from("quotes").remove([asset.storage_path]);
+    if (storageError) return { ok: false, error: "The file could not be removed. Try again." };
+  }
+  const { error } = await a.client.from("quotes").delete().eq("id", asset.id).eq("company_id", a.companyId!);
+  if (error) return { ok: false, error: "The file could not be removed. Try again." };
+  if (a.impersonating) {
+    await logAudit(a.client, { actorUserId: a.actorUserId, actorEmail: a.actorEmail, action: "support_delete_quote_asset", targetCompanyId: a.companyId, metadata: { asset_id: assetId } });
+  }
+  return { ok: true };
+}
+
 // Timeline editing. The scheduled `messages` rows ARE the prospect's
 // timeline: every touch is individually movable, rewritable, deletable, and
 // new touches can be added at any date/time. Times are validated against the

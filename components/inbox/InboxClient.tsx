@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendManualMessage, setProspectStatus, updateProspect, deleteProspect, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, cancelQueuedMessage, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
+import { sendManualMessage, setProspectStatus, updateProspect, deleteProspect, deleteQuoteAsset, draftTouchPreview, saveTouchMessage, rescheduleTouch, deleteTouch, addTouch, createReminder, cancelReminder, cancelQueuedMessage, type DraftResult, type TimeResult } from "@/lib/inbox-actions";
 import { formatMoney } from "@/lib/format";
 import StatusFilter from "@/components/ui/StatusFilter";
 
@@ -11,6 +11,7 @@ export type Conversation = { id: string; name: string; jobType: string; status: 
 export type ThreadMessage = { body: string; direction: "inbound" | "outbound"; status: string; createdAt: string };
 export type ScheduledBubble = { id: string; label: string; iso: string };
 export type PendingSend = { id: string; body: string; iso: string };
+export type QuoteAsset = { id: string; kind: "pdf" | "image"; name: string; url: string | null; createdAt: string };
 export type ReminderItem = { id: string; remindAt: string; mode: "remind_me" | "auto_send"; note: string | null };
 export type ProspectDetail = {
   id: string; name: string; firstName: string; lastName: string; jobType: string | null; status: string;
@@ -49,6 +50,7 @@ export default function InboxClient({
   reminders,
   prospect,
   pending = [],
+  quoteAssets = [],
 }: {
   conversations: Conversation[];
   selectedId: string | null;
@@ -57,6 +59,7 @@ export default function InboxClient({
   reminders: ReminderItem[];
   prospect: ProspectDetail | null;
   pending?: PendingSend[];
+  quoteAssets?: QuoteAsset[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -72,6 +75,7 @@ export default function InboxClient({
   useEffect(() => setOptimisticStatus(null), [prospect?.status]);
   const shownStatus = optimisticStatus ?? prospect?.status;
   const [showDetails, setShowDetails] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
 
   // The inbox must fill exactly the space below whatever chrome sits above it
   // (app header, and the DEV banner off-prod), so the composer is always
@@ -144,7 +148,7 @@ export default function InboxClient({
   let lastDay = "";
 
   return (
-    <div ref={rootRef} className="app-bg grid h-[calc(100dvh-4rem)] md:grid-cols-[360px_1fr]">
+    <div ref={rootRef} className="app-bg grid h-[calc(100dvh-4rem)] md:grid-cols-[minmax(300px,350px)_1fr]">
       {toast ? (
         <div className="toast-pop fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-ink px-4 py-3 text-sm text-white shadow-overlay">
           <span>{toast.text}</span>
@@ -158,16 +162,22 @@ export default function InboxClient({
       ) : null}
       {/* Conversation list */}
       <aside className={`flex flex-col border-r border-sky-line bg-white/82 backdrop-blur ${selectedId ? "hidden md:flex" : "flex"}`}>
-        <div className="border-b border-sky-line p-3">
-          <div className="mb-3 flex items-end justify-between">
+        <div className="border-b border-sky-line bg-white/90 p-4 backdrop-blur">
+          <div className="mb-4 flex items-end justify-between gap-3">
             <div>
               <p className="surface-label">Inbox</p>
-              <h1 className="display text-2xl">Replies</h1>
+              <h1 className="display mt-1 text-2xl">Replies</h1>
+              <p className="mt-1 text-xs text-slate">Review conversations and keep every chase moving.</p>
             </div>
             <Link href="/app/quotes/new" className="btn btn-primary btn-sm">New quote</Link>
           </div>
-          <div className="flex gap-2">
-            <input className="rk-input min-w-0 flex-1 text-sm" placeholder="Search name or job" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <label className="relative block">
+            <span className="sr-only">Search conversations</span>
+            <svg aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mist" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+            <input className="rk-input pl-10 text-sm" placeholder="Search name or job" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </label>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-mist">{list.length} conversation{list.length === 1 ? "" : "s"}</span>
             <StatusFilter value={filter} onChange={(k) => setFilter(k as (typeof FILTERS)[number]["key"])} options={FILTERS} className="shrink-0" />
           </div>
         </div>
@@ -204,18 +214,19 @@ export default function InboxClient({
         ) : (
           <>
             {/* detail + status controls */}
-            <div className="border-b border-sky-line bg-white/90 p-3 backdrop-blur">
+            <div className="border-b border-sky-line bg-white/90 px-5 py-4 backdrop-blur">
               <div className="flex items-center gap-2">
                 <Link href="/inbox" className="text-blue md:hidden">←</Link>
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-ink">{prospect.name}</p>
+                  <p className="surface-label">Prospect</p>
+                  <p className="display mt-1 truncate text-xl text-ink">{prospect.name}</p>
                   <p className="truncate text-xs text-mist">
                     {prospect.jobType ?? "Quote"}{prospect.quoteAmount ? ` · ${formatMoney(prospect.quoteAmount)}` : ""}{prospect.phone ? ` · ${prospect.phone}` : ""}
                   </p>
                 </div>
                 <span className="ml-auto rounded-full bg-sky px-2.5 py-1 text-xs font-semibold text-blue">{STATUS_LABEL[shownStatus ?? ""] ?? shownStatus}</span>
               </div>
-              <div className={`mt-2 flex flex-wrap gap-1.5 transition-opacity ${statusPending ? "opacity-50" : ""}`}>
+              <div className={`mt-3 flex flex-wrap gap-2 transition-opacity ${statusPending ? "opacity-50" : ""}`}>
                 <button type="button" disabled={statusPending} onClick={() => changeStatus("won")} className="btn btn-sm border border-mint/40 text-mint hover:bg-mint/10">Mark won</button>
                 <button type="button" disabled={statusPending} onClick={() => changeStatus("lost")} className="btn btn-sm border border-slate/20 text-slate hover:border-slate/40">Mark lost</button>
                 {shownStatus === "paused" ? (
@@ -230,11 +241,19 @@ export default function InboxClient({
                   {showDetails ? "Hide details" : "Details"}
                 </button>
               </div>
-              {showDetails ? <ProspectPanel key={prospect.id} prospect={prospect} onSaved={() => router.refresh()} onDelete={() => setShowDelete(true)} /> : null}
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate">
+                <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue" /> {scheduled.length} future touch{scheduled.length === 1 ? "" : "es"}</span>
+                <button type="button" onClick={() => setShowFiles((v) => !v)} className="cursor-pointer font-semibold text-blue hover:underline">{quoteAssets.length} quote file{quoteAssets.length === 1 ? "" : "s"}</button>
+                <span className="text-mist">Edit future messages from the timeline</span>
+              </div>
+              {showDetails ? <ProspectPanel key={prospect.id} prospect={prospect} quoteAssets={quoteAssets} showFiles={showFiles} onToggleFiles={() => setShowFiles((v) => !v)} onSaved={() => router.refresh()} onDelete={() => setShowDelete(true)} /> : null}
             </div>
 
             {/* messages */}
-            <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto bg-white/68 p-4">
+            <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto bg-white/68 px-5 py-5">
+              <div className="mx-auto mb-2 w-full max-w-3xl rounded-xl border border-sky-line bg-sky/30 px-4 py-3 text-xs text-slate">
+                <span className="font-semibold text-ink">Your workspace</span><span className="mx-1 text-mist">·</span> Review replies, adjust future touches, or send a personal response.
+              </div>
               {thread.map((m, i) => {
                 const day = dayLabel(m.createdAt);
                 const sep = day !== lastDay ? ((lastDay = day), day) : null;
@@ -326,7 +345,7 @@ export default function InboxClient({
             </div>
 
             {/* composer */}
-            <div className="border-t border-sky-line bg-white/92 p-3 backdrop-blur">
+            <div className="border-t border-sky-line bg-white/92 px-5 py-4 backdrop-blur">
               {error ? <p className="mb-2 text-sm text-red-700">{error}</p> : null}
               {prospect.status === "opted_out" ? (
                 <p className="text-center text-sm text-mist">This contact opted out. You cannot text them.</p>
@@ -390,7 +409,7 @@ const panelInput = "rk-input text-sm";
 
 // Editable prospect details + notes. Notes feed the AI when drafting future
 // follow-ups for this prospect.
-function ProspectPanel({ prospect, onSaved, onDelete }: { prospect: ProspectDetail; onSaved: () => void; onDelete: () => void }) {
+function ProspectPanel({ prospect, quoteAssets, showFiles, onToggleFiles, onSaved, onDelete }: { prospect: ProspectDetail; quoteAssets: QuoteAsset[]; showFiles: boolean; onToggleFiles: () => void; onSaved: () => void; onDelete: () => void }) {
   const [f, setF] = useState({
     first_name: prospect.firstName,
     last_name: prospect.lastName,
@@ -403,6 +422,8 @@ function ProspectPanel({ prospect, onSaved, onDelete }: { prospect: ProspectDeta
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [assets, setAssets] = useState(quoteAssets);
+  const [assetError, setAssetError] = useState<string | null>(null);
   const set = (k: keyof typeof f, v: string) => { setF((p) => ({ ...p, [k]: v })); setSaved(false); };
 
   async function save() {
@@ -413,6 +434,14 @@ function ProspectPanel({ prospect, onSaved, onDelete }: { prospect: ProspectDeta
     if (!res.ok) return setErr(res.error);
     setSaved(true);
     onSaved();
+  }
+
+  async function removeAsset(id: string) {
+    if (!window.confirm("Remove this uploaded quote file?")) return;
+    setAssetError(null);
+    const res = await deleteQuoteAsset(id);
+    if (!res.ok) return setAssetError(res.error);
+    setAssets((current) => current.filter((asset) => asset.id !== id));
   }
 
   return (
@@ -428,6 +457,25 @@ function ProspectPanel({ prospect, onSaved, onDelete }: { prospect: ProspectDeta
           <span className="text-[11px] font-semibold text-mist">Notes (used when we write their follow-ups)</span>
           <textarea className={panelInput} rows={3} value={f.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Gate code 4412, prefers mornings, asked about financing..." />
         </label>
+      </div>
+      <div className="mt-5 border-t border-sky-line pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <div><p className="text-sm font-semibold text-ink">Quote files</p><p className="mt-0.5 text-xs text-slate">Original PDFs and images used to create this prospect.</p></div>
+          <button type="button" onClick={onToggleFiles} className="btn btn-ghost btn-sm">{showFiles ? "Hide files" : "View files"}</button>
+        </div>
+        {showFiles ? (
+          <div className="mt-3 space-y-2">
+            {assets.length === 0 ? <p className="rounded-lg border border-dashed border-sky-line px-3 py-3 text-xs text-mist">No uploaded quote files.</p> : assets.map((asset) => (
+              <div key={asset.id} className="flex items-center gap-3 rounded-lg border border-sky-line bg-white px-3 py-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky text-[10px] font-bold uppercase text-blue">{asset.kind}</span>
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink">{asset.name}</p><p className="text-[11px] text-mist">Uploaded {dayLabel(asset.createdAt)}</p></div>
+                {asset.url ? <a href={asset.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue hover:underline">Preview</a> : null}
+                <button type="button" onClick={() => removeAsset(asset.id)} className="cursor-pointer text-xs font-semibold text-red-600/75 hover:text-red-700">Remove</button>
+              </div>
+            ))}
+            {assetError ? <p className="text-xs text-red-700">{assetError}</p> : null}
+          </div>
+        ) : null}
       </div>
       {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
       <div className="mt-2 flex items-center gap-3">
