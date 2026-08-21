@@ -176,9 +176,9 @@ export default function InboxClient({
             <svg aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mist" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input className="rk-input h-12 pl-10 text-[15px]" placeholder="Search conversations" value={query} onChange={(e) => setQuery(e.target.value)} />
           </label>
-          <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="mt-3 grid gap-2">
             <span className="text-xs font-medium text-mist">{list.length} conversation{list.length === 1 ? "" : "s"}</span>
-            <StatusFilter value={filter} onChange={(k) => setFilter(k as (typeof FILTERS)[number]["key"])} options={FILTERS} className="w-44 shrink-0" />
+            <StatusFilter value={filter} onChange={(k) => setFilter(k as (typeof FILTERS)[number]["key"])} options={FILTERS} className="w-full" />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto pt-2">
