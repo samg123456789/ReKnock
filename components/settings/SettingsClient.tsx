@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import TradePicker from "@/components/onboarding/TradePicker";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
-import { saveCompanyBasics, saveSchedule, generateVoiceProfile, saveVoiceProfile } from "@/lib/onboarding-actions";
+import type { BusinessIdentity } from "@/lib/twilio-business-profile";
+import { saveCompanyBasics, saveBusinessIdentity, saveSchedule, generateVoiceProfile, saveVoiceProfile } from "@/lib/onboarding-actions";
 import { addSenderEmail, removeSenderEmail, logFeatureInterest } from "@/lib/settings-actions";
 import { createBillingPortalSession } from "@/lib/billing-actions";
 import PhoneVerificationPanel from "@/components/app/PhoneVerificationPanel";
@@ -49,6 +50,7 @@ function SaveBtn({ onClick, state }: { onClick: () => void; state: "" | "saving"
 
 export default function SettingsClient(props: {
   initialBasics: Basics;
+  businessIdentity: BusinessIdentity | null;
   initialTrades: string[];
   initialTimezone: string;
   initialWindows: Window[] | null;
@@ -64,6 +66,10 @@ export default function SettingsClient(props: {
   initialNotified?: string[];
 }) {
   const [basics, setBasics] = useState(props.initialBasics);
+  const [identity, setIdentity] = useState<BusinessIdentity>(props.businessIdentity ?? {
+    legal_name: props.initialBasics.name, brand_name: props.initialBasics.name, business_type: "sole_proprietor", has_tax_id: false, tax_id_type: "EIN", tax_id: "", business_industry: "CONSTRUCTION", business_address_street: "", business_address_street2: "", business_address_city: "", business_address_region: "", business_address_postal_code: "", business_address_country: "US", social_media_urls: "", business_regions_of_operation: "USA_AND_CANADA", authorized_first_name: "", authorized_last_name: "", authorized_title: "", authorized_job_position: "Other", authorized_phone: props.relayCell, brand_contact_email: "",
+  });
+  const [identityState, setIdentityState] = useState("");
   const [trades, setTrades] = useState(props.initialTrades);
   const [basicsState, setBasicsState] = useState("");
 
@@ -241,6 +247,27 @@ export default function SettingsClient(props: {
           </div>
         </div>
         <SaveBtn state={basicsState} onClick={() => run(setBasicsState, () => saveCompanyBasics({ ...basics, trades }))} />
+      </Card>
+
+      <Card title="Messaging business identity" id="business-identity">
+        <p className="text-sm leading-relaxed text-slate">These details are used for your customer-specific Twilio/TCR registration. We keep your EIN encrypted and never ask for an SSN.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <input className={input} value={identity.legal_name} onChange={(e) => setIdentity({ ...identity, legal_name: e.target.value })} placeholder="Legal business name" />
+          <input className={input} value={identity.brand_name} onChange={(e) => setIdentity({ ...identity, brand_name: e.target.value })} placeholder="Name customers see" />
+          <select className={input} value={identity.business_type} onChange={(e) => setIdentity({ ...identity, business_type: e.target.value as BusinessIdentity["business_type"] })}><option value="sole_proprietor">Sole proprietor / independent contractor</option><option value="llc">LLC</option><option value="corporation">Corporation</option><option value="partnership">Partnership</option><option value="other">Other registered business</option></select>
+          <select className={input} value={identity.has_tax_id ? "yes" : "no"} onChange={(e) => setIdentity({ ...identity, has_tax_id: e.target.value === "yes" })}><option value="no">No EIN / tax ID</option><option value="yes">I have an EIN / tax ID</option></select>
+          {identity.has_tax_id ? <input className={input} value={identity.tax_id} onChange={(e) => setIdentity({ ...identity, tax_id: e.target.value })} placeholder="EIN (leave blank to keep current)" inputMode="numeric" autoComplete="off" /> : null}
+          <input className={input} value={identity.brand_contact_email} onChange={(e) => setIdentity({ ...identity, brand_contact_email: e.target.value })} placeholder="Business contact email" type="email" />
+          <input className={input} value={identity.business_address_street} onChange={(e) => setIdentity({ ...identity, business_address_street: e.target.value })} placeholder="Street address" />
+          <input className={input} value={identity.business_address_city} onChange={(e) => setIdentity({ ...identity, business_address_city: e.target.value })} placeholder="City" />
+          <input className={input} value={identity.business_address_region} onChange={(e) => setIdentity({ ...identity, business_address_region: e.target.value })} placeholder="State" maxLength={2} />
+          <input className={input} value={identity.business_address_postal_code} onChange={(e) => setIdentity({ ...identity, business_address_postal_code: e.target.value })} placeholder="ZIP code" />
+          <input className={input} value={identity.authorized_first_name} onChange={(e) => setIdentity({ ...identity, authorized_first_name: e.target.value })} placeholder="Authorized first name" />
+          <input className={input} value={identity.authorized_last_name} onChange={(e) => setIdentity({ ...identity, authorized_last_name: e.target.value })} placeholder="Authorized last name" />
+          <input className={input} value={identity.authorized_title} onChange={(e) => setIdentity({ ...identity, authorized_title: e.target.value })} placeholder="Owner / authorized title" />
+          <input className={input} value={identity.authorized_phone} onChange={(e) => setIdentity({ ...identity, authorized_phone: e.target.value })} placeholder="Verification phone" />
+        </div>
+        <SaveBtn state={identityState} onClick={() => run(setIdentityState, () => saveBusinessIdentity(identity))} />
       </Card>
 
       <Card title="Billing">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { retryProductAgentEvent } from "@/lib/company-os/product-agent-actions";
 import { requireAdmin } from "@/lib/admin";
 
 export const metadata = { title: "Company OS - ReKnock" };
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 type ProductRun = {
   id: string;
+  agent_event_id: string;
   created_at: string;
   status: string;
   repository: string | null;
@@ -43,7 +45,7 @@ export default async function CompanyOsPage() {
   const [{ data: runs }, { data: changelog }, queued, failed] = await Promise.all([
     admin
       .from("product_agent_runs")
-      .select("id, created_at, status, repository, branch, commit_sha, commit_count, summary, product_ideas, user_experience_notes, growth_revenue_notes, risks, action_items, email_to, email_sent_at, error")
+      .select("id, agent_event_id, created_at, status, repository, branch, commit_sha, commit_count, summary, product_ideas, user_experience_notes, growth_revenue_notes, risks, action_items, email_to, email_sent_at, error")
       .order("created_at", { ascending: false })
       .limit(12),
     admin
@@ -126,6 +128,20 @@ export default async function CompanyOsPage() {
               </div>
               {run.summary ? <p className="mt-3 text-sm leading-6 text-slate">{run.summary}</p> : null}
               {run.error ? <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{run.error}</p> : null}
+              {run.status === "failed" ? (
+                <form className="mt-3">
+                  <button
+                    type="submit"
+                    className="btn btn-ghost btn-sm"
+                    formAction={async () => {
+                      "use server";
+                      await retryProductAgentEvent(run.agent_event_id);
+                    }}
+                  >
+                    Retry run
+                  </button>
+                </form>
+              ) : null}
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <ListBlock title="Action Items" items={toStrings(run.action_items)} />
                 <ListBlock title="Risks" items={toStrings(run.risks)} />

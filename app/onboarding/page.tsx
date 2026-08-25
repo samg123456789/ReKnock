@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
+import type { BusinessIdentity } from "@/lib/twilio-business-profile";
 
 export const metadata: Metadata = { title: "Set up your account - ReKnock" };
 
@@ -17,7 +18,7 @@ export default async function Onboarding() {
   const [{ data: company }, { data: voice }, { data: windows }, { data: phone }, { data: owner }, { data: legalAcceptance }] = await Promise.all([
     supabase
       .from("companies")
-      .select("name, website, description, trades, trade, heard_about, avg_quote_amount, quotes_per_month, timezone")
+      .select("name, website, description, trades, trade, heard_about, avg_quote_amount, quotes_per_month, timezone, legal_name, brand_name, business_type, has_tax_id, tax_id_type, business_industry, business_address_street, business_address_street2, business_address_city, business_address_region, business_address_postal_code, business_address_country, social_media_urls, business_regions_of_operation, authorized_first_name, authorized_last_name, authorized_title, authorized_job_position, authorized_phone, brand_contact_email")
       .single(),
     supabase
       .from("voice_profiles")
@@ -48,24 +49,50 @@ export default async function Onboarding() {
       ? [company.trade]
       : [];
 
+  const businessIdentity = company?.legal_name ? {
+    legal_name: company.legal_name ?? "",
+    brand_name: company.brand_name ?? company.name ?? "",
+    business_type: (company.business_type ?? "sole_proprietor") as BusinessIdentity["business_type"],
+    has_tax_id: Boolean(company.has_tax_id),
+    tax_id_type: company.tax_id_type ?? "EIN",
+    tax_id: "",
+    business_industry: company.business_industry ?? "CONSTRUCTION",
+    business_address_street: company.business_address_street ?? "",
+    business_address_street2: company.business_address_street2 ?? "",
+    business_address_city: company.business_address_city ?? "",
+    business_address_region: company.business_address_region ?? "",
+    business_address_postal_code: company.business_address_postal_code ?? "",
+    business_address_country: company.business_address_country ?? "US",
+    social_media_urls: Array.isArray(company.social_media_urls) ? company.social_media_urls.join("\n") : "",
+    business_regions_of_operation: Array.isArray(company.business_regions_of_operation) ? company.business_regions_of_operation.join(", ") : "USA_AND_CANADA",
+    authorized_first_name: company.authorized_first_name ?? "",
+    authorized_last_name: company.authorized_last_name ?? "",
+    authorized_title: company.authorized_title ?? "",
+    authorized_job_position: company.authorized_job_position ?? "Other",
+    authorized_phone: company.authorized_phone ?? "",
+    brand_contact_email: company.brand_contact_email ?? "",
+  } satisfies BusinessIdentity : null;
+
   // Resume where they left off, derived from what is already saved (no extra
-  // column needed). Steps: 0 business, 1 voice questions, 2 voice review,
-  // 3 hours, 4 owner phone, 5 number, 6 done (quote volume + heard-about live
+  // column needed). Steps: 0 business, 1 identity, 2 voice questions, 3 voice review,
+  // 4 hours, 5 owner phone, 6 number, 7 done (quote volume + heard-about live
   // on the final screen now). A saved voice profile means the review step was
   // approved, sending_windows rows only exist once the hours step saved, a
   // verified owner cell proves calls/urgent alerts route to the right person,
   // and a live phone_numbers row means the number step is done.
   const hasBasics = Boolean(company?.name && initialTrades.length > 0 && (company?.description || company?.website));
+  const hasIdentity = Boolean(businessIdentity);
   const hasVoice = Boolean(initialProfile);
   const hasWindows = Boolean(windows && windows.length);
   const hasVerifiedCell = Boolean(owner?.cell_phone && owner.cell_phone_verified_at);
   const hasNumber = Boolean(phone);
   let initialStep = 0;
   if (hasBasics) initialStep = 1;
-  if (hasBasics && hasVoice) initialStep = 3;
-  if (hasBasics && hasVoice && hasWindows) initialStep = 4;
-  if (hasBasics && hasVoice && hasWindows && hasVerifiedCell) initialStep = 5;
-  if (hasBasics && hasVoice && hasWindows && hasVerifiedCell && hasNumber) initialStep = 6;
+  if (hasBasics && hasIdentity) initialStep = 2;
+  if (hasBasics && hasIdentity && hasVoice) initialStep = 4;
+  if (hasBasics && hasIdentity && hasVoice && hasWindows) initialStep = 5;
+  if (hasBasics && hasIdentity && hasVoice && hasWindows && hasVerifiedCell) initialStep = 6;
+  if (hasBasics && hasIdentity && hasVoice && hasWindows && hasVerifiedCell && hasNumber) initialStep = 7;
 
   return (
     <main className="min-h-[70vh]">
@@ -79,6 +106,7 @@ export default async function Onboarding() {
           quotes_per_month: company?.quotes_per_month != null ? String(company.quotes_per_month) : "",
         }}
         initialTrades={initialTrades}
+        initialBusinessIdentity={businessIdentity}
         initialQuestionnaire={initialQuestionnaire}
         initialProfile={initialProfile}
         initialWindows={

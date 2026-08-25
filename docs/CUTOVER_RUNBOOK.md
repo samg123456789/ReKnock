@@ -45,7 +45,7 @@ above), Vercel auto-deploys production. Then, in order:
 
 ### 1. Supabase (prod project)
 
-Production has never had the app schema, so ALL 18 migrations in
+Production has never had the app schema, so ALL 24 migrations in
 `supabase/migrations/` must be applied to the prod project, oldest first:
 
 ```
@@ -67,6 +67,12 @@ Production has never had the app schema, so ALL 18 migrations in
 20260713190000_level2_agent
 20260713233000_growth_basics
 20260714100000_prospect_soft_delete
+20260714110000_email_reply_sessions
+20260820150000_quote_usage_limits
+20260820160000_quote_usage_signup_anniversary
+20260821120000_company_os_product_agent
+20260824120000_twilio_business_identity
+20260824121500_test_account_signup
 ```
 
 First verify the prod project's applied-migration state (it should be empty of

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getActingCompany } from "@/lib/acting-company";
 import SettingsClient from "@/components/settings/SettingsClient";
 import type { VoiceQuestionnaire } from "@/lib/prompts/voice-profile";
+import type { BusinessIdentity } from "@/lib/twilio-business-profile";
 import { intakeEmailForSlug } from "@/lib/intake-email";
 
 export const metadata: Metadata = { title: "Settings - ReKnock" };
@@ -19,7 +20,7 @@ export default async function Settings() {
     await Promise.all([
       sb
         .from("companies")
-        .select("name, website, description, trades, trade, timezone, forwarding_slug, avg_quote_amount, quotes_per_month")
+        .select("name, website, description, trades, trade, timezone, forwarding_slug, avg_quote_amount, quotes_per_month, legal_name, brand_name, business_type, has_tax_id, tax_id_type, business_industry, business_address_street, business_address_street2, business_address_city, business_address_region, business_address_postal_code, business_address_country, social_media_urls, business_regions_of_operation, authorized_first_name, authorized_last_name, authorized_title, authorized_job_position, authorized_phone, brand_contact_email")
         .eq("id", cid)
         .maybeSingle(),
       sb
@@ -58,6 +59,29 @@ export default async function Settings() {
             avg_quote_amount: company?.avg_quote_amount != null ? String(company.avg_quote_amount) : "",
             quotes_per_month: company?.quotes_per_month != null ? String(company.quotes_per_month) : "",
           }}
+          businessIdentity={company?.legal_name ? {
+            legal_name: company.legal_name ?? "",
+            brand_name: company.brand_name ?? company.name ?? "",
+            business_type: (company.business_type ?? "sole_proprietor") as BusinessIdentity["business_type"],
+            has_tax_id: Boolean(company.has_tax_id),
+            tax_id_type: company.tax_id_type ?? "EIN",
+            tax_id: "",
+            business_industry: company.business_industry ?? "CONSTRUCTION",
+            business_address_street: company.business_address_street ?? "",
+            business_address_street2: company.business_address_street2 ?? "",
+            business_address_city: company.business_address_city ?? "",
+            business_address_region: company.business_address_region ?? "",
+            business_address_postal_code: company.business_address_postal_code ?? "",
+            business_address_country: company.business_address_country ?? "US",
+            social_media_urls: Array.isArray(company.social_media_urls) ? company.social_media_urls.join("\n") : "",
+            business_regions_of_operation: Array.isArray(company.business_regions_of_operation) ? company.business_regions_of_operation.join(", ") : "USA_AND_CANADA",
+            authorized_first_name: company.authorized_first_name ?? "",
+            authorized_last_name: company.authorized_last_name ?? "",
+            authorized_title: company.authorized_title ?? "",
+            authorized_job_position: company.authorized_job_position ?? "Other",
+            authorized_phone: company.authorized_phone ?? "",
+            brand_contact_email: company.brand_contact_email ?? "",
+          } satisfies BusinessIdentity : null}
           initialTrades={Array.isArray(company?.trades) ? (company!.trades as string[]) : company?.trade ? [company.trade] : []}
           initialTimezone={company?.timezone ?? "America/New_York"}
           initialWindows={

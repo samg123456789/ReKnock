@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getActingCompany } from "@/lib/acting-company";
 import DashboardTable, { type ProspectRow } from "@/components/app/DashboardTable";
 import EducationCards from "@/components/app/EducationCards";
+import LaunchChecklist from "@/components/app/LaunchChecklist";
 import NumberPicker from "@/components/app/NumberPicker";
 import { intakeEmailForSlug } from "@/lib/intake-email";
 
@@ -16,13 +17,13 @@ export default async function AppHome() {
   const sb = acting.client;
 
   // Independent queries run in parallel.
-  const [{ data: company }, { data: prospects }, { data: messages }, { data: phone }, { data: owner }] =
+  const [{ data: company }, { data: prospects }, { data: messages }, { data: phone }, { data: owner }, { data: campaign }, { data: sender }] =
     cid
       ? await Promise.all([
-          sb.from("companies").select("name, forwarding_slug, feature_tour_done_at").eq("id", cid).maybeSingle(),
+          sb.from("companies").select("name, forwarding_slug, feature_tour_done_at, website, description, trade").eq("id", cid).maybeSingle(),
           sb
             .from("prospects")
-            .select("id, first_name, last_name, job_type, quote_amount, quote_date, status, campaign_id, source, created_at")
+            .select("id, first_name, last_name, job_type, quote_amount, quote_date, status, campaign_id, source, consent_captured_at, created_at")
             .eq("company_id", cid)
             .is("deleted_at", null)
             .order("created_at", { ascending: false }),
@@ -33,8 +34,10 @@ export default async function AppHome() {
             .limit(5000),
           sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
           sb.from("users").select("cell_phone, cell_phone_verified_at").eq("company_id", cid).not("cell_phone", "is", null).limit(1).maybeSingle(),
+          sb.from("campaigns").select("id, steps").eq("company_id", cid).eq("is_default", true).maybeSingle(),
+          sb.from("users").select("email_confirmed_at").eq("company_id", cid).limit(1).maybeSingle(),
         ])
-      : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: null }];
+      : [{ data: null }, { data: [] }, { data: [] }, { data: null }, { data: null }, { data: null }, { data: null }];
 
   const numberLive = phone?.status === "active";
   const hasQuotes = (prospects?.length ?? 0) > 0;
@@ -83,6 +86,8 @@ export default async function AppHome() {
   const wonCount = rows.filter((r) => r.status === "won").length;
   const nextTouchCount = rows.filter((r) => Boolean(r.nextTouch)).length;
   const numberState = numberLive ? "Live" : phone ? "Activating" : "Not chosen";
+  const firstQuote = (prospects ?? [])[0];
+  const campaignSteps = Array.isArray(campaign?.steps) ? campaign.steps as Array<{ enabled?: boolean }> : [];
 
   return (
     <main className="app-bg">
@@ -176,6 +181,17 @@ export default async function AppHome() {
             defaultAreaCode={(owner?.cell_phone ?? "").replace(/^\+1/, "").slice(0, 3) || "516"}
           />
         ) : null}
+
+        <LaunchChecklist
+          items={[
+            { label: "Business info confirmed", detail: company?.name && (company.website || company.description || company.trade) ? "Your company details are ready." : "Add your business details and trade.", done: Boolean(company?.name && (company.website || company.description || company.trade)), href: "/onboarding" },
+            { label: "Owner phone verified", detail: owner?.cell_phone_verified_at ? "Calls and urgent replies can reach you." : "Verify the phone where calls should ring.", done: Boolean(owner?.cell_phone && owner.cell_phone_verified_at), href: "/settings#relay-cell" },
+            { label: "ReKnock number assigned", detail: numberLive ? `${phone?.e164} is live.` : phone ? "Your number is activating with carriers." : "Choose a local texting line.", done: Boolean(phone?.e164), href: "/settings#phone-number" },
+            { label: "Sender email confirmed", detail: sender?.email_confirmed_at ? "Your account email is confirmed." : "Confirm the email you use to send quotes.", done: Boolean(sender?.email_confirmed_at), href: "/login/check-email" },
+            { label: "First SMS campaign approved", detail: campaign && campaignSteps.some((step) => step.enabled !== false) ? "A message campaign is ready for new quotes." : "Review and save your message campaign.", done: Boolean(campaign && campaignSteps.some((step) => step.enabled !== false)), href: "/campaign" },
+            { label: "First quote added with consent", detail: firstQuote?.consent_captured_at ? "Your first quote has a durable consent record." : "Add a quote and confirm the homeowner agreed to texts.", done: Boolean(firstQuote?.consent_captured_at), href: "/app/quotes/new" },
+          ]}
+        />
 
         <EducationCards
           relayCell={owner?.cell_phone_verified_at ? owner.cell_phone : null}

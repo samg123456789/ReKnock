@@ -54,3 +54,19 @@ Create a GitHub repository webhook:
 - No public posting: it does not publish changelog entries externally.
 - Human approval required for pricing, positioning, public claims, payments,
   or risky production changes.
+
+## Launch status
+
+The application code is complete for Product Agent v1. The remaining work is
+deployment and operations, not another agent capability:
+
+- Apply the Company OS migration in the production Supabase project.
+- Add the listed production environment variables and register the GitHub
+  webhook plus the Inngest functions.
+- Confirm the sender domain and `ops@getreknock.com` are verified in Resend.
+- Make one test push, then confirm the run appears in `/admin/company-os` and
+  the summary email arrives.
+
+The admin page now exposes a **Retry run** action for failed Product Agent
+events. Duplicate webhook or Inngest deliveries are claimed atomically, so
+they cannot create duplicate AI runs.
