@@ -59,9 +59,21 @@ Never edit tables by hand in the Supabase dashboard; always go through a migrati
 
 ## Runbook (filled in as phases ship)
 
-- **Check failed jobs:** query the `failed_jobs` table (added in Phase 1+). _TODO: exact query + admin view._
-- **Re-run a failed send:** _TODO (Phase 5)._
-- **Where every webhook lives:** _TODO — Stripe `/api/webhooks/stripe`, Twilio `/api/webhooks/twilio`, Resend `/api/webhooks/resend`, Inngest `/api/inngest` (added per phase)._
+- **Check failed jobs:** open the affected company in `/admin/companies/:id` for
+  the latest 20 failures, or run:
+  ```sql
+  select job_type, error, created_at, payload
+  from failed_jobs
+  order by created_at desc
+  limit 50;
+  ```
+- **Re-run a failed Product Agent event:** open `/admin/company-os`, find the
+  failed run, and select **Retry run**. Message sends remain intentionally
+  manual after a provider failure; inspect Twilio delivery logs and the
+  ledger row before re-queueing one.
+- **Where every webhook lives:** GitHub `/api/webhooks/github`, Stripe
+  `/api/webhooks/stripe`, Twilio `/api/webhooks/twilio` plus `/status` and
+  `/voice`, Resend `/api/webhooks/resend`, and Inngest `/api/inngest`.
 - **Refund / cancel a customer:** via Stripe Customer Portal / dashboard (Phase 1). _TODO: exact steps._
 
 ## Phone numbers (Phase 3)

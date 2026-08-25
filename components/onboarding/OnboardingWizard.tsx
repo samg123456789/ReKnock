@@ -4,11 +4,13 @@ import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { captureAttribution } from "@/lib/attribution-actions";
 import type { VoiceQuestionnaire, VoiceProfileResult } from "@/lib/prompts/voice-profile";
 import type { InputImage } from "@/lib/ai";
+import type { BusinessIdentity } from "@/lib/twilio-business-profile";
 import TradePicker from "@/components/onboarding/TradePicker";
 import NumberPicker from "@/components/app/NumberPicker";
 import PhoneVerificationPanel from "@/components/app/PhoneVerificationPanel";
 import {
   saveCompanyBasics,
+  saveBusinessIdentity,
   saveQuoteVolume,
   scrapeAndSummarize,
   ocrTextSamples,
@@ -56,7 +58,7 @@ function defaultWindows(): Window[] {
   });
 }
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 const input = "rk-input text-base";
 const primaryBtn =
   "btn btn-primary btn-lg";
@@ -78,6 +80,7 @@ function fileToImage(file: File): Promise<InputImage> {
 export default function OnboardingWizard({
   initialBasics,
   initialTrades,
+  initialBusinessIdentity,
   initialQuestionnaire,
   initialProfile,
   initialWindows,
@@ -90,6 +93,7 @@ export default function OnboardingWizard({
 }: {
   initialBasics: Basics;
   initialTrades: string[];
+  initialBusinessIdentity: BusinessIdentity | null;
   initialQuestionnaire: VoiceQuestionnaire | null;
   initialProfile: VoiceProfileResult | null;
   initialWindows: Window[] | null;
@@ -114,6 +118,29 @@ export default function OnboardingWizard({
 
   const [basics, setBasics] = useState<Basics>(initialBasics);
   const [trades, setTrades] = useState<string[]>(initialTrades);
+  const [identity, setIdentity] = useState<BusinessIdentity>(initialBusinessIdentity ?? {
+    legal_name: initialBasics.name,
+    brand_name: initialBasics.name,
+    business_type: "sole_proprietor",
+    has_tax_id: false,
+    tax_id_type: "EIN",
+    tax_id: "",
+    business_industry: "CONSTRUCTION",
+    business_address_street: "",
+    business_address_street2: "",
+    business_address_city: "",
+    business_address_region: "",
+    business_address_postal_code: "",
+    business_address_country: "US",
+    social_media_urls: "",
+    business_regions_of_operation: "USA_AND_CANADA",
+    authorized_first_name: "",
+    authorized_last_name: "",
+    authorized_title: "",
+    authorized_job_position: "Other",
+    authorized_phone: initialRelayCell,
+    brand_contact_email: "",
+  });
   const [noWebsite, setNoWebsite] = useState(false);
   const [scraping, setScraping] = useState(false);
   const scrapedFor = useRef<string>("");
@@ -235,9 +262,16 @@ export default function OnboardingWizard({
     goTo(1);
   }
 
+  async function submitIdentity() {
+    setError(null);
+    const res = await saveBusinessIdentity(identity);
+    if (!res.ok) return setError(res.error);
+    goTo(2);
+  }
+
   function submitSchedule() {
     persist(saveSchedule(windows, timezone));
-    goTo(4);
+    goTo(5);
   }
 
   // Final screen: quote volume is still REQUIRED (founder decision), just
@@ -290,11 +324,13 @@ export default function OnboardingWizard({
     if (tag === "TEXTAREA") return;
     e.preventDefault();
     if (step === 0) submitBasics();
-    else if (step === 1) {
+    else if (step === 1) submitIdentity();
+    else if (step === 2) {
       setProfile(null);
       runGenerate();
-      goTo(2);
-    } else if (step === 3) submitSchedule();
+      goTo(3);
+    }
+    else if (step === 4) submitSchedule();
   }
 
   const setSample = (i: number, v: string) =>
@@ -309,11 +345,12 @@ export default function OnboardingWizard({
           <span className="ai-chip">AI setup</span>
           <h2 className="display mt-4 text-2xl">Build your follow-up agent</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate">
-            Seven focused steps. Each answer teaches ReKnock how to chase quotes without sounding generic.
+            Eight focused steps. Each answer makes your business and customer messaging ready for launch.
           </p>
           <div className="mt-6 space-y-3">
             {[
               "Business",
+              "Business identity",
               "Voice",
               "Review",
               "Hours",
@@ -390,8 +427,50 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 2: voice */}
+      {/* Step 2: business identity for Twilio/TCR registration */}
       {step === 1 && (
+        <div>
+          <p className="eyebrow mb-3">Business identity</p>
+          <h1 className="display text-3xl md:text-4xl">Tell us who the texting line belongs to.</h1>
+          <p className="mt-3 text-slate">This keeps your registration accurate with carriers. Use the legal name exactly as it appears on your EIN confirmation letter, and tell us what customers call you.</p>
+          <div className="mt-6 form-section bg-sky/50 text-sm leading-relaxed text-slate">
+            <strong className="text-ink">No SSN needed.</strong> If you do not have an EIN, we use Twilio&apos;s Sole Proprietor path and collect your personal business identity instead. Never enter an SSN here.
+          </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Legal business name</span><input className={input} value={identity.legal_name} onChange={(e) => setIdentity({ ...identity, legal_name: e.target.value })} placeholder="Apex Home Services LLC" /><span className="text-xs text-mist">Exact name on your EIN letter, if you have one.</span></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Name customers see</span><input className={input} value={identity.brand_name} onChange={(e) => setIdentity({ ...identity, brand_name: e.target.value })} placeholder="Apex Home Services" /></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Business type</span><select className={input} value={identity.business_type} onChange={(e) => setIdentity({ ...identity, business_type: e.target.value as BusinessIdentity["business_type"] })}><option value="sole_proprietor">Sole proprietor / independent contractor</option><option value="llc">LLC</option><option value="corporation">Corporation</option><option value="partnership">Partnership</option><option value="other">Other registered business</option></select></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Do you have an EIN or business tax ID?</span><select className={input} value={identity.has_tax_id ? "yes" : "no"} onChange={(e) => setIdentity({ ...identity, has_tax_id: e.target.value === "yes" })}><option value="no">No — I file as an individual</option><option value="yes">Yes — I have one</option></select></label>
+            {identity.has_tax_id ? <label className="flex flex-col gap-1 sm:col-span-2"><span className="text-sm font-semibold text-slate">EIN</span><input className={input} value={identity.tax_id} onChange={(e) => setIdentity({ ...identity, tax_id: e.target.value })} placeholder="12-3456789" inputMode="numeric" autoComplete="off" /><span className="text-xs text-mist">Encrypted before storage. We use this only for Twilio registration.</span></label> : <p className="form-section text-sm leading-relaxed text-slate sm:col-span-2">You&apos;ll use the Sole Proprietor route if you are in the US or Canada and do not have a tax ID. If you are an LLC or have an EIN, choose the correct option above—Twilio requires the Standard or Low-Volume Standard route.</p>}
+          </div>
+
+          <h2 className="display mt-8 text-xl">Business address</h2>
+          <p className="mt-1 text-sm text-slate">Use the address associated with the business or owner registration. A valid mailing address is required.</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 sm:col-span-2"><span className="text-sm font-semibold text-slate">Street address</span><input className={input} value={identity.business_address_street} onChange={(e) => setIdentity({ ...identity, business_address_street: e.target.value })} placeholder="123 Main Street" /></label>
+            <label className="flex flex-col gap-1 sm:col-span-2"><span className="text-sm font-semibold text-slate">Suite or unit <span className="font-normal text-mist">(optional)</span></span><input className={input} value={identity.business_address_street2} onChange={(e) => setIdentity({ ...identity, business_address_street2: e.target.value })} placeholder="Suite 200" /></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">City</span><input className={input} value={identity.business_address_city} onChange={(e) => setIdentity({ ...identity, business_address_city: e.target.value })} /></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">State</span><input className={input} maxLength={2} value={identity.business_address_region} onChange={(e) => setIdentity({ ...identity, business_address_region: e.target.value.toUpperCase() })} placeholder="NY" /></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">ZIP code</span><input className={input} value={identity.business_address_postal_code} onChange={(e) => setIdentity({ ...identity, business_address_postal_code: e.target.value })} /></label>
+          </div>
+
+          <h2 className="display mt-8 text-xl">Authorized owner or representative</h2>
+          <p className="mt-1 text-sm text-slate">This is the person who can verify the business and receive carrier registration checks.</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">First name</span><input className={input} value={identity.authorized_first_name} onChange={(e) => setIdentity({ ...identity, authorized_first_name: e.target.value })} /></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Last name</span><input className={input} value={identity.authorized_last_name} onChange={(e) => setIdentity({ ...identity, authorized_last_name: e.target.value })} /></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Title</span><input className={input} value={identity.authorized_title} onChange={(e) => setIdentity({ ...identity, authorized_title: e.target.value })} placeholder="Owner" /></label>
+            <label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Mobile phone for verification</span><input className={input} value={identity.authorized_phone} onChange={(e) => setIdentity({ ...identity, authorized_phone: e.target.value })} placeholder="(516) 555-0123" /></label>
+            <label className="flex flex-col gap-1 sm:col-span-2"><span className="text-sm font-semibold text-slate">Business contact email</span><input className={input} type="email" value={identity.brand_contact_email} onChange={(e) => setIdentity({ ...identity, brand_contact_email: e.target.value })} placeholder="owner@apexhomeservices.com" /><span className="text-xs text-mist">Twilio may use this for business identity verification. A company-domain address is safest when available.</span></label>
+          </div>
+
+          <details className="mt-6"><summary className="cursor-pointer text-sm font-semibold text-blue">More business details</summary><div className="mt-4 grid gap-4"><label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Social media URLs <span className="font-normal text-mist">(optional)</span></span><textarea className={input} rows={2} value={identity.social_media_urls} onChange={(e) => setIdentity({ ...identity, social_media_urls: e.target.value })} placeholder="Facebook or LinkedIn URLs, one per line" /></label><label className="flex flex-col gap-1"><span className="text-sm font-semibold text-slate">Service regions <span className="font-normal text-mist">(optional)</span></span><input className={input} value={identity.business_regions_of_operation} onChange={(e) => setIdentity({ ...identity, business_regions_of_operation: e.target.value })} placeholder="USA_AND_CANADA" /></label></div></details>
+          <div className="mt-8 flex items-center justify-between"><button className={ghostBtn} onClick={() => goTo(0)}>Back</button><button className={primaryBtn} onClick={submitIdentity}>Save identity and continue</button></div>
+        </div>
+      )}
+
+      {/* Step 3: voice */}
+      {step === 2 && (
         <div>
           <p className="eyebrow mb-3">Your voice</p>
           <h1 className="display text-3xl md:text-4xl">How do you text customers?</h1>
@@ -467,13 +546,13 @@ export default function OnboardingWizard({
             </label>
           </div>
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(0)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(1)}>Back</button>
             <button
               className={primaryBtn}
               onClick={() => {
                 setProfile(null);
                 runGenerate();
-                goTo(2);
+                goTo(3);
               }}
             >
               Build my voice
@@ -482,8 +561,8 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 3: voice review - the reveal */}
-      {step === 2 && (
+      {/* Step 4: voice review - the reveal */}
+      {step === 3 && (
         <div>
           <p className="eyebrow mb-3">Your voice</p>
           <h1 className="display text-3xl md:text-4xl">Here&apos;s how we&apos;ll sound.</h1>
@@ -542,13 +621,13 @@ export default function OnboardingWizard({
                   className={primaryBtn}
                   onClick={() => {
                     persist(saveVoiceProfile({ questionnaire: q, masterPrompt, samples: profile.samples }));
-                    goTo(3);
+                    goTo(4);
                   }}
                 >
                   Sounds like me
                 </button>
                 <div className="flex items-center justify-center gap-2">
-                  <button className={ghostBtn} onClick={() => goTo(1)}>Adjust answers</button>
+                  <button className={ghostBtn} onClick={() => goTo(2)}>Adjust answers</button>
                   <button className={ghostBtn} disabled={genPending} onClick={runGenerate}>{genPending ? "Writing..." : "Try another take"}</button>
                 </div>
               </div>
@@ -569,8 +648,8 @@ export default function OnboardingWizard({
         </div>
       )}
 
-      {/* Step 4: schedule + market */}
-      {step === 3 && (
+      {/* Step 5: schedule + market */}
+      {step === 4 && (
         <div>
           <p className="eyebrow mb-3">When we text</p>
           <h1 className="display text-3xl md:text-4xl">Your sending hours.</h1>
@@ -631,7 +710,7 @@ export default function OnboardingWizard({
             ))}
           </div>
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(2)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(3)}>Back</button>
             <button className={primaryBtn} onClick={submitSchedule}>Continue</button>
           </div>
         </div>
@@ -639,23 +718,23 @@ export default function OnboardingWizard({
 
       {/* Step 5: verify the owner's real phone before we route calls or urgent
           lead alerts there. */}
-      {step === 4 && (
+      {step === 5 && (
         <div>
           <PhoneVerificationPanel
             initialPhone={initialRelayCell}
             initialVerified={initialRelayVerified}
-            onVerified={() => goTo(5)}
+            onVerified={() => goTo(6)}
             verifiedActionLabel="Continue"
           />
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(3)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(4)}>Back</button>
           </div>
         </div>
       )}
 
       {/* Step 6: pick the ReKnock number. Mandatory - nothing in the product
           can text without it, so nobody reaches the dashboard number-less. */}
-      {step === 5 && (
+      {step === 6 && (
         <div>
           <p className="eyebrow mb-3">Your texting line</p>
           <h1 className="display text-3xl md:text-4xl">Pick your ReKnock number.</h1>
@@ -665,15 +744,18 @@ export default function OnboardingWizard({
             email and ReKnock inbox, and calls can forward to your verified
             phone.
           </p>
-          <NumberPicker phone={null} defaultAreaCode={initialAreaCode} bare onClaimed={() => goTo(6)} />
+          {identity.business_type === "sole_proprietor" && !identity.has_tax_id ? (
+            <p className="form-section mt-4 bg-sky/50 text-sm leading-relaxed text-slate"><strong className="text-ink">One texting number is included.</strong> That is the standard setup for an independent contractor using Twilio&apos;s Sole Proprietor registration.</p>
+          ) : null}
+          <NumberPicker phone={null} defaultAreaCode={initialAreaCode} bare onClaimed={() => goTo(7)} />
           <div className="mt-8 flex items-center justify-between">
-            <button className={ghostBtn} onClick={() => goTo(4)}>Back</button>
+            <button className={ghostBtn} onClick={() => goTo(5)}>Back</button>
           </div>
         </div>
       )}
 
       {/* Step 7: done */}
-      {step === 6 && (
+      {step === 7 && (
         <div>
           <p className="eyebrow mb-3">You&apos;re set up</p>
           <h1 className="display text-3xl md:text-4xl">Your voice is ready.</h1>

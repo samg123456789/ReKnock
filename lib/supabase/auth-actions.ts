@@ -11,6 +11,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   const fullName = String(formData.get("full_name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const testAccount = formData.get("test_account") === "1" && process.env.VERCEL_ENV !== "production";
 
   if (!fullName) return { error: "Please tell us your name." };
   if (!email) return { error: "Please enter your email." };
@@ -22,7 +23,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     email,
     password,
     options: {
-      data: { full_name: fullName },
+      data: { full_name: fullName, ...(testAccount ? { reknock_test_account: true } : {}) },
       emailRedirectTo: `${origin}/auth/confirm?next=/app`,
     },
   });

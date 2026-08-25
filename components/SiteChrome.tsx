@@ -11,7 +11,7 @@ import { signOut } from "@/lib/supabase/auth-actions";
 // Marketing routes get the marketing nav + footer; logged-in app routes get the
 // app header and no footer. Onboarding gets a focused header (logo + sign out,
 // no nav) so nothing pulls the contractor out of setup before it is done.
-const APP_PREFIXES = ["/app", "/checkout", "/settings", "/inbox", "/campaign", "/admin", "/suspended"];
+const APP_PREFIXES = ["/app", "/checkout", "/settings", "/inbox", "/campaign", "/analytics", "/admin", "/suspended"];
 
 function OnboardingHeader() {
   return (

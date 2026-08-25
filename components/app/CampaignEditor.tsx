@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { saveCampaignSteps, previewStepMessage } from "@/lib/campaign-actions";
-import { STEP_INTENT_OPTIONS, MANUAL_STEP_VALUE, MANUAL_STEP_LABEL, type CampaignStep } from "@/lib/campaign";
+import { DEFAULT_CAMPAIGN_STEPS, STEP_INTENT_OPTIONS, MANUAL_STEP_VALUE, MANUAL_STEP_LABEL, type CampaignStep } from "@/lib/campaign";
 import Switch from "@/components/ui/Switch";
 
 const input = "rk-input text-sm";
@@ -59,6 +59,21 @@ export default function CampaignEditor({ campaignId, campaignName, isDefault, in
     setSaved(false);
   }
 
+  function duplicateStep(i: number) {
+    if (steps.length >= 8) return;
+    const source = steps[i];
+    const copy = { ...source, day_offset: source.day_offset + 3 };
+    setSteps((prev) => [...prev.slice(0, i + 1), copy, ...prev.slice(i + 1)]);
+    setSaved(false);
+  }
+
+  function resetRecommended() {
+    setSteps(DEFAULT_CAMPAIGN_STEPS.map(toEditorStep));
+    setPreviews({});
+    setSaved(false);
+    setError(null);
+  }
+
   function moveStep(i: number, direction: -1 | 1) {
     const next = i + direction;
     if (next < 0 || next >= steps.length) return;
@@ -91,6 +106,11 @@ export default function CampaignEditor({ campaignId, campaignName, isDefault, in
 
   return (
     <div className="mt-6 flex flex-col gap-4">
+      <div className="surface-card-compact grid gap-3 bg-sky/45 sm:grid-cols-3">
+        <div><p className="surface-label">Plan shape</p><p className="mt-1 text-sm font-semibold text-ink">{steps.filter((s) => s.enabled !== false).length} active touches</p></div>
+        <div><p className="surface-label">Timeline</p><p className="mt-1 text-sm font-semibold text-ink">{steps.filter((s) => s.enabled !== false).reduce((max, s) => Math.max(max, s.day_offset), 0)} days</p></div>
+        <div><p className="surface-label">Safety rule</p><p className="mt-1 text-sm font-semibold text-ink">Stops when they reply</p></div>
+      </div>
       {steps.map((s, i) => {
         const pv = previews[i];
         const on = s.enabled !== false;
@@ -105,6 +125,7 @@ export default function CampaignEditor({ campaignId, campaignName, isDefault, in
                 <button type="button" aria-label="Move touch up" disabled={i === 0} onClick={() => moveStep(i, -1)} className="cursor-pointer rounded-lg px-2 py-1 text-xs text-mist hover:bg-sky hover:text-blue disabled:cursor-not-allowed disabled:opacity-30">↑</button>
                 <button type="button" aria-label="Move touch down" disabled={i === steps.length - 1} onClick={() => moveStep(i, 1)} className="cursor-pointer rounded-lg px-2 py-1 text-xs text-mist hover:bg-sky hover:text-blue disabled:cursor-not-allowed disabled:opacity-30">↓</button>
                 <button type="button" onClick={() => removeStep(i)} disabled={steps.length <= 1} className="cursor-pointer rounded-lg px-2 py-1 text-xs font-semibold text-red-600/70 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30">Remove</button>
+                <button type="button" onClick={() => duplicateStep(i)} disabled={steps.length >= 8} className="cursor-pointer rounded-lg px-2 py-1 text-xs font-semibold text-blue hover:bg-sky disabled:cursor-not-allowed disabled:opacity-30">Duplicate</button>
                 <Switch checked={on} onChange={(v) => update(i, { enabled: v })} label={on ? "On" : "Off"} />
               </div>
             </div>
@@ -132,6 +153,7 @@ export default function CampaignEditor({ campaignId, campaignName, isDefault, in
               <label className="mt-4 flex flex-col gap-1">
                 <span className="text-[11px] font-semibold text-mist">Your exact words</span>
                 <textarea className={input} rows={2} value={s.template ?? ""} onChange={(e) => update(i, { template: e.target.value })} disabled={!on} maxLength={320} placeholder="This sends word for word. Use {first_name}, {job}, {amount}." />
+                <span className="text-right text-[11px] text-mist">{(s.template ?? "").length}/320 characters</span>
               </label>
             ) : null}
 
@@ -151,9 +173,10 @@ export default function CampaignEditor({ campaignId, campaignName, isDefault, in
       {error ? <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" disabled={saving} onClick={save} className="btn btn-primary">
-          {saving ? "Saving..." : "Save follow-up plan"}
+          {saving ? "Saving..." : "Save message campaign"}
         </button>
         <button type="button" disabled={steps.length >= 8} onClick={addStep} className="btn btn-ghost">+ Add a touch</button>
+        <button type="button" onClick={resetRecommended} className="btn btn-ghost">Reset to recommended</button>
         {saved ? <span className="text-sm text-mint">Saved. New quotes use this schedule.</span> : null}
       </div>
       <p className="text-xs text-mist">Choose a preferred time or leave it blank for ReKnock&apos;s best-time default. We always stay inside your sending hours. Changes apply to new quotes; active quotes keep their current schedule.</p>

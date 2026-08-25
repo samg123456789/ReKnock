@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import { createCampaign, getCampaigns } from "@/lib/campaign-actions";
 import CampaignEditor from "@/components/app/CampaignEditor";
 
-export const metadata: Metadata = { title: "Follow-up plans - ReKnock" };
+export const metadata: Metadata = { title: "Message campaigns - ReKnock" };
 
 export default async function CampaignPage() {
   const campaigns = await getCampaigns();
   return (
     <main className="app-bg">
       <div className="app-shell max-w-3xl">
-        <span className="ai-chip">Follow-up plan</span>
+        <span className="ai-chip">Message campaigns</span>
         <h1 className="display mt-4 text-3xl md:text-4xl">How we follow up on every quote.</h1>
         <p className="mt-3 max-w-2xl leading-relaxed text-slate">
-          This is the follow-up plan ReKnock uses for each new quote, in your voice. Edit the timing, choose each touch&apos;s purpose, preview any draft, or turn a touch off.
+          Message campaigns control the timing and purpose of each customer text. Edit the timing, preview drafts in your voice, or turn a touch off.
         </p>
         <div className="mt-6 flex flex-col gap-4">
           {campaigns.map((campaign) => <CampaignEditor key={campaign.id} campaignId={campaign.id} campaignName={campaign.name} isDefault={campaign.is_default} initialSteps={campaign.steps} />)}

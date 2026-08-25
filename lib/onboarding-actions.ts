@@ -17,6 +17,7 @@ import {
 } from "@/lib/prompts/website-summary";
 import { buildTextOcrPrompt, type TextOcrResult } from "@/lib/prompts/text-ocr";
 import { TRADE_VALUES } from "@/lib/trades";
+import { BUSINESS_TYPES, encryptTaxId, twilioRegistrationPath, type BusinessType } from "@/lib/twilio-business-profile";
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
@@ -79,6 +80,81 @@ export async function saveCompanyBasics(input: {
   const { supabase, company } = await requireCompany();
   const { error } = await supabase.from("companies").update(update).eq("id", company.id);
   if (error) return { ok: false, error: "Could not save. Please try again." };
+  return { ok: true, data: undefined };
+}
+
+export async function saveBusinessIdentity(input: {
+  legal_name: string;
+  brand_name: string;
+  business_type: BusinessType;
+  has_tax_id: boolean;
+  tax_id_type: string;
+  tax_id: string;
+  business_industry: string;
+  business_address_street: string;
+  business_address_street2: string;
+  business_address_city: string;
+  business_address_region: string;
+  business_address_postal_code: string;
+  business_address_country: string;
+  social_media_urls: string;
+  business_regions_of_operation: string;
+  authorized_first_name: string;
+  authorized_last_name: string;
+  authorized_title: string;
+  authorized_job_position: string;
+  authorized_phone: string;
+  brand_contact_email: string;
+}): Promise<ActionResult> {
+  const legalName = input.legal_name.trim();
+  const brandName = input.brand_name.trim();
+  if (!legalName || !brandName) return { ok: false, error: "Enter the legal business name and the name customers see." };
+  if (!BUSINESS_TYPES.includes(input.business_type)) return { ok: false, error: "Choose the business type that matches your tax registration." };
+  if (input.has_tax_id && !/^\d{2}-?\d{7}$/.test(input.tax_id.replace(/\s/g, ""))) return { ok: false, error: "Enter a valid 9-digit EIN, like 12-3456789." };
+  if (!input.has_tax_id && input.business_type !== "sole_proprietor") return { ok: false, error: "An LLC, corporation, or partnership needs an EIN before Twilio can register its texting brand." };
+  if (!input.business_address_street.trim() || !input.business_address_city.trim() || !input.business_address_region.trim() || !input.business_address_postal_code.trim()) return { ok: false, error: "Add the business or owner mailing address used for registration." };
+  if (!input.authorized_first_name.trim() || !input.authorized_last_name.trim() || !input.authorized_phone.trim() || !input.brand_contact_email.trim()) return { ok: false, error: "Add the authorized owner's name, phone, and business contact email." };
+
+  const { supabase, company } = await requireCompany();
+  const registrationPath = twilioRegistrationPath(input.business_type, input.has_tax_id);
+  const taxId = input.has_tax_id ? input.tax_id.replace(/\s/g, "") : "";
+  let encryptedTaxId: string | null = null;
+  if (taxId) encryptedTaxId = encryptTaxId(taxId);
+  else if (input.has_tax_id) {
+    const { data: existing } = await supabase.from("companies").select("tax_id_encrypted").eq("id", company.id).maybeSingle();
+    encryptedTaxId = existing?.tax_id_encrypted ?? null;
+  }
+  const { error } = await supabase.from("companies").update({
+    legal_name: legalName,
+    brand_name: brandName,
+    business_type: input.business_type,
+    has_tax_id: input.has_tax_id,
+    tax_id_type: input.has_tax_id ? (input.tax_id_type.trim() || "EIN") : null,
+    tax_id_encrypted: encryptedTaxId,
+    business_industry: input.business_industry.trim() || "CONSTRUCTION",
+    business_address_street: input.business_address_street.trim(),
+    business_address_street2: input.business_address_street2.trim() || null,
+    business_address_city: input.business_address_city.trim(),
+    business_address_region: input.business_address_region.trim().toUpperCase(),
+    business_address_postal_code: input.business_address_postal_code.trim(),
+    business_address_country: input.business_address_country.trim().toUpperCase() || "US",
+    social_media_urls: input.social_media_urls.split(/[\n,]/).map((v) => v.trim()).filter(Boolean).slice(0, 5),
+    business_regions_of_operation: input.business_regions_of_operation.split(/[\n,]/).map((v) => v.trim()).filter(Boolean).slice(0, 8),
+    authorized_first_name: input.authorized_first_name.trim(),
+    authorized_last_name: input.authorized_last_name.trim(),
+    authorized_title: input.authorized_title.trim() || null,
+    authorized_job_position: input.authorized_job_position.trim() || "Other",
+    authorized_phone: input.authorized_phone.trim(),
+    brand_contact_email: input.brand_contact_email.trim().toLowerCase(),
+    twilio_compliance_status: registrationPath === "needs_ein" ? "needs_ein" : "profile_ready",
+    twilio_campaign_description: `${brandName} sends one-to-one quote follow-up text messages to homeowners who requested a quote from the business. Messages help answer questions and keep an open estimate from being forgotten.`,
+    twilio_message_flow: `A homeowner first requests a quote from ${brandName}. The contractor asks for the best number to text the quote and confirms that the homeowner agrees to receive quote follow-up messages. ReKnock stores the contractor's consent attestation before scheduling messages. The homeowner can reply at any time, or text STOP to opt out and HELP for help.`,
+    twilio_message_samples: [
+      `Hi [first name], this is ${brandName} following up on your [job type] quote. Do you have any questions? Reply STOP to opt out.`,
+      `Hi [first name], just checking in on the estimate from ${brandName}. I am happy to walk through the details or answer anything. Reply STOP to opt out.`,
+    ],
+  }).eq("id", company.id);
+  if (error) return { ok: false, error: "Could not save the business identity. Please try again." };
   return { ok: true, data: undefined };
 }
 
@@ -318,7 +394,7 @@ export async function finishOnboarding(heardAbout?: string, legalAccepted = fals
   if (!existing) {
     await supabase.from("campaigns").insert({
       company_id: company.id,
-      name: "Default follow-up",
+      name: "Default message campaign",
       is_default: true,
       steps: [
         { day_offset: 2, intent: "gentle check-in", ai_personalize: true },
@@ -336,5 +412,7 @@ export async function finishOnboarding(heardAbout?: string, legalAccepted = fals
   if (!co?.onboarded_at) {
     await inngest.send({ name: "company/onboarding.completed", data: { company_id: company.id } });
   }
-  redirect("/app");
+  // The final onboarding button promises the first quote, so land directly in
+  // the quote intake instead of making a new customer hunt for the next step.
+  redirect("/app/quotes/new?first=1");
 }

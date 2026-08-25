@@ -23,7 +23,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const inputClass =
   "rounded-xl border border-slate/20 px-4 py-3 text-base outline-none focus:border-blue";
 
-export default function SignupForm() {
+export default function SignupForm({ testMode = false }: { testMode?: boolean }) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signUp, undefined);
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
@@ -113,6 +113,7 @@ export default function SignupForm() {
 
       {/* Email carried from step 1 so the server action gets all fields. */}
       <input type="hidden" name="email" value={email} />
+      {testMode ? <input type="hidden" name="test_account" value="1" /> : null}
 
       <label className="flex flex-col gap-1">
         <span className="text-sm font-semibold text-slate">Your name</span>

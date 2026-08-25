@@ -50,7 +50,18 @@ export async function processProductAgentEvent(agentEventId: string): Promise<{
   if (row.status === "processed") return { skipped: "already_processed" };
   if (row.event_type !== "push") return { skipped: "not_push" };
 
-  await admin.from("agent_events").update({ status: "processing", error: null }).eq("id", agentEventId);
+  // Claim the event atomically. GitHub retries and Inngest retries can arrive
+  // at the same time; only the request that changes queued/failed -> processing
+  // is allowed to create an agent run.
+  const { data: claimed, error: claimError } = await admin
+    .from("agent_events")
+    .update({ status: "processing", error: null, processed_at: null })
+    .eq("id", agentEventId)
+    .in("status", ["queued", "failed"])
+    .select("id")
+    .maybeSingle();
+  if (claimError) throw new Error(claimError.message);
+  if (!claimed) return { skipped: "already_processing" };
 
   const payload = row.payload;
   if (payload.deleted) {

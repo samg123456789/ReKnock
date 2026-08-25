@@ -40,7 +40,7 @@ export async function getDefaultCampaign(): Promise<CampaignStep[]> {
   const sb = a.client;
   const { data: c } = await sb.from("campaigns").select("id, steps").eq("company_id", a.companyId!).eq("is_default", true).maybeSingle();
   if (c) return cleanSteps(c.steps);
-  await sb.from("campaigns").insert({ company_id: a.companyId!, name: "Default follow-up plan", is_default: true, steps: DEFAULT_CAMPAIGN_STEPS });
+  await sb.from("campaigns").insert({ company_id: a.companyId!, name: "Default message campaign", is_default: true, steps: DEFAULT_CAMPAIGN_STEPS });
   return DEFAULT_CAMPAIGN_STEPS;
 }
 

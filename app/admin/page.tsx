@@ -57,6 +57,9 @@ export default async function AdminHome() {
         <Link href="/admin/company-os" className="btn btn-ghost btn-sm">
           Company OS
         </Link>
+        <Link href="/admin/operations" className="btn btn-ghost btn-sm">
+          Operations
+        </Link>
       </div>
       <AdminCustomersTable rows={rows} />
     </div>
