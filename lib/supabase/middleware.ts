@@ -9,6 +9,18 @@ import { env } from "@/lib/env";
 //   authed + paid + !onboarded -> /onboarding
 //   otherwise              -> app
 export async function updateSession(request: NextRequest) {
+  // Some Supabase email-confirmation templates return the PKCE `code` to the
+  // site root instead of /auth/callback. Route that code through the callback
+  // handler so confirmation still creates the session and reaches onboarding.
+  if (request.nextUrl.pathname === "/" && request.nextUrl.searchParams.has("code")) {
+    const callback = request.nextUrl.clone();
+    callback.pathname = "/auth/callback";
+    callback.search = "";
+    callback.searchParams.set("code", request.nextUrl.searchParams.get("code")!);
+    callback.searchParams.set("next", "/app");
+    return NextResponse.redirect(callback);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(env.supabaseUrl(), env.supabaseAnonKey(), {
