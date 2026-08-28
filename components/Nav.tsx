@@ -42,10 +42,10 @@ export default function Nav() {
             Log in
           </Link>
           <Link
-            href="/signup"
+            href="/pricing"
             className="rounded-lg bg-blue px-4 py-2 text-[15px] font-semibold text-white transition-colors hover:bg-blue-deep"
           >
-            Start for $1
+            Join the waitlist
           </Link>
         </div>
 
@@ -88,11 +88,11 @@ export default function Nav() {
               Log in
             </Link>
             <Link
-              href="/signup"
+              href="/pricing"
               onClick={() => setOpen(false)}
               className="mt-2 rounded-lg bg-blue px-4 py-3.5 text-center text-lg font-semibold text-white"
             >
-              Start for $1 →
+              Join the waitlist →
             </Link>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { foundingStatus } from "@/lib/founding";
 export const metadata: Metadata = {
   title: "Pricing - ReKnock",
   description:
-    "Try ReKnock for $1. Then $29/month (or $290/year, 2 months free) locked for life for the first 20 contractors. Automatic quote follow-up texts for the trades.",
+    "ReKnock pricing: $29/month or $290/year, with a founding rate locked for life for the first 20 contractors. Join the waitlist for access.",
   alternates: { canonical: "https://getreknock.com/pricing" },
 };
 
