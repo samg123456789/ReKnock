@@ -7,7 +7,7 @@ import RoiCalculator from "@/components/RoiCalculator";
 export const metadata: Metadata = {
   title: "ReKnock - automatic follow-up texts for contractor quotes",
   description:
-    "You quoted it, they went quiet. ReKnock texts homeowners after every quote - in your voice - then emails you and opens the inbox thread the second they reply. For roofers, painters, fencing and every quoted trade. $1 first week.",
+    "You quoted it, they went quiet. ReKnock texts homeowners after every quote - in your voice - then emails you and opens the inbox thread the second they reply. For roofers, painters, fencing and every quoted trade. Join the waitlist for access.",
   alternates: { canonical: "https://getreknock.com" },
 };
 
@@ -26,10 +26,10 @@ const placeholderTestimonials = [
   { stars: 5, quote: "REPLACE", name: "Name", biz: "Trade, City" },
 ];
 
-function CTA({ label = "Start for $1 →", big = false }: { label?: string; big?: boolean }) {
+function CTA({ label = "Join the waitlist →", big = false }: { label?: string; big?: boolean }) {
   return (
     <Link
-      href="/signup"
+      href="/pricing"
       className={`inline-block rounded-xl bg-blue font-semibold text-white shadow-pop transition-all hover:-translate-y-0.5 hover:bg-blue-deep ${big ? "px-9 py-4 text-lg" : "px-6 py-3 text-base"}`}
     >
       {label}
@@ -126,11 +126,11 @@ const faqs = [
   },
   {
     q: "How fast is setup?",
-    a: "About 10 minutes: answer a few questions so the texts sound like you, approve your follow-ups, log your open quotes. Carriers then verify your dedicated number (an anti-spam step every legitimate business texting service goes through) - and your $1 week doesn't start until your line is live, so you never pay for waiting.",
+    a: "Once access opens, setup takes about 10 minutes: answer a few questions so the texts sound like you, approve your follow-ups, and log your open quotes. Carriers then verify your dedicated number while we build everything around your workflow.",
   },
   {
-    q: "What does the $1 trial include?",
-    a: "A full week of the Starter plan: your dedicated number, your voice-matched sequences, and your first 50 follow-up texts. The week starts the day your number goes live. Card up front.",
+    q: "What does Starter include?",
+    a: "Starter includes your dedicated number, voice-matched follow-up sequences, and up to 100 new quotes each month. Join the waitlist and we'll let you know when access opens.",
   },
 ];
 
@@ -152,7 +152,7 @@ export default function Home() {
     operatingSystem: "Web",
     description:
       "Automatic SMS follow-up for contractor quotes. Contractors customize the follow-up timing and wording, and ReKnock stops instantly when the homeowner replies.",
-    offers: { "@type": "Offer", price: "39", priceCurrency: "USD" },
+    offers: { "@type": "Offer", price: "29", priceCurrency: "USD" },
     url: "https://getreknock.com",
   };
 
@@ -190,8 +190,7 @@ export default function Home() {
             <div className="rise rise-3 mt-8 flex flex-wrap items-center gap-4">
               <CTA big />
               <p className="font-mono text-sm text-mist">
-                $1 first week · $29/mo founding rate{" "}
-                <span className="text-mist/70 line-through">$39</span>
+                $29/mo or $290/year · founding rate locked for life
               </p>
             </div>
           </div>
@@ -388,12 +387,11 @@ export default function Home() {
       {/* ================= PRICING PREVIEW ================= */}
       <section className="bg-sky/60">
         <div className="mx-auto max-w-4xl px-5 py-16 text-center md:py-24">
-          <h2 className="display text-4xl md:text-5xl">Try everything for $1.</h2>
+          <h2 className="display text-4xl md:text-5xl">Pricing is set. Access opens soon.</h2>
           <p className="mx-auto mt-4 max-w-xl text-lg text-slate">
-            One week of everything for a dollar - your dedicated number,
-            voice-matched follow-ups, 50 texts. Then $29/month, locked for
-            life for our first 20 founding contractors (list price $39). No
-            contracts.
+            Starter is planned at $29/month or $290/year, with the founding rate
+            locked for life for our first 20 contractors. We&apos;re pausing new
+            accounts while we prepare the next group.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <CTA big />
@@ -401,7 +399,7 @@ export default function Home() {
               href="/pricing"
               className="rounded-xl border border-sky-line bg-white px-9 py-4 text-lg font-semibold text-blue transition-colors hover:border-blue"
             >
-              Compare plans
+              View pricing
             </Link>
           </div>
         </div>

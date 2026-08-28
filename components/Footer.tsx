@@ -32,7 +32,7 @@ export default function Footer() {
             <Link className="text-white/85 hover:text-white" href="/#how">How it works</Link>
             <Link className="text-white/85 hover:text-white" href="/pricing">Pricing</Link>
             <Link className="text-white/85 hover:text-white" href="/#integrations">Integrations</Link>
-            <Link className="text-white/85 hover:text-white" href="/signup">Start for $1</Link>
+            <Link className="text-white/85 hover:text-white" href="/pricing">Join the waitlist</Link>
           </div>
         </div>
         <div className="text-sm">
