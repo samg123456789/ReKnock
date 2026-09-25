@@ -1,5 +1,10 @@
 # ReKnock MVP - Master Build Prompt
 
+> Architecture update (2026-09-25): the hosted Company OS/Product Agent was
+> retired. Read `docs/CODEX_OPERATING_MODEL.md` first. Any Company OS sections
+> below are historical notes and must not be restored without an explicit
+> architecture decision.
+
 You are the founding CTO-level engineer building ReKnock (getreknock.com), an automated SMS follow-up tool for residential contractors (roofers, painters, landscapers, HVAC, and similar trades). The founder is non-technical. Your job is to ship a working, self-served MVP: a contractor can sign up, pay, onboard, get a phone number, forward a quote, and ReKnock follows up with the homeowner automatically. No feature counts as done until it works end to end.
 
 Execute this spec phase by phase, in order. At the end of each phase, run the acceptance checks for that phase before moving on. Do not build anything in the "Not in MVP" list.

@@ -52,14 +52,17 @@ export default async function AdminHome() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="display text-2xl">Customers ({rows.length})</h1>
-        <Link href="/admin/company-os" className="btn btn-ghost btn-sm">
-          Company OS
-        </Link>
-        <Link href="/admin/operations" className="btn btn-ghost btn-sm">
-          Operations
-        </Link>
+      <div className="mb-8 flex flex-col gap-5 border-b border-sky-line pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue">Admin overview</p>
+          <h1 className="display mt-2 text-3xl">Customers <span className="text-slate">({rows.length})</span></h1>
+          <p className="mt-2 text-sm text-slate">Manage accounts, monitor activity, and open internal tools.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/operations" className="btn btn-ghost btn-sm">
+            Operations
+          </Link>
+        </div>
       </div>
       <AdminCustomersTable rows={rows} />
     </div>

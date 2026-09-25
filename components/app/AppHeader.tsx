@@ -102,13 +102,24 @@ export default function AppHeader() {
                   </div>
                 ) : null}
                 {me?.isAdmin ? (
-                  <Link
-                    href={inAdmin ? "/app" : "/admin"}
-                    onClick={() => setOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-left text-sm font-semibold text-blue hover:bg-sky"
-                  >
-                    {inAdmin ? "Back to my app" : "Admin dashboard"}
-                  </Link>
+                  <div className="mb-1 border-b border-sky-line pb-1">
+                    {inAdmin ? (
+                      <Link
+                        href="/app"
+                        onClick={() => setOpen(false)}
+                        className="block rounded-lg px-3 py-2 text-left text-sm font-semibold text-blue hover:bg-sky"
+                      >
+                        Back to my app
+                      </Link>
+                    ) : null}
+                    <Link
+                      href="/admin"
+                      onClick={() => setOpen(false)}
+                      className="block rounded-lg px-3 py-2 text-left text-sm font-semibold text-blue hover:bg-sky"
+                    >
+                      Admin overview
+                    </Link>
+                  </div>
                 ) : null}
                 <Link href="/settings" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-sky">
                   Settings

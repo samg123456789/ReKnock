@@ -1,4 +1,8 @@
-# Company OS agent control plane
+# Archived: Company OS agent control plane
+
+> This hosted implementation was retired on 2026-09-25. It is kept as
+> historical documentation only. The active internal operating model is
+> `docs/CODEX_OPERATING_MODEL.md`.
 
 This is the shared foundation for ReKnock's three continuously operating
 internal agents:

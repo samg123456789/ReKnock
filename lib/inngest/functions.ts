@@ -15,10 +15,6 @@ import { computeStartAt, scheduleSequence } from "@/lib/enrollment";
 import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 import { extractReplyToken, stripQuotedEmail } from "@/lib/reply-email";
 import { monthlyQuoteLimitMessage, monthlyQuoteUsage, notifyQuoteUsage } from "@/lib/quote-usage";
-import {
-  processProductAgentEvent,
-} from "@/lib/company-os/product-agent-runner";
-import { runCompassTick, runForgeTick, runSignalTick } from "@/lib/company-os/agent-ticks";
 
 // Scheduled-send engine. Every future send is a `messages` row with
 // status='scheduled'; the dispatcher cron finds due rows and fans out one
@@ -43,32 +39,6 @@ const jitterMs = (maxMinutes: number) => Math.floor(Math.random() * maxMinutes *
 function isProd(): boolean {
   return process.env.VERCEL_ENV === "production";
 }
-
-export const processProductGithubPush = inngest.createFunction(
-  { id: "process-product-github-push", retries: 2, triggers: [{ event: "product/github.push" }] },
-  async ({ event, step }) => {
-    const agentEventId = event.data.agent_event_id as string;
-    return await step.run("process-product-agent-event", async () => processProductAgentEvent(agentEventId));
-  },
-);
-
-// Shared Company OS ticks. These jobs observe existing product and operations
-// signals, create internal tasks, and keep Signal draft-only. They do not
-// modify production code, deploy, contact customers, or publish externally.
-export const compassAgentTick = inngest.createFunction(
-  { id: "company-os-compass-tick", triggers: [{ cron: "*/30 * * * *" }] },
-  async ({ step }) => step.run("run-compass-tick", runCompassTick),
-);
-
-export const forgeAgentTick = inngest.createFunction(
-  { id: "company-os-forge-tick", triggers: [{ cron: "15 * * * *" }] },
-  async ({ step }) => step.run("run-forge-tick", runForgeTick),
-);
-
-export const signalAgentTick = inngest.createFunction(
-  { id: "company-os-signal-tick", triggers: [{ cron: "0 */6 * * *" }] },
-  async ({ step }) => step.run("run-signal-tick", runSignalTick),
-);
 
 // Every 15 minutes: fire due scheduled messages + due "remind me" pings.
 // A 1-minute no-op cron alone can exhaust Inngest's free monthly execution
@@ -1154,4 +1124,4 @@ export const setupReminder = inngest.createFunction(
   },
 );
 
-export const functions = [processProductGithubPush, compassAgentTick, forgeAgentTick, signalAgentTick, scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail, onboardingDrip, testimonialAsk, monthlyRoiReport, setupReminder];
+export const functions = [scheduledSendDispatcher, sendScheduledMessage, fireReminder, retrySmsDelivery, releaseCompanyNumbers, numberReconciliation, processInboundEmail, onboardingDrip, testimonialAsk, monthlyRoiReport, setupReminder];

@@ -1,4 +1,8 @@
-# Company OS: Product Agent v1
+# Archived: Company OS Product Agent v1
+
+> This hosted implementation was retired on 2026-09-25. It is kept as
+> historical documentation only. The active internal operating model is
+> `docs/CODEX_OPERATING_MODEL.md`.
 
 The Product Agent is the first always-on Company OS agent. It runs from hosted
 infrastructure, not from a local Codex session.

@@ -67,10 +67,6 @@ Never edit tables by hand in the Supabase dashboard; always go through a migrati
   order by created_at desc
   limit 50;
   ```
-- **Re-run a failed Product Agent event:** open `/admin/company-os`, find the
-  failed run, and select **Retry run**. Message sends remain intentionally
-  manual after a provider failure; inspect Twilio delivery logs and the
-  ledger row before re-queueing one.
 - **Where every webhook lives:** GitHub `/api/webhooks/github`, Stripe
   `/api/webhooks/stripe`, Twilio `/api/webhooks/twilio` plus `/status` and
   `/voice`, Resend `/api/webhooks/resend`, and Inngest `/api/inngest`.
