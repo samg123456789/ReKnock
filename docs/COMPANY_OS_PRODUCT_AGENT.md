@@ -70,3 +70,6 @@ deployment and operations, not another agent capability:
 The admin page now exposes a **Retry run** action for failed Product Agent
 events. Duplicate webhook or Inngest deliveries are claimed atomically, so
 they cannot create duplicate AI runs.
+
+The shared control-plane foundation for Compass, Forge, and Signal is documented
+in [COMPANY_OS_AGENT_CONTROL_PLANE.md](./COMPANY_OS_AGENT_CONTROL_PLANE.md).
