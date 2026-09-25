@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { retryProductAgentEvent } from "@/lib/company-os/product-agent-actions";
 import { requireAdmin } from "@/lib/admin";
+import { AGENT_NAMES, AGENT_REGISTRY } from "@/lib/company-os/agent-registry";
 
 export const metadata = { title: "Company OS - ReKnock" };
 export const dynamic = "force-dynamic";
@@ -39,10 +40,35 @@ type ChangelogEntry = {
   compare_url: string | null;
 };
 
+type AgentTaskEntry = {
+  id: string;
+  agent: string;
+  task_type: string;
+  status: string;
+  priority: number;
+  risk: string;
+  title: string;
+  source: string;
+  created_at: string;
+  error: string | null;
+  approval_required: boolean;
+};
+
+type AgentApprovalEntry = {
+  id: string;
+  agent: string;
+  status: string;
+  title: string;
+  summary: string | null;
+  draft_content: string | null;
+  channel: string | null;
+  created_at: string;
+};
+
 export default async function CompanyOsPage() {
   const { admin } = await requireAdmin();
 
-  const [{ data: runs }, { data: changelog }, queued, failed] = await Promise.all([
+  const [{ data: runs }, { data: changelog }, queued, failed, { data: tasks }, { data: approvals }] = await Promise.all([
     admin
       .from("product_agent_runs")
       .select("id, agent_event_id, created_at, status, repository, branch, commit_sha, commit_count, summary, product_ideas, user_experience_notes, growth_revenue_notes, risks, action_items, email_to, email_sent_at, error")
@@ -55,6 +81,17 @@ export default async function CompanyOsPage() {
       .limit(8),
     admin.from("agent_events").select("id", { count: "exact", head: true }).eq("status", "queued"),
     admin.from("agent_events").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    admin
+      .from("agent_tasks")
+      .select("id, agent, task_type, status, priority, risk, title, source, created_at, error, approval_required")
+      .order("created_at", { ascending: false })
+      .limit(30),
+    admin
+      .from("agent_approvals")
+      .select("id, agent, status, title, summary, draft_content, channel, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
 
   const latestRun = (runs?.[0] as ProductRun | undefined) ?? null;
@@ -77,6 +114,53 @@ export default async function CompanyOsPage() {
           <Metric label="Failed" value={String(failed.count ?? 0)} />
         </div>
       </div>
+
+      <section>
+        <h2 className="display text-xl">Agent Registry</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          {AGENT_NAMES.map((agent) => {
+            const definition = AGENT_REGISTRY[agent];
+            const agentTasks = ((tasks ?? []) as AgentTaskEntry[]).filter((task) => task.agent === agent);
+            const open = agentTasks.filter((task) => task.status === "queued" || task.status === "claimed").length;
+            return (
+              <article key={agent} className="surface-card">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-ink">{definition.name}</h3>
+                  <span className="rounded-full bg-blue/10 px-2 py-0.5 text-xs font-bold text-blue">{definition.operatingMode.replace("_", " ")}</span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate">{definition.description}</p>
+                <p className="mt-3 text-xs text-mist">Schedule: {definition.schedule} · Open tasks: {open}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="display text-xl">Pending Approvals</h2>
+          <span className="text-sm text-mist">{approvals?.length ?? 0} shown</span>
+        </div>
+        <div className="mt-3 grid gap-3">
+          {((approvals ?? []) as AgentApprovalEntry[]).map((approval) => (
+            <article key={approval.id} className="surface-card border-amber-200">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">pending</span>
+                    <span className="text-xs font-bold uppercase text-mist">{approval.agent} · {approval.channel ?? "review"}</span>
+                  </div>
+                  <h3 className="mt-2 font-semibold text-ink">{approval.title}</h3>
+                  <p className="mt-1 text-xs text-mist">{formatDate(approval.created_at)}</p>
+                </div>
+              </div>
+              {approval.summary ? <p className="mt-3 text-sm text-slate">{approval.summary}</p> : null}
+              {approval.draft_content ? <pre className="mt-3 whitespace-pre-wrap rounded-lg bg-snow p-3 text-sm leading-6 text-slate">{approval.draft_content}</pre> : null}
+            </article>
+          ))}
+          {!approvals?.length ? <Empty text="No pending approvals. Signal drafts remain internal until a human reviews them." /> : null}
+        </div>
+      </section>
 
       <section>
         <h2 className="display text-xl">Product Changelog</h2>
@@ -104,6 +188,27 @@ export default async function CompanyOsPage() {
             </article>
           ))}
           {!changelog?.length ? <Empty text="No product changelog entries yet. The first GitHub push will create one." /> : null}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="display text-xl">Control-Plane Tasks</h2>
+        <div className="mt-3 grid gap-2">
+          {((tasks ?? []) as AgentTaskEntry[]).map((task) => (
+            <article key={task.id} className="surface-card-compact flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${statusClass(task.status)}`}>{task.status}</span>
+                  <span className="text-xs font-bold uppercase text-mist">{task.agent} · {task.task_type}</span>
+                  {task.approval_required ? <span className="text-xs font-semibold text-amber-700">approval required</span> : null}
+                </div>
+                <h3 className="mt-1 font-semibold text-ink">{task.title}</h3>
+                <p className="mt-1 text-xs text-mist">{task.source} · priority {task.priority} · risk {task.risk} · {formatDate(task.created_at)}</p>
+              </div>
+              {task.error ? <p className="max-w-md text-sm text-red-700">{task.error}</p> : null}
+            </article>
+          ))}
+          {!tasks?.length ? <Empty text="No Compass, Forge, or Signal tasks have been created yet." /> : null}
         </div>
       </section>
 
