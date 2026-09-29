@@ -21,7 +21,7 @@ export default async function Checkout({
   const { checkout } = await searchParams;
 
   return (
-    <main className="mx-auto min-h-[70vh] px-5 py-16">
+    <main className="mx-auto min-h-[calc(100vh-5.5rem)] px-5 py-8">
       {checkout === "cancelled" ? (
         <p className="mx-auto mb-8 max-w-lg rounded-xl bg-sky px-4 py-3 text-center text-sm text-blue-ink">
           No worries, nothing was charged. Pick a billing option below when you are ready.
