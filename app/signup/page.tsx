@@ -16,9 +16,6 @@ export default function Signup() {
           Use a real inbox so you can confirm your email, test checkout, and run the full onboarding flow.
         </p>
         <SignupForm testMode />
-        <p className="mt-5 text-center text-sm text-mist">
-          Already have an account? <a href="/login" className="font-semibold text-blue underline">Log in</a>
-        </p>
       </main>
     );
   }
