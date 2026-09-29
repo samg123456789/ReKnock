@@ -30,8 +30,8 @@ export function planLookup(tier: Tier, interval: Interval): string {
 // Display amounts (dollars) for the UI. Source of truth for charging is the
 // Stripe price resolved by lookup_key above.
 export const PRICING: Record<Tier, Record<Interval, number>> = {
-  founding: { monthly: 29, annual: 290 },
-  standard: { monthly: 39, annual: 390 },
+  founding: { monthly: 39, annual: 390 },
+  standard: { monthly: 79, annual: 790 },
 };
 
 // Resolve a Stripe price id by lookup_key, cached per server instance.

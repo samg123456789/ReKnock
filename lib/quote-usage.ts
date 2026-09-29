@@ -112,13 +112,12 @@ export async function notifyQuoteUsage(companyId: string): Promise<void> {
     .maybeSingle();
   if (!usage) return;
 
-  const { data: owner } = await admin
+  const { data: members } = await admin
     .from("users")
-    .select("email")
+    .select("email, notification_preferences")
     .eq("company_id", companyId)
     .not("email", "is", null)
-    .limit(1)
-    .maybeSingle();
+    .limit(100);
 
   for (const item of USAGE_NOTIFICATIONS) {
     if (usage.quote_count < item.threshold || usage[item.flag]) continue;
@@ -145,14 +144,18 @@ export async function notifyQuoteUsage(companyId: string): Promise<void> {
       },
     });
 
-    if (owner?.email && process.env.RESEND_API_KEY) {
+    const recipients = (members ?? []).filter((member) => {
+      const prefs = (member.notification_preferences as { usage?: boolean } | null) ?? {};
+      return prefs.usage !== false && Boolean(member.email);
+    }).map((member) => member.email as string);
+    if (recipients.length && process.env.RESEND_API_KEY) {
       try {
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
           body: JSON.stringify({
             from: "ReKnock <ops@getreknock.com>",
-            to: [owner.email],
+            to: recipients,
             subject: email.subject,
             text: email.text,
           }),

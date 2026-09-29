@@ -13,51 +13,14 @@ const starterFeatures: { lead: string; rest: string }[] = [
   { lead: "10-second intake.", rest: " Forward the email, snap a photo, done" },
   { lead: "See the money.", rest: " Quotes chased, jobs won, revenue recovered" },
 ];
-const growthFeatures = [
-  "Everything in Starter",
-  "Direct integrations with the tools you already use",
-  "Auto Google-review requests after won jobs",
-  "Missed-call text-back",
-];
-const crewFeatures = ["Everything in Growth", "Up to 5 team members", "3 texting numbers included", "Per-estimator reporting"];
-
-function ComingSoon({ name, blurb, price, features }: { name: string; blurb: string; price: number; features: string[] }) {
-  return (
-    <div className="card relative mt-4 flex flex-col p-6 opacity-70 grayscale-[0.3]">
-      <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full border border-[#e4e7ec] bg-[#f2f4f7] px-3 py-1 text-xs font-bold tracking-wide text-mist">
-        COMING SOON
-      </span>
-      <div className="flex items-baseline justify-between">
-        <h2 className="display text-2xl text-slate">{name}</h2>
-        <p className="text-slate"><span className="display text-3xl">${price}</span><span className="text-sm text-mist">/mo</span></p>
-      </div>
-      <p className="mt-1 text-sm text-mist">{blurb}</p>
-      <ul className="mt-4 space-y-2">
-        {features.map((f) => (
-          <li key={f} className="flex gap-2 text-sm text-mist">
-            <span aria-hidden className="text-mist">✓</span>
-            {f}
-          </li>
-        ))}
-      </ul>
-      <a
-        href={`mailto:hello@getreknock.com?subject=Waitlist: ${name} plan`}
-        className="mt-5 btn btn-ghost"
-      >
-        Join the waitlist
-      </a>
-    </div>
-  );
-}
-
 export default function CheckoutPlan({ available, spotsLeft }: { available: boolean; spotsLeft: number }) {
-  const [annual, setAnnual] = useState(false);
+  const [annual, setAnnual] = useState(true);
   const interval = annual ? "annual" : "monthly";
 
   const tier = available ? "founding" : "standard";
   const price = PRICING[tier];
   const monthlyEquivalent = annual ? Math.round(price.annual / 12) : price.monthly;
-  const struckMonthlyEquivalent = annual ? Math.round(PRICING.standard.annual / 12) : PRICING.standard.monthly;
+  const standardMonthly = PRICING.standard.monthly;
 
   const toggleBtn = (active: boolean) =>
     `cursor-pointer rounded-full px-5 py-2 text-sm font-semibold transition-colors ${active ? "bg-blue text-white" : "text-slate hover:text-ink"}`;
@@ -81,7 +44,7 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
           </button>
           <button type="button" onClick={() => setAnnual(true)} className={toggleBtn(annual)}>
             Annual
-            <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${annual ? "bg-white/20 text-white" : "bg-sky text-blue"}`}>2 months free</span>
+            <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${annual ? "bg-white/20 text-white" : "bg-sky text-blue"}`}>✦ 2 months free</span>
           </button>
         </div>
       </div>
@@ -94,12 +57,12 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
         <p className="mt-5">
           <span className="display text-6xl">${monthlyEquivalent}</span>
           <span className="text-sm text-mist">/month</span>{" "}
-          {available && <span className="text-lg text-mist line-through">${struckMonthlyEquivalent}</span>}
-          {annual && <span className="mt-1 block text-sm text-slate">billed ${price.annual} once a year</span>}
+          {annual ? <span className="ml-2 text-lg text-mist line-through">${standardMonthly * 12}</span> : available ? <span className="text-lg text-mist line-through">${standardMonthly}</span> : null}
+          {annual && <span className="mt-1 block text-sm text-slate">billed ${price.annual} once a year · 2 months free</span>}
         </p>
 
         {available ? (
-          <p className="mt-1 text-sm font-semibold text-blue">Founding rate · {spotsLeft} of 20 spots left · locked for life</p>
+          <p className="mt-1 text-sm font-semibold text-blue">Founding rate · ${price.monthly}/month · {spotsLeft} of 20 spots left · locked for life</p>
         ) : (
           <p className="mt-1 text-sm text-slate">Standard rate</p>
         )}
@@ -127,8 +90,6 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
         </p>
       </div>
 
-      <ComingSoon name="Growth" blurb="For shops running on other tools too." price={79} features={growthFeatures} />
-      <ComingSoon name="Crew" blurb="For teams with more than one estimator." price={149} features={crewFeatures} />
     </div>
   );
 }

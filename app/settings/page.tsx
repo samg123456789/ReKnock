@@ -16,7 +16,7 @@ export default async function Settings() {
   if (!cid) redirect("/app");
 
   // Independent queries run in parallel (was 5 serial round-trips).
-  const [{ data: company }, { data: voice }, { data: windows }, { data: owner }, { data: phone }, { data: senders }, { data: interests }] =
+  const [{ data: company }, { data: voice }, { data: windows }, { data: owner }, { data: phone }, { data: senders }, { data: interests }, { data: team }, { data: invites }, { data: me }] =
     await Promise.all([
       sb
         .from("companies")
@@ -38,6 +38,9 @@ export default async function Settings() {
       sb.from("phone_numbers").select("status, e164").eq("company_id", cid).maybeSingle(),
       sb.from("company_sender_emails").select("id, email, verified_at").eq("company_id", cid).order("created_at", { ascending: true }),
       sb.from("events").select("payload").eq("company_id", cid).eq("type", "feature_interest"),
+      sb.from("users").select("id, full_name, email, role, notification_preferences, created_at").eq("company_id", cid).order("created_at", { ascending: true }),
+      sb.from("company_invitations").select("id, email, role, expires_at, created_at").eq("company_id", cid).is("accepted_at", null).order("created_at", { ascending: false }),
+      sb.from("users").select("id, role, notification_preferences").eq("id", acting.actorUserId).maybeSingle(),
     ]);
 
   const rawQ = voice?.questionnaire as Record<string, unknown> | null;
@@ -105,6 +108,11 @@ export default async function Settings() {
                 .filter(Boolean),
             ),
           )}
+          team={(team ?? []).map((member) => ({ id: member.id as string, name: member.full_name as string | null, email: member.email as string | null, role: member.role as string, createdAt: member.created_at as string }))}
+          pendingInvites={(invites ?? []).map((invite) => ({ id: invite.id as string, email: invite.email as string, role: invite.role as string, expiresAt: invite.expires_at as string }))}
+          currentUserId={me?.id as string | undefined}
+          currentUserRole={me?.role as string | undefined}
+          notificationPreferences={(me?.notification_preferences as Record<string, boolean> | null) ?? undefined}
         />
       </div>
     </main>

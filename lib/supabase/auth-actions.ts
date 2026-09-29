@@ -42,7 +42,8 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) return { error: "That email or password did not work. Try again." };
-  redirect("/app");
+  const next = String(formData.get("next") ?? "/app");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/app");
 }
 
 export async function sendMagicLink(_prev: AuthState, formData: FormData): Promise<AuthState> {

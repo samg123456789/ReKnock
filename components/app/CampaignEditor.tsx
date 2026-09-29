@@ -4,6 +4,7 @@ import { useState } from "react";
 import { saveCampaignSteps, previewStepMessage } from "@/lib/campaign-actions";
 import { DEFAULT_CAMPAIGN_STEPS, STEP_INTENT_OPTIONS, MANUAL_STEP_VALUE, MANUAL_STEP_LABEL, type CampaignStep } from "@/lib/campaign";
 import Switch from "@/components/ui/Switch";
+import InfoTip from "@/components/InfoTip";
 
 const input = "rk-input text-sm";
 
@@ -132,7 +133,7 @@ export default function CampaignEditor({ campaignId, campaignName, isDefault, in
 
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold text-mist">Send this many days after the quote</span>
+                <span className="text-[11px] font-semibold text-mist">Send this many days after the quote <InfoTip label="About timing">Day 0 means the first touch starts with the quote. ReKnock still respects sending hours and reply freezes.</InfoTip></span>
                 <input className={input} type="number" min={0} max={365} value={s.day_offset} onChange={(e) => update(i, { day_offset: Math.max(0, Math.round(Number(e.target.value) || 0)) })} disabled={!on} />
               </label>
               <label className="flex flex-col gap-1">
@@ -140,7 +141,7 @@ export default function CampaignEditor({ campaignId, campaignName, isDefault, in
                 <input className={input} type="time" value={s.preferred_time ?? ""} onChange={(e) => update(i, { preferred_time: e.target.value || undefined })} disabled={!on} />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold text-mist">What this message is for</span>
+                <span className="text-[11px] font-semibold text-mist">What this message is for <InfoTip label="About message purpose">Pick the job this touch should do. Compass uses the purpose to draft a better message in the contractor&apos;s voice.</InfoTip></span>
                 <select className={input} value={s.mode} onChange={(e) => update(i, { mode: e.target.value })} disabled={!on}>
                   {STEP_INTENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   {s.mode !== MANUAL_STEP_VALUE && !STEP_INTENT_OPTIONS.some((o) => o.value === s.mode) ? <option value={s.mode}>{s.mode}</option> : null}

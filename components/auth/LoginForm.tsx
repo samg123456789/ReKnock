@@ -6,7 +6,7 @@ import { signIn, sendMagicLink, type AuthState } from "@/lib/supabase/auth-actio
 import GoogleButton from "@/components/auth/GoogleButton";
 import PasswordInput from "@/components/auth/PasswordInput";
 
-export default function LoginForm() {
+export default function LoginForm({ next = "/app" }: { next?: string }) {
   const [showMagicLink, setShowMagicLink] = useState(false);
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, undefined);
   const [linkState, linkAction, linkPending] = useActionState<AuthState, FormData>(
@@ -16,7 +16,7 @@ export default function LoginForm() {
 
   return (
     <div className="mt-8 flex flex-col gap-6">
-      <GoogleButton next="/app" label="Log in with Google" />
+      <GoogleButton next={next} label="Log in with Google" />
 
       <div className="flex items-center gap-3 text-sm text-mist">
         <span className="h-px flex-1 bg-slate/15" />
@@ -25,6 +25,7 @@ export default function LoginForm() {
       </div>
 
       <form action={action} className="flex flex-col gap-4">
+        <input type="hidden" name="next" value={next} />
         <label className="flex flex-col gap-1">
           <span className="text-sm font-semibold text-slate">Email</span>
           <input
@@ -98,7 +99,7 @@ export default function LoginForm() {
       <p className="text-center text-sm text-slate">
         New here?{" "}
         <Link href="/signup" className="font-semibold text-blue underline">
-          Start for $1
+          Join the waitlist
         </Link>
       </p>
     </div>

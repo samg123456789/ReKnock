@@ -31,14 +31,13 @@ export async function sendReplyNotificationEmail(opts: {
   homeownerMessage: string;
 }) {
   const admin = createAdminClient();
-  const [{ data: owner }, { data: prospect }] = await Promise.all([
+  const [{ data: owners }, { data: prospect }] = await Promise.all([
     admin
       .from("users")
-      .select("email, full_name")
+      .select("email, full_name, notification_preferences")
       .eq("company_id", opts.companyId)
       .not("email", "is", null)
-      .limit(1)
-      .maybeSingle(),
+      .limit(100),
     admin
       .from("prospects")
       .select("job_type, quote_amount")
@@ -46,20 +45,14 @@ export async function sendReplyNotificationEmail(opts: {
       .maybeSingle(),
   ]);
 
-  if (!owner?.email || !process.env.RESEND_API_KEY) return { sent: false, skipped: "missing_email" };
-
-  const token = crypto.randomBytes(12).toString("base64url").toLowerCase();
-  const { error } = await admin.from("email_reply_sessions").insert({
-    company_id: opts.companyId,
-    prospect_id: opts.prospectId,
-    owner_email: owner.email.toLowerCase(),
-    token,
+  const recipients = (owners ?? []).filter((owner) => {
+    const prefs = (owner.notification_preferences as { replies?: boolean } | null) ?? {};
+    return prefs.replies !== false && Boolean(owner.email);
   });
-  if (error) return { sent: false, skipped: "session_error" };
+  if (!recipients.length || !process.env.RESEND_API_KEY) return { sent: false, skipped: "missing_email" };
 
   const appUrl = env.appUrl();
   const threadUrl = `${appUrl}/inbox?p=${opts.prospectId}`;
-  const replyTo = `${REPLY_LOCAL_PREFIX}${token}@getreknock.com`;
   const jobLine = prospect?.job_type ? `\nJob: ${prospect.job_type}` : "";
   const subject = `${opts.homeownerName} replied to your ReKnock follow-up`;
   const text = [
@@ -75,23 +68,25 @@ export async function sendReplyNotificationEmail(opts: {
     "Keep it short and direct. We add the required opt-out line automatically when needed.",
   ].join("\n");
 
-  const resp = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      from: NOTIFY_FROM,
-      to: [owner.email],
-      reply_to: `ReKnock Reply <${replyTo}>`,
-      subject,
-      text,
-    }),
-  });
-  if (!resp.ok) return { sent: false, skipped: `resend_${resp.status}` };
+  let sent = 0;
+  for (const owner of recipients) {
+    const token = crypto.randomBytes(12).toString("base64url").toLowerCase();
+    const { error } = await admin.from("email_reply_sessions").insert({ company_id: opts.companyId, prospect_id: opts.prospectId, owner_email: owner.email!.toLowerCase(), token });
+    if (error) continue;
+    const replyTo = `${REPLY_LOCAL_PREFIX}${token}@getreknock.com`;
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ from: NOTIFY_FROM, to: [owner.email], reply_to: `ReKnock Reply <${replyTo}>`, subject, text }),
+    });
+    if (resp.ok) sent += 1;
+  }
+  if (!sent) return { sent: false, skipped: "resend_failed" };
 
   await admin.from("events").insert({
     company_id: opts.companyId,
     type: "reply_email_notification_sent",
     payload: { prospect_id: opts.prospectId },
   });
-  return { sent: true };
+  return { sent: true, recipients: sent };
 }

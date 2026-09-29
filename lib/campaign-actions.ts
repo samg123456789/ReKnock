@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getActingCompany } from "@/lib/acting-company";
 import { generateText } from "@/lib/ai";
 import { buildFollowupDrafterPrompt, enforceCompliance, fillTemplate } from "@/lib/prompts/followup-drafter";
-import { DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
+import { CAMPAIGN_PRESETS, DEFAULT_CAMPAIGN_STEPS, type CampaignStep } from "@/lib/campaign";
 
 export type CampaignResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 export type CampaignSummary = { id: string; name: string; is_default: boolean; steps: CampaignStep[] };
@@ -57,7 +57,8 @@ export async function createCampaign(formData: FormData): Promise<void> {
   const a = await acting();
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   if (!name) return;
-  await a.client.from("campaigns").insert({ company_id: a.companyId!, name, is_default: false, steps: DEFAULT_CAMPAIGN_STEPS });
+  const preset = CAMPAIGN_PRESETS.find((p) => p.key === String(formData.get("preset") ?? "standard"));
+  await a.client.from("campaigns").insert({ company_id: a.companyId!, name, is_default: false, steps: preset?.steps ?? DEFAULT_CAMPAIGN_STEPS });
   revalidatePath("/campaign");
 }
 

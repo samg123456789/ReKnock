@@ -8,10 +8,10 @@
 // Prices:
 //   trial_first_week  $1   one-time  ($1 charged up front for week one; the
 //                                     plan then starts after a 7-day trial)
-//   founding_monthly  $29  / month   (locked for life, first 20 customers)
-//   founding_annual   $290 / year    (2 months free)
-//   standard_monthly  $39  / month
-//   standard_annual   $390 / year    (2 months free)
+//   founding_monthly  $39  / month   (locked for life, first 20 customers)
+//   founding_annual   $390 / year    (2 months free)
+//   standard_monthly  $79  / month
+//   standard_annual   $790 / year    (2 months free)
 
 import Stripe from "stripe";
 
@@ -30,10 +30,10 @@ const stripe = new Stripe(key);
 const PRODUCT_NAME = "ReKnock";
 const PRICES = [
   { lookup_key: "trial_first_week", unit_amount: 100, interval: null, nickname: "$1 first week" },
-  { lookup_key: "founding_monthly", unit_amount: 2900, interval: "month", nickname: "Founding $29/mo" },
-  { lookup_key: "founding_annual", unit_amount: 29000, interval: "year", nickname: "Founding $290/yr" },
-  { lookup_key: "standard_monthly", unit_amount: 3900, interval: "month", nickname: "Standard $39/mo" },
-  { lookup_key: "standard_annual", unit_amount: 39000, interval: "year", nickname: "Standard $390/yr" },
+  { lookup_key: "founding_monthly", unit_amount: 3900, interval: "month", nickname: "Founding $39/mo" },
+  { lookup_key: "founding_annual", unit_amount: 39000, interval: "year", nickname: "Founding $390/yr" },
+  { lookup_key: "standard_monthly", unit_amount: 7900, interval: "month", nickname: "Standard $79/mo" },
+  { lookup_key: "standard_annual", unit_amount: 79000, interval: "year", nickname: "Standard $790/yr" },
 ];
 
 async function ensureProduct() {
@@ -44,7 +44,23 @@ async function ensureProduct() {
 
 async function ensurePrice(productId, def) {
   const found = await stripe.prices.search({ query: `lookup_key:"${def.lookup_key}"` });
-  if (found.data[0]) return found.data[0];
+  if (found.data[0]) {
+    const current = found.data[0];
+    if (current.unit_amount === def.unit_amount) return current;
+    // Stripe prices are immutable. Create the replacement and transfer the
+    // lookup key so the app resolves the new amount without a code change.
+    const replacement = await stripe.prices.create({
+      product: productId,
+      currency: "usd",
+      unit_amount: def.unit_amount,
+      ...(def.interval ? { recurring: { interval: def.interval } } : {}),
+      lookup_key: def.lookup_key,
+      transfer_lookup_key: true,
+      nickname: def.nickname,
+    });
+    await stripe.prices.update(current.id, { active: false });
+    return replacement;
+  }
   return stripe.prices.create({
     product: productId,
     currency: "usd",

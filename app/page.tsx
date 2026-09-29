@@ -130,7 +130,7 @@ const faqs = [
   },
   {
     q: "What does Starter include?",
-    a: "Starter includes your dedicated number, voice-matched follow-up sequences, and up to 100 new quotes each month. Join the waitlist and we'll let you know when access opens.",
+    a: "Starter includes your dedicated number, voice-matched follow-up sequences, and up to 100 new quotes each month. Founding access is $39/month or $390/year, locked for life.",
   },
 ];
 
@@ -152,7 +152,7 @@ export default function Home() {
     operatingSystem: "Web",
     description:
       "Automatic SMS follow-up for contractor quotes. Contractors customize the follow-up timing and wording, and ReKnock stops instantly when the homeowner replies.",
-    offers: { "@type": "Offer", price: "29", priceCurrency: "USD" },
+    offers: { "@type": "Offer", price: "39", priceCurrency: "USD" },
     url: "https://getreknock.com",
   };
 
@@ -190,7 +190,7 @@ export default function Home() {
             <div className="rise rise-3 mt-8 flex flex-wrap items-center gap-4">
               <CTA big />
               <p className="font-mono text-sm text-mist">
-                $29/mo or $290/year · founding rate locked for life
+                $39/mo or $390/year · founding rate locked for life
               </p>
             </div>
           </div>
@@ -338,7 +338,7 @@ export default function Home() {
             </div>
             <p className="max-w-sm text-slate">
               Tell us which connection would save you the most time. Direct
-              integrations are rolling out to Growth plans.
+              additional channels and integrations are coming later as we learn from the first contractors.
             </p>
           </div>
           <div className="mt-10 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
@@ -389,7 +389,7 @@ export default function Home() {
         <div className="mx-auto max-w-4xl px-5 py-16 text-center md:py-24">
           <h2 className="display text-4xl md:text-5xl">Pricing is set. Access opens soon.</h2>
           <p className="mx-auto mt-4 max-w-xl text-lg text-slate">
-            Starter is planned at $29/month or $290/year, with the founding rate
+            Starter is planned at $79/month, with founding access at $39/month or $390/year
             locked for life for our first 20 contractors. We&apos;re pausing new
             accounts while we prepare the next group.
           </p>

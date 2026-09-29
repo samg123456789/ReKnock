@@ -8,6 +8,7 @@ import type { BusinessIdentity } from "@/lib/twilio-business-profile";
 import TradePicker from "@/components/onboarding/TradePicker";
 import NumberPicker from "@/components/app/NumberPicker";
 import PhoneVerificationPanel from "@/components/app/PhoneVerificationPanel";
+import InfoTip from "@/components/InfoTip";
 import {
   saveCompanyBasics,
   saveBusinessIdentity,
@@ -343,20 +344,20 @@ export default function OnboardingWizard({
       <div className="app-shell grid gap-6 lg:grid-cols-[280px_1fr] lg:items-start">
         <aside className="app-panel p-6 lg:sticky lg:top-24">
           <span className="ai-chip">AI setup</span>
-          <h2 className="display mt-4 text-2xl">Build your follow-up agent</h2>
+          <h2 className="display mt-4 text-2xl">Get your first quote ready</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate">
-            Eight focused steps. Each answer makes your business and customer messaging ready for launch.
+            A few focused steps, then we will show you the exact follow-up plan for a real quote. Most contractors finish in about five minutes.
           </p>
           <div className="mt-6 space-y-3">
             {[
               "Business",
-              "Business identity",
+              "Business details",
               "Voice",
               "Review",
               "Hours",
               "Owner phone",
               "Number",
-              "Launch",
+              "First quote",
             ].map((label, i) => (
               <div key={label} className="flex items-center gap-3">
                 <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${i < step ? "bg-mint/15 text-mint" : i === step ? "bg-blue text-white" : "bg-sky text-blue"}`}>
@@ -655,7 +656,7 @@ export default function OnboardingWizard({
           <h1 className="display text-3xl md:text-4xl">Your sending hours.</h1>
           <p className="mt-3 text-slate">These are the times homeowners actually reply. We never text before 8am or after 9pm regardless.</p>
           <label className="mt-6 flex flex-col gap-1">
-            <span className="text-sm font-semibold text-slate">What market are you based in?</span>
+            <span className="text-sm font-semibold text-slate">What market are you based in? <InfoTip label="Why we ask for your market">This sets the local time window for automated texts. Homeowners should not get a follow-up at an odd hour.</InfoTip></span>
             <select className={input} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
               {US_MARKETS.map((m) => (
                 <option key={m.tz} value={m.tz}>{m.label}</option>

@@ -17,6 +17,21 @@ export const DEFAULT_CAMPAIGN_STEPS: CampaignStep[] = [
   { day_offset: 20, preferred_time: "10:00", intent: "final courteous close", enabled: true },
 ];
 
+export const CAMPAIGN_PRESETS = [
+  { key: "standard", name: "Standard quote", description: "The recommended plan for most new quotes.", steps: DEFAULT_CAMPAIGN_STEPS },
+  { key: "high_value", name: "High-value project", description: "More room for questions on larger or longer decisions.", steps: [
+    { day_offset: 3, preferred_time: "10:00", intent: "gentle check-in", enabled: true },
+    { day_offset: 8, preferred_time: "10:00", intent: "answer questions / remove friction", enabled: true },
+    { day_offset: 16, preferred_time: "10:00", intent: "still interested", enabled: true },
+    { day_offset: 30, preferred_time: "10:00", intent: "final courteous close", enabled: true },
+  ] satisfies CampaignStep[] },
+  { key: "revive", name: "Revive an old quote", description: "A shorter restart for quotes that went quiet.", steps: [
+    { day_offset: 0, preferred_time: "10:00", intent: "gentle check-in", enabled: true },
+    { day_offset: 3, preferred_time: "10:00", intent: "value nudge", enabled: true },
+    { day_offset: 7, preferred_time: "10:00", intent: "final courteous close", enabled: true },
+  ] satisfies CampaignStep[] },
+] as const;
+
 // Preset intents offered in the editor. The stored intent value doubles as
 // drafting guidance for the AI, so values stay lowercase prose; labels are
 // what the contractor sees in the dropdown.

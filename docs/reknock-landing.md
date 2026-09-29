@@ -16,7 +16,7 @@ You quoted it. Then... nothing.
 ReKnock texts your homeowners after every quote - politely, in your own words - until they answer. The second they reply, it stops and hands the conversation to you.
 
 **CTA button:** Start for $1 →
-**Under-button microcopy:** $1 for your first week. Then $39/month. Cancel with one tap.
+**Under-button microcopy:** $1 for your first week. Then $79/month, or $39/month if you join as a founding contractor. Cancel with one tap.
 
 ---
 
@@ -57,7 +57,7 @@ Say you send 10 quotes a month and close 3.
 
 Following up 4 times instead of 0 doesn't need to work miracles. If it turns one dead quote a month into a job - one $4,000 fence, one $8,000 roof repair - that's the tool paid for until 2035.
 
-$39 a month. Less than a box of deck screws says you'll close more.
+$79 a month. Less than one missed job says you'll close more.
 
 ---
 
@@ -68,7 +68,7 @@ $39 a month. Less than a box of deck screws says you'll close more.
 - **Not spam.** Four texts max, spread over three weeks, about the quote they asked you for. One "STOP" and they never hear from us again.
 - **Not a robot talking to your customers.** The follow-ups are pre-written with you, in your words. The moment there's a real conversation, it's you - from your own phone.
 - **Not another CRM.** No pipelines, no dashboards to feed, no 40-hour setup. If you can send a text, you can run ReKnock.
-- **Not $299/month.** The big "follow-up platforms" charge that. This does the part that matters for $39.
+- **Not $299/month.** The big "follow-up platforms" charge that. This does the part that matters for $79.
 
 ---
 
@@ -77,7 +77,7 @@ $39 a month. Less than a box of deck screws says you'll close more.
 **Header:** Try it for a dollar.
 
 **$1 - first week.** Card up front, because tire-kickers don't close jobs. Your first 50 follow-up texts included.
-**$39/month after.** Unlimited quotes. Cancel anytime, no phone call required.
+**$79/month after.** Unlimited follow-up sequences within the plan allowance. Cancel anytime, no phone call required.
 
 **CTA button:** Start for $1 →
 

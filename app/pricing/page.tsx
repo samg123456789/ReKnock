@@ -5,7 +5,7 @@ import { foundingStatus } from "@/lib/founding";
 export const metadata: Metadata = {
   title: "Pricing - ReKnock",
   description:
-    "ReKnock pricing: $29/month or $290/year, with a founding rate locked for life for the first 20 contractors. Join the waitlist for access.",
+    "ReKnock pricing: Starter is $79/month, with a founding rate of $39/month locked for life for the first 20 contractors. Annual billing includes two months free.",
   alternates: { canonical: "https://getreknock.com/pricing" },
 };
 
@@ -27,8 +27,10 @@ export default async function Pricing() {
     name: "ReKnock",
     description: "Automatic SMS follow-up for contractor quotes.",
     offers: [
-      { "@type": "Offer", name: "Starter (founding, monthly)", price: "29", priceCurrency: "USD" },
-      { "@type": "Offer", name: "Starter (founding, annual)", price: "290", priceCurrency: "USD" },
+      { "@type": "Offer", name: "Starter (standard, monthly)", price: "79", priceCurrency: "USD" },
+      { "@type": "Offer", name: "Starter (standard, annual)", price: "790", priceCurrency: "USD" },
+      { "@type": "Offer", name: "Starter (founding, monthly)", price: "39", priceCurrency: "USD" },
+      { "@type": "Offer", name: "Starter (founding, annual)", price: "390", priceCurrency: "USD" },
     ],
   };
   return (

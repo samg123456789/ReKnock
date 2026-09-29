@@ -8,6 +8,7 @@ import { saveCompanyBasics, saveBusinessIdentity, saveSchedule, generateVoicePro
 import { addSenderEmail, removeSenderEmail, logFeatureInterest } from "@/lib/settings-actions";
 import { createBillingPortalSession } from "@/lib/billing-actions";
 import PhoneVerificationPanel from "@/components/app/PhoneVerificationPanel";
+import { inviteTeamMember, updateNotificationPreferences } from "@/lib/team-actions";
 
 type Basics = { name: string; website: string; description: string; heard_about: string; avg_quote_amount: string; quotes_per_month: string };
 type Window = { day_of_week: number; start_time: string; end_time: string; enabled: boolean };
@@ -22,7 +23,6 @@ const COMING_SOON: [string, string][] = [
   ["Integrations", "Connect your CRM and other tools."],
   ["WhatsApp channel", "Follow up over WhatsApp, not just SMS."],
   ["Email channel", "Send follow-ups by email too."],
-  ["Team seats", "Add teammates to your account."],
 ];
 
 const input = "rk-input text-base";
@@ -48,6 +48,39 @@ function SaveBtn({ onClick, state }: { onClick: () => void; state: "" | "saving"
   );
 }
 
+function TeamCard({ team, pendingInvites, currentUserId, currentUserRole, notificationPreferences }: {
+  team: { id: string; name: string | null; email: string | null; role: string; createdAt: string }[];
+  pendingInvites: { id: string; email: string; role: string; expiresAt: string }[];
+  currentUserId?: string;
+  currentUserRole?: string;
+  notificationPreferences?: Record<string, boolean>;
+}) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"member" | "admin">("member");
+  const [state, setState] = useState("");
+  const [prefs, setPrefs] = useState({ replies: true, delivery: true, usage: true, weekly: true, ...notificationPreferences });
+  const canManage = currentUserRole === "owner" || currentUserRole === "admin";
+  async function invite() {
+    setState("saving");
+    const result = await inviteTeamMember(email, role);
+    setState(result.ok ? "Invite sent" : result.error);
+    if (result.ok) setEmail("");
+  }
+  async function savePrefs() {
+    setState("saving");
+    const result = await updateNotificationPreferences(prefs);
+    setState(result.ok ? "Notifications saved" : result.error);
+  }
+  return <Card title="Team and notifications" id="team">
+    <p className="text-sm leading-relaxed text-slate">Add people without adding seat charges. Everyone shares the workspace, while usage remains the billing boundary.</p>
+    <div className="mt-4 flex flex-col gap-2">{team.map((member) => <div key={member.id} className="surface-card-compact flex flex-wrap items-center gap-2"><div className="min-w-0 flex-1"><p className="truncate font-semibold text-ink">{member.name || member.email || "Team member"}</p><p className="truncate text-xs text-mist">{member.email}</p></div><span className="rounded-full bg-sky px-2.5 py-1 text-xs font-semibold text-blue">{member.role}{member.id === currentUserId ? " · you" : ""}</span></div>)}</div>
+    {pendingInvites.length ? <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-3 text-sm"><p className="font-semibold text-ink">Pending invites</p>{pendingInvites.map((invite) => <p key={invite.id} className="mt-1 text-slate">{invite.email} · {invite.role}</p>)}</div> : null}
+    {canManage ? <div className="mt-5 border-t border-sky-line pt-5"><p className="text-sm font-semibold text-ink">Invite a teammate</p><div className="mt-2 flex flex-col gap-2 sm:flex-row"><input className={`${input} flex-1`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teammate@yourbusiness.com" /><select className={input} value={role} onChange={(e) => setRole(e.target.value as "member" | "admin")}><option value="member">Member</option><option value="admin">Admin</option></select><button type="button" className="btn btn-primary" disabled={!email.trim() || state === "saving"} onClick={invite}>{state === "saving" ? "Sending..." : "Invite"}</button></div></div> : null}
+    <div className="mt-5 border-t border-sky-line pt-5"><p className="text-sm font-semibold text-ink">Your notifications</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{([ ["replies", "Customer replies"], ["delivery", "Delivery problems"], ["usage", "Usage warnings"], ["weekly", "Weekly summary"] ] as const).map(([key, label]) => <label key={key} className="surface-card-compact flex items-center justify-between gap-3 text-sm"><span>{label}</span><input type="checkbox" checked={prefs[key]} onChange={(e) => setPrefs({ ...prefs, [key]: e.target.checked })} /></label>)}</div><button type="button" className="btn btn-ghost mt-3" onClick={savePrefs} disabled={state === "saving"}>Save notification settings</button></div>
+    {state && state !== "saving" ? <p className="mt-3 text-sm text-slate">{state}</p> : null}
+  </Card>;
+}
+
 export default function SettingsClient(props: {
   initialBasics: Basics;
   businessIdentity: BusinessIdentity | null;
@@ -64,6 +97,11 @@ export default function SettingsClient(props: {
   numberStatus: string | null;
   numberE164: string | null;
   initialNotified?: string[];
+  team: { id: string; name: string | null; email: string | null; role: string; createdAt: string }[];
+  pendingInvites: { id: string; email: string; role: string; expiresAt: string }[];
+  currentUserId?: string;
+  currentUserRole?: string;
+  notificationPreferences?: Record<string, boolean>;
 }) {
   const [basics, setBasics] = useState(props.initialBasics);
   const [identity, setIdentity] = useState<BusinessIdentity>(props.businessIdentity ?? {
@@ -110,6 +148,7 @@ export default function SettingsClient(props: {
 
   return (
     <div>
+      <TeamCard team={props.team} pendingInvites={props.pendingInvites} currentUserId={props.currentUserId} currentUserRole={props.currentUserRole} notificationPreferences={props.notificationPreferences} />
       <Card id="forwarding" title="Quote forwarding">
         <p className="text-sm text-slate">Forward or BCC quote emails to your ReKnock address and we start chasing them:</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
