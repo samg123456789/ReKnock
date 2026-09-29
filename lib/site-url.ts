@@ -6,11 +6,14 @@ import { env } from "@/lib/env";
 // so they always point back to the same deployment (preview, localhost, prod)
 // instead of a hardcoded APP_URL. Falls back to APP_URL if headers are absent.
 export async function siteOrigin(): Promise<string> {
-  // Vercel's deployment URL is the safest source for auth and checkout links
-  // in preview. A forwarded host can be the production custom domain when a
-  // preview is opened from an existing browser session.
-  if (process.env.VERCEL_ENV !== "production" && process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
+  // Branch previews can be reported as "production" by Vercel when a project
+  // uses a production branch. Use the stable branch URL so confirmation links
+  // return to the same origin as the page that started signup, not a one-off
+  // deployment URL or the production custom domain.
+  const isPreview = process.env.VERCEL_GIT_COMMIT_REF !== "main" || process.env.VERCEL_ENV !== "production";
+  if (isPreview) {
+    const previewHost = process.env.VERCEL_BRANCH_URL ?? process.env.VERCEL_URL;
+    if (previewHost) return `https://${previewHost}`;
   }
 
   const h = await headers();

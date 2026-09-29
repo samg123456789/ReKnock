@@ -21,7 +21,11 @@ export default function ConfirmationWatcher() {
     };
 
     void continueIfConfirmed();
-    const interval = window.setInterval(() => void continueIfConfirmed(), 2500);
+    const interval = window.setInterval(() => void continueIfConfirmed(), 1000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void continueIfConfirmed();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (active && session) {
         setConfirmed(true);
@@ -32,6 +36,7 @@ export default function ConfirmationWatcher() {
     return () => {
       active = false;
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       listener.subscription.unsubscribe();
     };
   }, []);
