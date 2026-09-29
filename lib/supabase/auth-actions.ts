@@ -56,7 +56,8 @@ async function createPreviewAccount({
     `${DEV_PREVIEW_ORIGIN}/auth/confirm?next=/app`,
   );
   const confirmationUrl = confirmationUrlObject.toString();
-  if (!confirmationUrl.includes(DEV_PREVIEW_ORIGIN)) {
+  const confirmationRedirect = confirmationUrlObject.searchParams.get("redirect_to");
+  if (confirmationRedirect !== `${DEV_PREVIEW_ORIGIN}/auth/confirm?next=/app`) {
     if (data.user?.id) await admin.auth.admin.deleteUser(data.user.id);
     return "Preview signup was routed to the wrong environment. Please try again.";
   }
