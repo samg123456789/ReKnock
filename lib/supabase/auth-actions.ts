@@ -50,7 +50,12 @@ async function createPreviewAccount({
     return readableAuthError(error, "We could not create your account. Please try again.");
   }
 
-  const confirmationUrl = data.properties.action_link;
+  const confirmationUrlObject = new URL(data.properties.action_link);
+  confirmationUrlObject.searchParams.set(
+    "redirect_to",
+    `${DEV_PREVIEW_ORIGIN}/auth/confirm?next=/app`,
+  );
+  const confirmationUrl = confirmationUrlObject.toString();
   if (!confirmationUrl.includes(DEV_PREVIEW_ORIGIN)) {
     if (data.user?.id) await admin.auth.admin.deleteUser(data.user.id);
     return "Preview signup was routed to the wrong environment. Please try again.";
