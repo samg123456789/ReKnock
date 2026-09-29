@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { siteOrigin } from "@/lib/site-url";
 import { passwordValid, PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/password";
 
@@ -17,6 +18,70 @@ function readableAuthError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+async function createPreviewAccount({
+  email,
+  password,
+  fullName,
+  origin,
+}: {
+  email: string;
+  password: string;
+  fullName: string;
+  origin: string;
+}): Promise<string | null> {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!serviceRoleKey || !resendKey) {
+    return "Preview signup is not configured yet. Please contact the ReKnock team.";
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "signup",
+    email,
+    password,
+    options: {
+      data: { full_name: fullName, reknock_test_account: true },
+      redirectTo: `${origin}/auth/confirm?next=/app`,
+    },
+  });
+
+  if (error || !data.properties?.action_link) {
+    return readableAuthError(error, "We could not create your account. Please try again.");
+  }
+
+  const confirmationUrl = data.properties.action_link;
+  const html = `
+    <div style="margin:0;background:#f4f8fc;padding:40px 16px;font-family:Arial,Helvetica,sans-serif;color:#10203a">
+      <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dbe5f0;border-radius:20px;padding:40px 36px">
+        <div style="font-size:15px;letter-spacing:3px;font-weight:700;color:#2563eb">REKNOCK</div>
+        <h1 style="margin:28px 0 14px;font-size:32px;line-height:1.15;color:#10203a">Let’s get your quotes moving.</h1>
+        <p style="margin:0 0 26px;font-size:16px;line-height:1.6;color:#52627a">Confirm your email to finish setting up your ReKnock account and start your setup.</p>
+        <p style="margin:0 0 28px"><a href="${confirmationUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:10px;padding:15px 22px;font-size:16px;font-weight:700">Confirm email address</a></p>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:#7a8799">If you didn’t create a ReKnock account, you can ignore this email.</p>
+        <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5edf5;font-size:13px;line-height:1.6;color:#7a8799">ReKnock helps contractors turn quiet quotes into conversations.</div>
+      </div>
+    </div>`;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      from: "Sam from ReKnock <hello@getreknock.com>",
+      to: [email],
+      subject: "Welcome to ReKnock. Confirm your email",
+      html,
+    }),
+  });
+
+  if (!response.ok) {
+    if (data.user?.id) await admin.auth.admin.deleteUser(data.user.id);
+    return "Your account could not be created because the confirmation email could not be sent. Please try again.";
+  }
+
+  return null;
+}
+
 export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const fullName = String(formData.get("full_name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -28,6 +93,12 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   if (!passwordValid(password)) return { error: PASSWORD_REQUIREMENTS_MESSAGE };
 
   const origin = await siteOrigin();
+  if (testAccount) {
+    const previewError = await createPreviewAccount({ email, password, fullName, origin });
+    if (previewError) return { error: previewError };
+    redirect(`/signup/check-email?email=${encodeURIComponent(email)}`);
+  }
+
   const supabase = await createClient();
   try {
     const { error } = await supabase.auth.signUp({
