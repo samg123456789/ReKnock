@@ -46,18 +46,20 @@ async function createPreviewAccount({
     },
   });
 
-  if (error || !data.properties?.action_link) {
+  if (error || !data.properties?.hashed_token || !data.properties?.verification_type) {
     return readableAuthError(error, "We could not create your account. Please try again.");
   }
 
-  const confirmationUrlObject = new URL(data.properties.action_link);
-  confirmationUrlObject.searchParams.set(
-    "redirect_to",
-    `${DEV_PREVIEW_ORIGIN}/auth/confirm?next=/app`,
-  );
+  // Do not send Supabase's action_link here. It is an Auth-server URL and can
+  // fall back to the Supabase project's Site URL (production) when its
+  // redirect configuration is missing or rejected. We own the callback, so
+  // send the one-time token directly to the dev app instead.
+  const confirmationUrlObject = new URL(`${DEV_PREVIEW_ORIGIN}/auth/confirm`);
+  confirmationUrlObject.searchParams.set("token_hash", data.properties.hashed_token);
+  confirmationUrlObject.searchParams.set("type", data.properties.verification_type);
+  confirmationUrlObject.searchParams.set("next", "/app");
   const confirmationUrl = confirmationUrlObject.toString();
-  const confirmationRedirect = confirmationUrlObject.searchParams.get("redirect_to");
-  if (confirmationRedirect !== `${DEV_PREVIEW_ORIGIN}/auth/confirm?next=/app`) {
+  if (new URL(confirmationUrl).origin !== DEV_PREVIEW_ORIGIN) {
     if (data.user?.id) await admin.auth.admin.deleteUser(data.user.id);
     return "Preview signup was routed to the wrong environment. Please try again.";
   }
