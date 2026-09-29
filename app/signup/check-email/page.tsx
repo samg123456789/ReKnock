@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ConfirmationWatcher from "@/components/auth/ConfirmationWatcher";
 
 export const metadata: Metadata = { title: "Check your email - ReKnock" };
 
@@ -40,6 +41,7 @@ export default async function CheckEmail({
           We sent a confirmation link to{" "}
           {email ? <span className="font-semibold text-ink">{email}</span> : "your inbox"}.
         </p>
+        <ConfirmationWatcher />
 
         <ol className="mx-auto mt-6 max-w-xs space-y-3 text-left text-sm text-slate">
           {[

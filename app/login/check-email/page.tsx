@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ConfirmationWatcher from "@/components/auth/ConfirmationWatcher";
 
 export const metadata: Metadata = { title: "Check your email - ReKnock" };
 
@@ -41,6 +42,7 @@ export default async function CheckEmail({
           {email ? <span className="font-semibold text-ink">{email}</span> : "your inbox"}.
           Tap it and you are in. No password needed.
         </p>
+        <ConfirmationWatcher />
 
         <p className="mt-6 border-t border-sky-line pt-5 text-sm text-slate">
           Nothing yet? Give it a minute and check your spam folder.
