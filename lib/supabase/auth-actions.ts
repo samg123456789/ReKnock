@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { siteOrigin } from "@/lib/site-url";
+import { DEV_PREVIEW_ORIGIN, siteOrigin } from "@/lib/site-url";
 import { passwordValid, PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/password";
 
 export type AuthState = { error?: string } | undefined;
@@ -51,6 +51,10 @@ async function createPreviewAccount({
   }
 
   const confirmationUrl = data.properties.action_link;
+  if (!confirmationUrl.includes(DEV_PREVIEW_ORIGIN)) {
+    if (data.user?.id) await admin.auth.admin.deleteUser(data.user.id);
+    return "Preview signup was routed to the wrong environment. Please try again.";
+  }
   const html = `
     <div style="margin:0;background:#f4f8fc;padding:40px 16px;font-family:Arial,Helvetica,sans-serif;color:#10203a">
       <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dbe5f0;border-radius:20px;padding:40px 36px">

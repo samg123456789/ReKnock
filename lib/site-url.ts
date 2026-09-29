@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import { env } from "@/lib/env";
 
+export const DEV_PREVIEW_ORIGIN = "https://reknock-git-dev-re-knock.vercel.app";
+
 // The origin the user is actually on, derived from request headers. This is
 // what email confirmation links, magic links, and Stripe return URLs must use,
 // so they always point back to the same deployment (preview, localhost, prod)
@@ -12,6 +14,7 @@ export async function siteOrigin(): Promise<string> {
   // deployment URL or the production custom domain.
   const isPreview = process.env.VERCEL_GIT_COMMIT_REF !== "main" || process.env.VERCEL_ENV !== "production";
   if (isPreview) {
+    if (process.env.VERCEL_GIT_COMMIT_REF === "dev") return DEV_PREVIEW_ORIGIN;
     const previewHost = process.env.VERCEL_BRANCH_URL ?? process.env.VERCEL_URL;
     if (previewHost) return `https://${previewHost}`;
   }
