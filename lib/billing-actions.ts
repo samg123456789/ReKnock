@@ -36,8 +36,12 @@ async function loadUserAndCompany() {
 // 7-day trial, so week one costs a dollar regardless of monthly/annual. Card
 // required. Stripe is the source of truth; the webhook mirrors status onto
 // companies.
-export async function createCheckoutSession(interval: Interval) {
-  if (!INTERVALS.includes(interval)) throw new Error(`Unknown interval: ${interval}`);
+export async function createCheckoutSession(formData: FormData) {
+  const requestedInterval = formData.get("interval");
+  if (typeof requestedInterval !== "string" || !INTERVALS.includes(requestedInterval as Interval)) {
+    throw new Error(`Unknown interval: ${String(requestedInterval ?? "")}`);
+  }
+  const interval = requestedInterval as Interval;
   const origin = await siteOrigin();
   const { supabase, user, company } = await loadUserAndCompany();
   if (!company) throw new Error("No company for user");

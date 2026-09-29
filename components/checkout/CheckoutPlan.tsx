@@ -75,7 +75,8 @@ export default function CheckoutPlan({ available, spotsLeft }: { available: bool
           ))}
         </ul>
 
-        <form action={createCheckoutSession.bind(null, interval)} className="mt-5">
+        <form action={createCheckoutSession} className="mt-5">
+          <input type="hidden" name="interval" value={interval} />
           <button
             type="submit"
             className="w-full btn btn-primary btn-lg"
