@@ -27,6 +27,7 @@ export default function SignupForm({ testMode = false }: { testMode?: boolean })
   const [state, action, pending] = useActionState<AuthState, FormData>(signUp, undefined);
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
 
@@ -123,6 +124,8 @@ export default function SignupForm({ testMode = false }: { testMode?: boolean })
           autoComplete="name"
           autoFocus
           required
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
           className={inputClass}
           placeholder="Mike Reyes"
         />
@@ -182,7 +185,7 @@ export default function SignupForm({ testMode = false }: { testMode?: boolean })
 
       <button
         type="submit"
-        disabled={pending || !passwordOk}
+        disabled={pending || !passwordOk || !fullName.trim()}
         className="btn btn-primary btn-lg mt-2 w-full"
       >
         {pending ? "Creating your account..." : "Create account"}
